@@ -32,9 +32,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 find_package(Protobuf REQUIRED)
 find_package(GRPC REQUIRED)
 
-set(PROTOS
-        ${CMAKE_CURRENT_SOURCE_DIR}/helloworld.proto
-        )
+file(GLOB PROTOS *.proto)
 
 set(PROTO_SRC_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto-src)
 file(MAKE_DIRECTORY ${PROTO_SRC_DIR})
