@@ -6,8 +6,14 @@ gamma = 1.0
 seed = 0
 min_child_weight = 0
 max_depth = 3
+verbosity = 1
+tree_method = hist
+eval_metric = auc
 
 num_round = 2
 save_period = 0
-data = "@PROJECT_SOURCE_DIR@/demo/data/agaricus.txt.train?format=libsvm"
-eval[test] = "@PROJECT_SOURCE_DIR@/demo/data/agaricus.txt.test?format=libsvm"
+data = "demo/data/agaricus.txt.train?format=libsvm"
+eval[test] = "demo/data/agaricus.txt.test?format=libsvm"
+model_dir = models/
+model_out = models/agaricus.json
+dump_format = json
