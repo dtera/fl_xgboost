@@ -23,14 +23,37 @@ project(demo C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 
+set(LIB_SUFFIX so)
+set(LOCAL_OPT_DIR /usr/local/opt)
+set(BREW_OPT_DIR /opt/homebrew/opt)
+set(INC_DIR . ./include ../../src /usr/include /usr/local/include /opt/homebrew/include
+        ${LOCAL_OPT_DIR}/openssl/include ${BREW_OPT_DIR}/openssl/include)
+set(LINK_DIR ./lib /usr/lib /usr/local/lib /opt/homebrew/lib ${LOCAL_OPT_DIR}/openssl/lib ${BREW_OPT_DIR}/openssl/lib)
+set(LINK_LIB libcrypto.${LIB_SUFFIX} libssl.${LIB_SUFFIX} libomp.${LIB_SUFFIX})
+
+include_directories(${INC_DIR})
+link_directories(${LINK_DIR})
+link_libraries(${LINK_LIB})
+
 # GRPC and Protocol Buffers libraries location
 #list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/grpc" "/opt/homebrew/opt/protobuf")
 
 # Cmake find modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
-find_package(Protobuf REQUIRED)
 find_package(GRPC REQUIRED)
+find_package(GTest CONFIG REQUIRED)
+# brew install helib
+find_package(helib REQUIRED)
+find_package(OpenMP REQUIRED)
+if (OPENMP_FOUND)
+    message("OpenMP Found")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    add_definitions(-DWITH_OPENMP)
+endif ()
+find_package(Protobuf REQUIRED)
+find_package(xgboost REQUIRED)
 
 file(GLOB PROTOS *.proto)
 
@@ -41,11 +64,12 @@ include_directories(${PROTO_SRC_DIR})
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_SRC_DIR} ${PROTOS})
 grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_SRC_DIR} ${PROTOS})
 
+file(GLOB ${PROJECT_NAME}-src src/*.cpp src/*.cc ${PROTO_SRCS} ${GRPC_SRCS})
+
 # Building grpc server
 add_executable(${PROJECT_NAME}_server
         ${CMAKE_CURRENT_SOURCE_DIR}/greeter_server.cc
-        ${PROTO_SRCS}
-        ${GRPC_SRCS}
+        ${${PROJECT_NAME}-src}
         )
 target_link_libraries(${PROJECT_NAME}_server
         gRPC::grpc++_reflection
@@ -55,9 +79,7 @@ target_link_libraries(${PROJECT_NAME}_server
 # Building grpc client
 add_executable(${PROJECT_NAME}_client
         ${CMAKE_CURRENT_SOURCE_DIR}/greeter_client.cc
-        ${PROTO_SRCS}
-        ${GRPC_SRCS}
-        )
+        ${${PROJECT_NAME}-src})
 target_link_libraries(${PROJECT_NAME}_client
         gRPC::grpc++_reflection
         protobuf::libprotobuf
@@ -66,17 +88,16 @@ target_link_libraries(${PROJECT_NAME}_client
 # Building tests
 add_executable(${PROJECT_NAME}_tests
         ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc
-        ${PROTO_SRCS}
-        ${GRPC_SRCS}
-        )
+        ${${PROJECT_NAME}-src})
 target_link_libraries(${PROJECT_NAME}_tests
         gRPC::grpc++_reflection
         protobuf::libprotobuf
+        helib
+        xgboost
         GTest::gtest GTest::gtest_main GTest::gmock GTest::gmock_main
         )
 
-find_package(GTest CONFIG REQUIRED)
-file(GLOB_RECURSE TEST_SOURCES "test_*.cc")
+file(GLOB_RECURSE TEST_SOURCES "tests/test_*.cc")
 target_sources(${PROJECT_NAME}_tests PRIVATE ${TEST_SOURCES})
 
 set_target_properties(${PROJECT_NAME}_server ${PROJECT_NAME}_client ${PROJECT_NAME}_tests PROPERTIES
