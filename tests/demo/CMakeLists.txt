@@ -41,7 +41,7 @@ include_directories(${PROTO_SRC_DIR})
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_SRC_DIR} ${PROTOS})
 grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_SRC_DIR} ${PROTOS})
 
-# Building server
+# Building grpc server
 add_executable(${PROJECT_NAME}_server
         ${CMAKE_CURRENT_SOURCE_DIR}/greeter_server.cc
         ${PROTO_SRCS}
@@ -52,7 +52,7 @@ target_link_libraries(${PROJECT_NAME}_server
         protobuf::libprotobuf
         )
 
-# Building client
+# Building grpc client
 add_executable(${PROJECT_NAME}_client
         ${CMAKE_CURRENT_SOURCE_DIR}/greeter_client.cc
         ${PROTO_SRCS}
@@ -63,7 +63,23 @@ target_link_libraries(${PROJECT_NAME}_client
         protobuf::libprotobuf
         )
 
-set_target_properties(${PROJECT_NAME}_server ${PROJECT_NAME}_client PROPERTIES
+# Building tests
+add_executable(${PROJECT_NAME}_tests
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc
+        ${PROTO_SRCS}
+        ${GRPC_SRCS}
+        )
+target_link_libraries(${PROJECT_NAME}_tests
+        gRPC::grpc++_reflection
+        protobuf::libprotobuf
+        GTest::gtest GTest::gtest_main GTest::gmock GTest::gmock_main
+        )
+
+find_package(GTest CONFIG REQUIRED)
+file(GLOB_RECURSE TEST_SOURCES "test_*.cc")
+target_sources(${PROJECT_NAME}_tests PRIVATE ${TEST_SOURCES})
+
+set_target_properties(${PROJECT_NAME}_server ${PROJECT_NAME}_client ${PROJECT_NAME}_tests PROPERTIES
         CXX_STANDARD ${CMAKE_CXX_STANDARD}
         CXX_EXTENSIONS OFF
         CXX_STANDARD_REQUIRED ON
