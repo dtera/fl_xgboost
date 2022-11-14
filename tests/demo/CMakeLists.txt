@@ -1,4 +1,4 @@
-# Copyright 2018 gRPC authors.
+# Copyright 2022 fl_xgboost authors.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -11,11 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# cmake build file for C++ helloworld example.
-# Assumes protobuf and gRPC have been installed using cmake.
-# See cmake_externalproject/CMakeLists.txt for all-in-one cmake build
-# that automatically builds all the dependencies before building helloworld.
 
 cmake_minimum_required(VERSION 3.18)
 
@@ -41,9 +36,9 @@ link_libraries(${LINK_LIB})
 # Cmake find modules
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
 
+# brew install grpc googletest helib libomp protobuf xgboost
 find_package(GRPC REQUIRED)
 find_package(GTest CONFIG REQUIRED)
-# brew install helib
 find_package(helib REQUIRED)
 find_package(OpenMP REQUIRED)
 if (OPENMP_FOUND)
@@ -96,7 +91,6 @@ target_link_libraries(${PROJECT_NAME}_tests
         xgboost
         GTest::gtest GTest::gtest_main GTest::gmock GTest::gmock_main
         )
-
 file(GLOB_RECURSE TEST_SOURCES "tests/test_*.cc")
 target_sources(${PROJECT_NAME}_tests PRIVATE ${TEST_SOURCES})
 
