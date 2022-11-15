@@ -1,12 +1,12 @@
 //
 // Created by HqZhao on 2022/11/14.
 //
+#include <common/timer.h>
 #include <gtest/gtest.h>
 #include <helib/helib.h>
 
 #include <algorithm>
 #include <chrono>
-#include <cstring>
 #include <iostream>
 #include <random>
 #include <string>
@@ -80,6 +80,7 @@ mpz_t *ciphers = new mpz_t[len];
 mpz_t *res = new mpz_t[len];
 default_random_engine e;
 uniform_int_distribution<long long> u(-100, 1000);
+xgboost::common::Monitor monitor_;
 
 void init(std::function<void(int)> fn) {
   srandom(0);
@@ -89,7 +90,7 @@ void init(std::function<void(int)> fn) {
 }
 
 void out(std::function<void(int)> fn) {
-  //cout << "====================================" << endl;
+  // cout << "====================================" << endl;
   for (int i = 0; i < len; ++i) {
     fn(i);
   }
@@ -114,6 +115,18 @@ void batchEnc() {
     // cout << mpz_get_ui(res[i]) << endl;
     assert(mpz_get_ui(res[i]) == mpz_get_ui(plains[i]));
   });
+
+  paillierAdd(res[0], ciphers[0], ciphers[1], &pk);
+  cout << "===============================================" << endl;
+  auto t1 = mpz_get_ui(plains[0]);
+  auto t2 = mpz_get_ui(plains[1]);
+  cout << "t1: " << t1 << endl;
+  cout << "t2: " << t2 << endl;
+  auto t = t1 + t2;
+  cout << "t1 + t2: " << t << endl;
+  batchDecrypt(res, res, 1, sk, 1);
+  cout << "res: " << mpz_get_ui(res[0]) << endl;
+  assert(mpz_get_ui(res[0]) == t);
 }
 
 TEST(demo, paillier) {
@@ -127,7 +140,11 @@ opt_private_key_t *pri;
 uint32_t bitLength = 1024;
 
 TEST(demo, opt_paillier) {
+  // monitor_.Init("opt_paillier");
+  // monitor_.Start("opt_paillier_keygen");
   opt_paillier_keygen(&pub, &pri, bitLength);
+  // monitor_.Stop("opt_paillier_keygen");
+  monitor_.Print();
   init([&](int i) {
     string op1 = to_string(u(e));
     opt_paillier_set_plaintext(plains[i], op1.c_str(), pub);
@@ -140,8 +157,8 @@ TEST(demo, opt_paillier) {
     char *p, *o;
     opt_paillier_get_plaintext(p, plains[i], pub);
     opt_paillier_get_plaintext(o, res[i], pub);
-    //printf("Plaintext0 = %s\n", mpz_get_str(nullptr, 10, plains[i]));
-    //printf("Result0 = %s\n", mpz_get_str(nullptr, 10, res[i]));
+    // printf("Plaintext0 = %s\n", mpz_get_str(nullptr, 10, plains[i]));
+    // printf("Result0 = %s\n", mpz_get_str(nullptr, 10, res[i]));
     printf("Plaintext = %s\n", p);
     printf("Result = %s\n", o);
 
@@ -195,7 +212,7 @@ TEST(demo, opt_paillier_op) {
     opt_paillier_decrypt(decrypt_test, cipher_test1, pub, pri);
 
     printf("Text2 = %s\n", op2.c_str());
-    char* out;
+    char *out;
     opt_paillier_get_plaintext(out, decrypt_test, pub);
     printf("Plaintext = %s\n", out);
 
