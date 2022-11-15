@@ -147,30 +147,6 @@ void hfunc(mpz_t output, const mpz_t &g, const mpz_t &x, const mpz_t &x_minus_on
   mpz_invert(output, output, x);
 }
 
-void generatePaillierKeys1(PublicKey *pk, PrivateKey *sk, int bitLength) {
-  gmp_randstate_t state;
-  srand((unsigned)time(NULL));
-  gmp_randinit_default(state);
-  gmp_randseed_ui(state, rand() * rand());
-
-  initPublicKey(pk);
-  initPrivateKey(sk);
-  uint64_t primeLen = bitLength / 2;
-  // generate p, q, n
-  do {
-    probableRandomPrime(sk->p, state, primeLen);
-    probableRandomPrime(sk->q, state, primeLen);
-    while (!mpz_cmp(sk->p, sk->q)) probableRandomPrime(sk->q, state, primeLen);
-    mpz_mul(pk->n, sk->p, sk->q);
-  } while (mpz_sizeinbase(pk->n, 2) != bitLength);
-
-  initGivenModulus(pk);
-  initGivenPQG(sk, pk->g, 1);
-  pk->scheme = 1;
-  sk->scheme = 1;
-  gmp_randclear(state);
-}
-
 void probableRandomPrime256(mpz_t prime, gmp_randstate_t state, size_t high_one_size) {
   do {
     mpz_urandomb(prime, state, 256);
@@ -213,82 +189,94 @@ void probableRandomPrime(mpz_t prime, mpz_t alpha, mpz_t beta, mpz_t prime256,
   mpz_clear(mask);
 }
 
-void generatePaillierKeys3(PublicKey *pk, PrivateKey *sk, int bitLength) {
+void generatePaillierKeys(PublicKey *pk, PrivateKey *sk, int bitLength, int schema) {
   gmp_randstate_t state;
   srand((unsigned)time(NULL));
   gmp_randinit_default(state);
   gmp_randseed_ui(state, rand() * rand());
 
-  size_t alpha_size = 160;
-
   initPublicKey(pk);
   initPrivateKey(sk);
+  uint64_t primeLen = bitLength / 2;
 
-  mpz_t alpha1, alpha2;
-  mpz_t beta1, beta2;
-  mpz_t beta;
+  switch (schema) {
+    case 1:
+      // generate p, q, n
+      do {
+        probableRandomPrime(sk->p, state, primeLen);
+        probableRandomPrime(sk->q, state, primeLen);
+        while (!mpz_cmp(sk->p, sk->q)) probableRandomPrime(sk->q, state, primeLen);
+        mpz_mul(pk->n, sk->p, sk->q);
+      } while (mpz_sizeinbase(pk->n, 2) != bitLength);
 
-  mpz_init(alpha1);
-  mpz_init(alpha2);
-  mpz_init(beta1);
-  mpz_init(beta2);
-  mpz_init(beta);
+      initGivenModulus(pk);
+      initGivenPQG(sk, pk->g, schema);
+      pk->scheme = schema;
+      sk->scheme = schema;
 
-  do {
-    probableRandomPrime256(sk->hp, state, 16);
-    probableRandomPrime256(sk->hq, state, 16);
-  } while (mpz_cmp(sk->hp, sk->hq) == 0);
+      break;
+    case 3:
+      size_t alpha_size = 160;
+      mpz_t alpha1, alpha2, beta1, beta2, beta;
+      mpz_init(alpha1);
+      mpz_init(alpha2);
+      mpz_init(beta1);
+      mpz_init(beta2);
+      mpz_init(beta);
 
-  do {
-    probableRandomPrime(sk->p, alpha1, beta1, sk->hp, state, alpha_size, bitLength / 2);
-    probableRandomPrime(sk->q, alpha2, beta2, sk->hq, state, alpha_size, bitLength / 2);
+      do {
+        probableRandomPrime256(sk->hp, state, 16);
+        probableRandomPrime256(sk->hq, state, 16);
+      } while (mpz_cmp(sk->hp, sk->hq) == 0);
 
-    mpz_mul(sk->alpha, alpha1, alpha2);
-    mpz_mul(beta, beta1, beta2);
+      do {
+        probableRandomPrime(sk->p, alpha1, beta1, sk->hp, state, alpha_size, primeLen);
+        probableRandomPrime(sk->q, alpha2, beta2, sk->hq, state, alpha_size, primeLen);
 
-    mpz_gcd(alpha1, sk->alpha, beta);
-    mpz_mul(pk->n, sk->p, sk->q);
+        mpz_mul(sk->alpha, alpha1, alpha2);
+        mpz_mul(beta, beta1, beta2);
 
-    //    printf("bit length = %d, gcd = %d \n", mpz_sizeinbase(pk->n, 2), mpz_cmp_ui(alpha1, 1));
-  } while (mpz_sizeinbase(pk->n, 2) != bitLength || mpz_cmp_ui(alpha1, 1) != 0);
+        mpz_gcd(alpha1, sk->alpha, beta);
+        mpz_mul(pk->n, sk->p, sk->q);
+      } while (mpz_sizeinbase(pk->n, 2) != bitLength || mpz_cmp_ui(alpha1, 1) != 0);
 
-  mpz_add(sk->alpha, sk->alpha, sk->alpha);
-  mpz_mul(beta, beta, sk->hp);
-  mpz_mul(beta, beta, sk->hq);
-  mpz_add(beta, beta, beta);
+      mpz_add(sk->alpha, sk->alpha, sk->alpha);
+      mpz_mul(beta, beta, sk->hp);
+      mpz_mul(beta, beta, sk->hq);
+      mpz_add(beta, beta, beta);
 
-  mpz_urandomb(pk->g, state, bitLength);
-  //    mpz_powm(pk->g, pk->g, beta, pk->n);
-  //    mpz_sub(pk->g, pk->n, pk->g);
+      mpz_urandomb(pk->g, state, bitLength);
+      // create public key
+      mpz_mul(pk->n_square, pk->n, pk->n);
+      pk->scheme = schema;
 
-  // create public key
-  mpz_mul(pk->n_square, pk->n, pk->n);
-  pk->scheme = 3;
+      // create private key
+      initGivenPQG(sk, pk->g, schema);
+      sk->scheme = schema;
 
-  // create private key
-  initGivenPQG(sk, pk->g, 3);
-  sk->scheme = 3;
+      mpz_powm(alpha1, pk->g, beta, sk->p_square);
+      mpz_powm(alpha2, pk->g, beta, sk->q_square);
+      crt(pk->g, alpha1, sk->p_square, alpha2, sk->q_square);
+      mpz_sub(pk->g, pk->n, pk->g);
 
-  mpz_powm(alpha1, pk->g, beta, sk->p_square);
-  mpz_powm(alpha2, pk->g, beta, sk->q_square);
-  crt(pk->g, alpha1, sk->p_square, alpha2, sk->q_square);
-  mpz_sub(pk->g, pk->n, pk->g);
+      pk->bits = mpz_sizeinbase(sk->alpha, 2) - 1;
 
-  pk->bits = mpz_sizeinbase(sk->alpha, 2) - 1;
+      mpz_t t;
+      mpz_init(t);
 
-  mpz_t t;
-  mpz_init(t);
+      // check1: the order of g is alpha mod n
+      mpz_powm(t, pk->g, sk->alpha, pk->n);
+      assert(mpz_cmp_ui(t, 1) == 0);
 
-  // check1: the order of g is alpha mod n
-  mpz_powm(t, pk->g, sk->alpha, pk->n);
-  assert(mpz_cmp_ui(t, 1) == 0);
+      mpz_clear(alpha1);
+      mpz_clear(alpha2);
+      mpz_clear(beta1);
+      mpz_clear(beta2);
+      mpz_clear(beta);
+      mpz_clear(t);
 
-  mpz_clear(alpha1);
-  mpz_clear(alpha2);
-  mpz_clear(beta1);
-  mpz_clear(beta2);
-  mpz_clear(beta);
-  mpz_clear(t);
+      break;
+  }
   gmp_randclear(state);
 }
 
@@ -309,43 +297,38 @@ inline void decrypt(mpz_t plain, mpz_t cipher, mpz_t mp, mpz_t mq, const mpz_t &
   crt(plain, mp, mq, sk);
 }
 
-void batchDecrypt(mpz_t *plains, mpz_t *ciphers, size_t size, const PrivateKey &sk) {
-  mpz_t mp, mq;
-#ifndef WITH_OPENMP
-  mpz_init(mp);
-  mpz_init(mq);
-#else
-#pragma omp parallel private(mp, mq)
-#endif
-  {
-#ifdef WITH_OPENMP
-    mpz_init(mp);
-    mpz_init(mq);
-#endif
-    if (sk.scheme == 3)
-#ifdef WITH_OPENMP
-#pragma omp for
-#endif
-      for (size_t i = 0; i < size; i++)
-        decrypt(plains[i], ciphers[i], mp, mq, sk.alpha, sk.alpha, sk);
-    else
-#ifdef WITH_OPENMP
-#pragma omp for
-#endif
-      for (size_t i = 0; i < size; i++)
-        decrypt(plains[i], ciphers[i], mp, mq, sk.p_minus_one, sk.q_minus_one, sk);
-#ifdef WITH_OPENMP
-    mpz_clear(mp);
-    mpz_clear(mq);
-#endif
-  }
-#ifndef WITH_OPENMP
-  mpz_clear(mp);
-  mpz_clear(mq);
-#endif
+void batchDecrypt(mpz_t *plains, mpz_t *ciphers, size_t size, const PrivateKey &sk,
+                  int32_t n_threads) {
+  if (sk.scheme == 3)
+    ParallelFor(size, n_threads, [&](int i) {
+      mpz_t mp, mq;
+      mpz_init(mp);
+      mpz_init(mq);
+      decrypt(plains[i], ciphers[i], mp, mq, sk.alpha, sk.alpha, sk);
+      mpz_clear(mp);
+      mpz_clear(mq);
+    });
+  else
+    ParallelFor(size, n_threads, [&](int i) {
+      mpz_t mp, mq;
+      mpz_init(mp);
+      mpz_init(mq);
+      decrypt(plains[i], ciphers[i], mp, mq, sk.p_minus_one, sk.q_minus_one, sk);
+      mpz_clear(mp);
+      mpz_clear(mq);
+    });
 }
 
-BatchPaillierPublicKey::BatchPaillierPublicKey(fl::he::PublicKey pk, int n_pre_noise, int n_noise)
+void paillierAdd(mpz_t &res, const mpz_t &op1, const mpz_t &op2, const PublicKey *pk) {
+  mpz_mul(res, op1, op2);
+  mpz_mod(res, res, pk->n_square);
+}
+
+void paillierConstantMul(mpz_t &res, const mpz_t &op1, const mpz_t &op2, const PublicKey *pk) {
+  mpz_powm(res, op1, op2, pk->n_square);
+}
+
+PaillierBatchEncryptor::PaillierBatchEncryptor(fl::he::PublicKey pk, int n_pre_noise, int n_noise)
     : pk(pk), n_pre_noise(n_pre_noise), n_noise(n_noise) {
   assert(pk.scheme == 1 || pk.scheme == 3);
   noises = new mpz_t[n_pre_noise];
@@ -358,7 +341,7 @@ BatchPaillierPublicKey::BatchPaillierPublicKey(fl::he::PublicKey pk, int n_pre_n
   }
 }
 
-BatchPaillierPublicKey::~BatchPaillierPublicKey() {
+PaillierBatchEncryptor::~PaillierBatchEncryptor() {
   if (noises != nullptr) {
     for (size_t i = 0; i < n_pre_noise; i++) mpz_clear(noises[i]);
     delete[] (noises);
@@ -366,7 +349,7 @@ BatchPaillierPublicKey::~BatchPaillierPublicKey() {
   clearPublicKey(&pk);
 }
 
-void BatchPaillierPublicKey::initialize3() {
+void PaillierBatchEncryptor::initialize3() {
   // generate pre-computed random noises
   gmp_randstate_t state;
   srand((unsigned)time(NULL));
@@ -389,7 +372,7 @@ void BatchPaillierPublicKey::initialize3() {
   gmp_randclear(state);
 }
 
-void BatchPaillierPublicKey::initialize1() {
+void PaillierBatchEncryptor::initialize1() {
   gmp_randstate_t state;
   srand((unsigned)time(NULL));
   gmp_randinit_default(state);
@@ -408,7 +391,7 @@ void BatchPaillierPublicKey::initialize1() {
   gmp_randclear(state);
 }
 
-void BatchPaillierPublicKey::generateRandomNoise(mpz_t noise) {
+void PaillierBatchEncryptor::generateRandomNoise(mpz_t noise) {
   // generate n_noise * 4 random bytes, every 4 bytes represents a random integer
   unsigned char rand_bytes[50] = {0};
   RAND_bytes(rand_bytes, n_noise * 4);
@@ -420,7 +403,7 @@ void BatchPaillierPublicKey::generateRandomNoise(mpz_t noise) {
   }
 }
 
-void BatchPaillierPublicKey::encrypt3(mpz_t *ciphers, mpz_t *plains, size_t size) {
+void PaillierBatchEncryptor::encrypt3(mpz_t *ciphers, mpz_t *plains, size_t size) {
   mpz_t noise;
 #ifndef WITH_OPENMP
   mpz_init(noise);
@@ -450,7 +433,7 @@ void BatchPaillierPublicKey::encrypt3(mpz_t *ciphers, mpz_t *plains, size_t size
 #endif
 }
 
-void BatchPaillierPublicKey::encrypt1(mpz_t *ciphers, mpz_t *plains, size_t size) {
+void PaillierBatchEncryptor::encrypt1(mpz_t *ciphers, mpz_t *plains, size_t size) {
   mpz_t noise;
 #ifndef WITH_OPENMP
   mpz_init(noise);
@@ -480,7 +463,7 @@ void BatchPaillierPublicKey::encrypt1(mpz_t *ciphers, mpz_t *plains, size_t size
 #endif
 }
 
-void BatchPaillierPublicKey::encrypt(mpz_t *ciphers, mpz_t *plains, size_t size) {
+void PaillierBatchEncryptor::encrypt(mpz_t *ciphers, mpz_t *plains, size_t size) {
   // make sure RAND engine in proper status
   srand((unsigned)time(NULL));
   while (RAND_status() != 1) {
@@ -496,7 +479,7 @@ void BatchPaillierPublicKey::encrypt(mpz_t *ciphers, mpz_t *plains, size_t size)
     encrypt3(ciphers, plains, size);
 }
 
-const PublicKey &BatchPaillierPublicKey::getPublicKey() { return pk; }
+const PublicKey &PaillierBatchEncryptor::getPublicKey() { return pk; }
 
 }  // namespace he
 }  // namespace fl

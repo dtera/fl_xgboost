@@ -8,6 +8,11 @@
 
 #include <vector>
 
+#include "common/threading_utils.h"
+
+using namespace std;
+using namespace xgboost::common;
+
 namespace fl {
 namespace he {
 
@@ -112,20 +117,13 @@ void crt(mpz_t output, mpz_t mp, mpz_t mq, const PrivateKey &sk);
 void crt(mpz_t output, mpz_t a, mpz_t p, mpz_t b, mpz_t q);
 
 /**
- * generate paillier private/public keys with scheme1
- * @param pk, the pointer to PublicKey
- * @param sk, the pointer to PrivateKey
- * @param bitLength, the number of bits for ``n``
- */
-void generatePaillierKeys1(PublicKey *pk, PrivateKey *sk, int bitLength);
-
-/**
  * generate paillier private/public keys with scheme3
  * @param pk, the pointer to PublicKey
  * @param sk, the pointer to PrivateKey
  * @param bitLength, the number of bits for ``n``
+ * @param schema, the schema of key
  */
-void generatePaillierKeys3(PublicKey *pk, PrivateKey *sk, int bitLength);
+void generatePaillierKeys(PublicKey *pk, PrivateKey *sk, int bitLength, int schema = 1);
 
 /**
  * Decrypting a batch of ciphertexts with paillier scheme3
@@ -134,19 +132,24 @@ void generatePaillierKeys3(PublicKey *pk, PrivateKey *sk, int bitLength);
  * @param size, the number of ciphertexts needed to be decrypted
  * @param sk, the PrivateKey of paillier3
  */
-void batchDecrypt(mpz_t *plains, mpz_t *ciphers, size_t size, const PrivateKey &sk);
+void batchDecrypt(mpz_t *plains, mpz_t *ciphers, size_t size, const PrivateKey &sk,
+                  int32_t n_threads = 10);
+
+void paillierAdd(mpz_t &res, const mpz_t &op1, const mpz_t &op2, const PublicKey *pk);
+
+void paillierConstantMul(mpz_t &res, const mpz_t &op1, const mpz_t &op2, const PublicKey *pk);
 
 /**
- * A batch version of Paillier3 PublicKey. When encrypting, we use a pre-computed noises
+ * A batch version of Paillier3 Encryptor. When encrypting, we use a pre-computed noises
  * and pre-computed powers of ``g`` to accelerate the speed of encrypting.
  */
-class BatchPaillierPublicKey {
+class PaillierBatchEncryptor {
  public:
-  BatchPaillierPublicKey() = default;
+  PaillierBatchEncryptor() = default;
 
-  BatchPaillierPublicKey(PublicKey pk, int n_pre_noise, int n_noise);
+  PaillierBatchEncryptor(PublicKey pk, int n_pre_noise, int n_noise);
 
-  ~BatchPaillierPublicKey();
+  ~PaillierBatchEncryptor();
 
   /**
    * encrypt a batch of plaintexts
