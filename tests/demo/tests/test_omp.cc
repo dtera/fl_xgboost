@@ -7,7 +7,7 @@
 
 using namespace std;
 
-void init(vector<int> &arr, int n = 20) {
+void init(vector<int> &arr, int n = 50) {
   for (int i = 0; i < n; ++i) {
     arr.push_back(i);
   }
@@ -16,10 +16,13 @@ void init(vector<int> &arr, int n = 20) {
 TEST(demo, omp) {
   vector<int> arr;
   init(arr);
+  mutex g_mutex;
 
   xgboost::common::ParallelFor(arr.size(), 10, xgboost::common::Sched::Dyn(), [&](size_t i) {
     sleep(1);
+    g_mutex.lock();
     cout << i << endl;
+    g_mutex.unlock();
   });
 }
 
