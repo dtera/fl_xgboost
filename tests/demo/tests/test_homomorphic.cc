@@ -16,14 +16,14 @@
 using namespace std;
 using namespace fl::he;
 
-uint32_t len = 1000;
+uint32_t len = 100;
 mpz_t *plains = new mpz_t[len];
 mpz_t *ciphers = new mpz_t[len];
 mpz_t *res = new mpz_t[len];
 mpz_t temp;
 
 default_random_engine e;
-uniform_int_distribution<long long> u(-100, 1000);
+uniform_int_distribution<long long> u(-10000, 10000);
 xgboost::common::Monitor monitor_;
 
 opt_public_key_t *pub;
@@ -86,6 +86,14 @@ TEST(demo, test) {
   cout << "is_same: " << is_same<unsigned int, uint32_t>() << endl;
   float a = 123;
   cout << "to_string: " << to_string(a).c_str() << endl;
+  mpz_init(temp);
+  mpz_set_d(temp, -123.21);
+  mpf_t ft;
+  mpf_init(ft);
+  mpf_set_d(ft, -123.21);
+  cout << "temp: " << mpz_get_d(temp) << endl;
+  cout << "temp._mp_size: " << temp->_mp_size << endl;
+  cout << "ft: " << mpf_get_d(ft) << endl;
 }
 
 TEST(demo, helib) {
@@ -153,27 +161,30 @@ TEST(demo, opt_paillier) {
   TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
 
   init([&](int i) {
-    string op1 = to_string(u(e));
-    opt_paillier_set_plaintext(plains[i], op1.c_str(), pub);
+    /*string op1 = to_string(u(e));
+    opt_paillier_set_plaintext(plains[i], op1.c_str(), pub);*/
+    opt_paillier_set_plaintext_t(plains[i], 1.0 * u(e) / 100, pub);
   });
 
   opt_paillier_batch_encrypt(ciphers, plains, len, pub, pri);
   opt_paillier_batch_decrypt(res, ciphers, len, pub, pri);
 
   out([&](int i) {
-    char *p, *c, *o;
+    /*char *p, *c, *o;
     opt_paillier_get_plaintext(p, plains[i], pub);
     opt_paillier_get_plaintext(c, ciphers[i], pub);
     opt_paillier_get_plaintext(o, res[i], pub);
     cout << "\nPlaintext = " << p << endl;
     cout << "Ciphertext = " << c << endl;
-    cout << "Result = " << o << endl;
+    cout << "Result = " << o << endl;*/
 
     double d1, d2;
+    char *c;
     opt_paillier_get_plaintext_t(d1, plains[i], pub);
-    opt_paillier_set_plaintext_t(temp, d1, pub);
-    opt_paillier_get_plaintext_t(d2, temp, pub);
-    cout << "d1: " << d1 << endl;
+    opt_paillier_get_plaintext(c, ciphers[i], pub);
+    opt_paillier_get_plaintext_t(d2, res[i], pub);
+    cout << "\nd1: " << d1 << endl;
+    cout << "c: " << c << endl;
     cout << "d2: " << d2 << endl;
 
     assert(0 == mpz_cmp(res[i], plains[i]));

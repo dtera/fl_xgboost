@@ -117,9 +117,9 @@ void opt_paillier_freeprikey(opt_private_key_t* pri);
 
 template <class PLAIN_TYPE>
 void opt_paillier_set_plaintext_t(mpz_t& mpz_plaintext, const PLAIN_TYPE& plaintext,
-                                  const opt_public_key_t* pub, int radix = 10) {
+                                  const opt_public_key_t* pub, int precision = 8, int radix = 10) {
   if (std::is_same<PLAIN_TYPE, double>() || std::is_same<PLAIN_TYPE, float>()) {
-    mpz_set_d(mpz_plaintext, plaintext);
+    mpz_set_d(mpz_plaintext, plaintext * precision);
     if (mpz_cmp_ui(mpz_plaintext, 0) < 0) {
       mpz_add(mpz_plaintext, mpz_plaintext, pub->n);
       mpz_mod(mpz_plaintext, mpz_plaintext, pub->n);
@@ -131,16 +131,20 @@ void opt_paillier_set_plaintext_t(mpz_t& mpz_plaintext, const PLAIN_TYPE& plaint
 
 template <typename PLAIN_TYPE>
 void opt_paillier_get_plaintext_t(PLAIN_TYPE& plaintext, const mpz_t& mpz_plaintext,
-                                  const opt_public_key_t* pub, int radix = 10) {
+                                  const opt_public_key_t* pub, int precision = 8, int radix = 10) {
   char* temp;
   opt_paillier_get_plaintext(temp, mpz_plaintext, pub, radix);
 
-  if (std::is_same<PLAIN_TYPE, uint32_t>() || std::is_same<PLAIN_TYPE, int>()) {
+  if (std::is_same<PLAIN_TYPE, char>() || std::is_same<PLAIN_TYPE, short>() ||
+      std::is_same<PLAIN_TYPE, int>() || std::is_same<PLAIN_TYPE, uint8_t>() ||
+      std::is_same<PLAIN_TYPE, uint16_t>()) {
+    plaintext = atoi(temp);
+  } else if (std::is_same<PLAIN_TYPE, uint32_t>()) {
     plaintext = atol(temp);
   } else if (std::is_same<PLAIN_TYPE, int64_t>() || std::is_same<PLAIN_TYPE, uint64_t>()) {
     plaintext = atoll(temp);
   } else if (std::is_same<PLAIN_TYPE, double>() || std::is_same<PLAIN_TYPE, float>()) {
-    plaintext = atof(temp);
+    plaintext = atof(temp) / precision;
   } else {
     return;
   }
