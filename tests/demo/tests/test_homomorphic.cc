@@ -94,6 +94,7 @@ TEST(demo, test) {
   cout << "temp: " << mpz_get_d(temp) << endl;
   cout << "temp._mp_size: " << temp->_mp_size << endl;
   cout << "ft: " << mpf_get_d(ft) << endl;
+  cout << "pow: " << pow(10, 8) << endl;
 }
 
 TEST(demo, helib) {
@@ -163,7 +164,9 @@ TEST(demo, opt_paillier) {
   init([&](int i) {
     /*string op1 = to_string(u(e));
     opt_paillier_set_plaintext(plains[i], op1.c_str(), pub);*/
-    opt_paillier_set_plaintext_t(plains[i], 1.0 * u(e) / 100, pub);
+    auto t = 1.0 * u(e) / 100;
+    // cout << "t = " << t << endl;
+    opt_paillier_set_plaintext_t(plains[i], t, pub);
   });
 
   opt_paillier_batch_encrypt(ciphers, plains, len, pub, pri);
@@ -192,7 +195,19 @@ TEST(demo, opt_paillier) {
 
   for (int i = 0; i < len / 2; ++i) {
     opt_paillier_add(temp, ciphers[i], ciphers[i + (len / 2)], pub);
+    opt_paillier_decrypt(temp, temp, pub, pri);
     cout << "===============================================" << endl;
+    double t1, t2, o;
+    opt_paillier_get_plaintext_t(t1, plains[i], pub);
+    opt_paillier_get_plaintext_t(t2, plains[i + (len / 2)], pub);
+    cout << "t1: " << t1 << endl;
+    cout << "t2: " << t2 << endl;
+    auto t = t1 + t2;
+    cout << "t1 + t2: " << t << endl;
+    opt_paillier_get_plaintext_t(o, temp, pub);
+    cout << "out: " << o << endl;
+    assert(abs(o - t) < 0.000001);
+    /*
     char *o;
     opt_paillier_get_plaintext(o, plains[i], pub);
     auto t1 = atoi(o);
@@ -202,12 +217,10 @@ TEST(demo, opt_paillier) {
     cout << "t2: " << t2 << endl;
     auto t = t1 + t2;
     cout << "t1 + t2: " << t << endl;
-
-    opt_paillier_decrypt(temp, temp, pub, pri);
     opt_paillier_get_plaintext(o, temp, pub);
     cout << "out: " << o << endl;
-
     assert(atoi(o) == t);
+   */
   }
 
   opt_paillier_freepubkey(pub);

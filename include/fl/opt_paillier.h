@@ -4,6 +4,8 @@
 #ifndef DEMO_OPT_PAILLIER_H
 #define DEMO_OPT_PAILLIER_H
 
+#include <math.h>
+
 #include <string>
 #include <unordered_map>
 
@@ -119,7 +121,7 @@ template <class PLAIN_TYPE>
 void opt_paillier_set_plaintext_t(mpz_t& mpz_plaintext, const PLAIN_TYPE& plaintext,
                                   const opt_public_key_t* pub, int precision = 8, int radix = 10) {
   if (std::is_same<PLAIN_TYPE, double>() || std::is_same<PLAIN_TYPE, float>()) {
-    mpz_set_d(mpz_plaintext, plaintext * precision);
+    mpz_set_d(mpz_plaintext, plaintext * pow(10, precision));
     if (mpz_cmp_ui(mpz_plaintext, 0) < 0) {
       mpz_add(mpz_plaintext, mpz_plaintext, pub->n);
       mpz_mod(mpz_plaintext, mpz_plaintext, pub->n);
@@ -144,7 +146,7 @@ void opt_paillier_get_plaintext_t(PLAIN_TYPE& plaintext, const mpz_t& mpz_plaint
   } else if (std::is_same<PLAIN_TYPE, int64_t>() || std::is_same<PLAIN_TYPE, uint64_t>()) {
     plaintext = atoll(temp);
   } else if (std::is_same<PLAIN_TYPE, double>() || std::is_same<PLAIN_TYPE, float>()) {
-    plaintext = atof(temp) / precision;
+    plaintext = atof(temp) / pow(10, precision);
   } else {
     return;
   }
