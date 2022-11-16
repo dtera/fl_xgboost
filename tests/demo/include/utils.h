@@ -6,6 +6,7 @@
 #define DEMO_UTILS_H
 #include <gmp.h>
 
+#include <chrono>
 #include <cstdint>
 
 struct fb_instance {
@@ -62,4 +63,12 @@ uint32_t aby_rand();
  * returns a random mpz_t with bitlen len generated from dev/urandom
  */
 void aby_prng(mpz_t rnd, mp_bitcnt_t len);
+
+#define TIME_STAT(statments, name)                                                      \
+  auto start = chrono::high_resolution_clock::now();                                    \
+  statments;                                                                            \
+  auto end = chrono::high_resolution_clock::now();                                      \
+  double cost = 1.0 * chrono::duration_cast<chrono::microseconds>(end - start).count(); \
+  cout << #name << " costs: " << cost / 1000.0 << " ms." << endl;
+
 #endif  // DEMO_UTILS_H
