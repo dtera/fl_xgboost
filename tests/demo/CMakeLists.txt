@@ -21,7 +21,7 @@ set(CMAKE_CXX_STANDARD 17)
 set(LIB_SUFFIX so)
 set(LOCAL_OPT_DIR /usr/local/opt)
 set(BREW_OPT_DIR /opt/homebrew/opt)
-set(INC_DIR . ./include ../../src /usr/include /usr/local/include /opt/homebrew/include
+set(INC_DIR . ./include ../../include ../../src /usr/include /usr/local/include /opt/homebrew/include
         ${LOCAL_OPT_DIR}/openssl/include ${BREW_OPT_DIR}/openssl/include)
 set(LINK_DIR ./lib /usr/lib /usr/local/lib /opt/homebrew/lib ${LOCAL_OPT_DIR}/openssl/lib ${BREW_OPT_DIR}/openssl/lib)
 set(LINK_LIB libcrypto.${LIB_SUFFIX} libssl.${LIB_SUFFIX} libomp.${LIB_SUFFIX})
@@ -59,7 +59,7 @@ include_directories(${PROTO_SRC_DIR})
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_SRC_DIR} ${PROTOS})
 grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_SRC_DIR} ${PROTOS})
 
-file(GLOB ${PROJECT_NAME}-src src/*.cpp src/*.cc ${PROTO_SRCS} ${GRPC_SRCS})
+file(GLOB ${PROJECT_NAME}-src src/*.cpp src/*.cc ../../src/fl/*.cc ${PROTO_SRCS} ${GRPC_SRCS})
 
 # Building grpc server
 add_executable(${PROJECT_NAME}_server

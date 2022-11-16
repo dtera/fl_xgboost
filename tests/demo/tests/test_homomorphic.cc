@@ -10,7 +10,7 @@
 #include <random>
 #include <string>
 
-#include "opt_paillier.h"
+#include "fl/opt_paillier.h"
 #include "paillier.h"
 
 using namespace std;
