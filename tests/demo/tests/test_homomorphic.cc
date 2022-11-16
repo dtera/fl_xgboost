@@ -6,7 +6,6 @@
 #include <helib/helib.h>
 
 #include <algorithm>
-
 #include <iostream>
 #include <random>
 #include <string>
@@ -74,7 +73,7 @@ TEST(demo, helib) {
   cout << "=========Homomorphic encryption End=========" << endl;
 }
 
-uint32_t len = 1000000;
+uint32_t len = 1000;
 mpz_t *plains = new mpz_t[len];
 mpz_t *ciphers = new mpz_t[len];
 mpz_t *res = new mpz_t[len];
@@ -157,14 +156,36 @@ TEST(demo, opt_paillier) {
     char *p, *o;
     opt_paillier_get_plaintext(p, plains[i], pub);
     opt_paillier_get_plaintext(o, res[i], pub);
-    // printf("Plaintext0 = %s\n", mpz_get_str(nullptr, 10, plains[i]));
+    /*// printf("Plaintext0 = %s\n", mpz_get_str(nullptr, 10, plains[i]));
     // printf("Result0 = %s\n", mpz_get_str(nullptr, 10, res[i]));
-    /*printf("\nPlaintext = %s\n", p);
+    printf("\nPlaintext = %s\n", p);
     cout << "Ciphertext = " << mpz_get_ui(ciphers[i]) << endl;
     printf("Result = %s\n", o);*/
 
     assert(0 == mpz_cmp(res[i], plains[i]));
   });
+
+  mpz_t out;
+  mpz_init(out);
+  for (int i = 0; i < len / 2; ++i) {
+    opt_paillier_add(out, ciphers[i], ciphers[i + (len / 2)], pub);
+    cout << "===============================================" << endl;
+    char *o;
+    opt_paillier_get_plaintext(o, plains[i], pub);
+    auto t1 = atoi(o);
+    opt_paillier_get_plaintext(o, plains[i + (len / 2)], pub);
+    auto t2 = atoi(o);
+    cout << "t1: " << t1 << endl;
+    cout << "t2: " << t2 << endl;
+    auto t = t1 + t2;
+    cout << "t1 + t2: " << t << endl;
+
+    opt_paillier_decrypt(out, out, pub, pri);
+    opt_paillier_get_plaintext(o, out, pub);
+    cout << "out: " << o << endl;
+
+    assert(atoi(o) == t);
+  }
 
   opt_paillier_freepubkey(pub);
   opt_paillier_freeprikey(pri);
