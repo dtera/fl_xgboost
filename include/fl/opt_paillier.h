@@ -4,6 +4,7 @@
 #ifndef DEMO_OPT_PAILLIER_H
 #define DEMO_OPT_PAILLIER_H
 
+#include <string>
 #include <unordered_map>
 
 #include "utils.h"
@@ -113,5 +114,36 @@ void opt_paillier_constant_mul(mpz_t& res, const mpz_t& op1, const mpz_t& op2,
 void opt_paillier_freepubkey(opt_public_key_t* pub);
 
 void opt_paillier_freeprikey(opt_private_key_t* pri);
+
+template <class PLAIN_TYPE>
+void opt_paillier_set_plaintext_t(mpz_t& mpz_plaintext, const PLAIN_TYPE& plaintext,
+                                  const opt_public_key_t* pub, int radix = 10) {
+  if (std::is_same<PLAIN_TYPE, double>() || std::is_same<PLAIN_TYPE, float>()) {
+    mpz_set_d(mpz_plaintext, plaintext);
+    if (mpz_cmp_ui(mpz_plaintext, 0) < 0) {
+      mpz_add(mpz_plaintext, mpz_plaintext, pub->n);
+      mpz_mod(mpz_plaintext, mpz_plaintext, pub->n);
+    }
+  } else {
+    opt_paillier_set_plaintext(mpz_plaintext, std::to_string(plaintext).c_str(), pub, radix);
+  }
+}
+
+template <typename PLAIN_TYPE>
+void opt_paillier_get_plaintext_t(PLAIN_TYPE& plaintext, const mpz_t& mpz_plaintext,
+                                  const opt_public_key_t* pub, int radix = 10) {
+  char* temp;
+  opt_paillier_get_plaintext(temp, mpz_plaintext, pub, radix);
+
+  if (std::is_same<PLAIN_TYPE, uint32_t>() || std::is_same<PLAIN_TYPE, int>()) {
+    plaintext = atol(temp);
+  } else if (std::is_same<PLAIN_TYPE, int64_t>() || std::is_same<PLAIN_TYPE, uint64_t>()) {
+    plaintext = atoll(temp);
+  } else if (std::is_same<PLAIN_TYPE, double>() || std::is_same<PLAIN_TYPE, float>()) {
+    plaintext = atof(temp);
+  } else {
+    return;
+  }
+}
 
 #endif  // DEMO_OPT_PAILLIER_H

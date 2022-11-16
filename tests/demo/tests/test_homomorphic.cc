@@ -16,7 +16,77 @@
 using namespace std;
 using namespace fl::he;
 
-TEST(demo, hello) { cout << "Hello Test" << endl; }
+uint32_t len = 1000;
+mpz_t *plains = new mpz_t[len];
+mpz_t *ciphers = new mpz_t[len];
+mpz_t *res = new mpz_t[len];
+mpz_t temp;
+
+default_random_engine e;
+uniform_int_distribution<long long> u(-100, 1000);
+xgboost::common::Monitor monitor_;
+
+opt_public_key_t *pub;
+opt_private_key_t *pri;
+uint32_t bitLength = 1024;
+
+void init(std::function<void(int)> fn) {
+  srandom(0);
+  mpz_init(temp);
+  for (int i = 0; i < len; ++i) {
+    fn(i);
+  }
+}
+
+void out(std::function<void(int)> fn) {
+  // cout << "====================================" << endl;
+  for (int i = 0; i < len; ++i) {
+    fn(i);
+  }
+  //  mpz_clear(temp);
+  //  delete[] plains;
+  //  delete[] ciphers;
+  //  delete[] res;
+}
+
+void batchEnc() {
+  PublicKey pk;
+  PrivateKey sk;
+  TIME_STAT(generatePaillierKeys(&pk, &sk, bitLength); PaillierBatchEncryptor bpk(pk, 1, 1);
+            , KeyGen)
+
+  init([&](int i) {
+    mpz_set_ui(plains[i], u(e));
+    // cout << mpz_get_ui(plains[i]) << endl;
+  });
+
+  bpk.encrypt(ciphers, plains, len);
+  batchDecrypt(res, ciphers, len, sk);
+  out([&](int i) {
+    /*cout << endl << "Plaintext = " << mpz_get_ui(plains[i]) << endl;
+    cout << "Ciphertext = " << mpz_get_ui(ciphers[i]) << endl;
+    cout << "Result = " << mpz_get_ui(res[i]) << endl;*/
+    assert(mpz_get_ui(res[i]) == mpz_get_ui(plains[i]));
+  });
+
+  /*paillierAdd(res[0], ciphers[0], ciphers[1], &pk);
+  cout << "===============================================" << endl;
+  auto t1 = mpz_get_ui(plains[0]);
+  auto t2 = mpz_get_ui(plains[1]);
+  cout << "t1: " << t1 << endl;
+  cout << "t2: " << t2 << endl;
+  auto t = t1 + t2;
+  cout << "t1 + t2: " << t << endl;
+  batchDecrypt(res, res, 1, sk, 1);
+  cout << "res: " << mpz_get_ui(res[0]) << endl;
+  assert(mpz_get_ui(res[0]) == t);*/
+}
+
+TEST(demo, test) {
+  cout << "is_same: " << is_same<unsigned int, uint32_t>() << endl;
+  float a = 123;
+  cout << "to_string: " << to_string(a).c_str() << endl;
+}
 
 TEST(demo, helib) {
   cout << "=========Homomorphic encryption Begin=======" << endl;
@@ -73,68 +143,6 @@ TEST(demo, helib) {
   cout << "=========Homomorphic encryption End=========" << endl;
 }
 
-uint32_t len = 1000;
-mpz_t *plains = new mpz_t[len];
-mpz_t *ciphers = new mpz_t[len];
-mpz_t *res = new mpz_t[len];
-default_random_engine e;
-uniform_int_distribution<long long> u(-100, 1000);
-xgboost::common::Monitor monitor_;
-
-opt_public_key_t *pub;
-opt_private_key_t *pri;
-uint32_t bitLength = 1024;
-
-void init(std::function<void(int)> fn) {
-  srandom(0);
-  for (int i = 0; i < len; ++i) {
-    fn(i);
-  }
-}
-
-void out(std::function<void(int)> fn) {
-  // cout << "====================================" << endl;
-  for (int i = 0; i < len; ++i) {
-    fn(i);
-  }
-  //  delete[] plains;
-  //  delete[] ciphers;
-  //  delete[] res;
-}
-
-void batchEnc() {
-  PublicKey pk;
-  PrivateKey sk;
-  TIME_STAT(generatePaillierKeys(&pk, &sk, bitLength); PaillierBatchEncryptor bpk(pk, 1, 1);
-            , KeyGen)
-
-  init([&](int i) {
-    mpz_set_ui(plains[i], u(e));
-    // cout << mpz_get_ui(plains[i]) << endl;
-  });
-
-  bpk.encrypt(ciphers, plains, len);
-  batchDecrypt(res, ciphers, len, sk);
-  out([&](int i) {
-    /*cout << endl << "Plaintext = " << mpz_get_ui(plains[i]) << endl;
-    cout << "Ciphertext = " << mpz_get_ui(ciphers[i]) << endl;
-    cout << "Result = " << mpz_get_ui(res[i]) << endl;*/
-    assert(mpz_get_ui(res[i]) == mpz_get_ui(plains[i]));
-  });
-
-  /*paillierAdd(res[0], ciphers[0], ciphers[1], &pk);
-  cout << "===============================================" << endl;
-  auto t1 = mpz_get_ui(plains[0]);
-  auto t2 = mpz_get_ui(plains[1]);
-  cout << "t1: " << t1 << endl;
-  cout << "t2: " << t2 << endl;
-  auto t = t1 + t2;
-  cout << "t1 + t2: " << t << endl;
-  batchDecrypt(res, res, 1, sk, 1);
-  cout << "res: " << mpz_get_ui(res[0]) << endl;
-  assert(mpz_get_ui(res[0]) == t);*/
-}
-
 TEST(demo, paillier) {
   for (int i = 0; i < 1; ++i) {
     batchEnc();
@@ -153,22 +161,26 @@ TEST(demo, opt_paillier) {
   opt_paillier_batch_decrypt(res, ciphers, len, pub, pri);
 
   out([&](int i) {
-    char *p, *o;
+    char *p, *c, *o;
     opt_paillier_get_plaintext(p, plains[i], pub);
+    opt_paillier_get_plaintext(c, ciphers[i], pub);
     opt_paillier_get_plaintext(o, res[i], pub);
-    /*// printf("Plaintext0 = %s\n", mpz_get_str(nullptr, 10, plains[i]));
-    // printf("Result0 = %s\n", mpz_get_str(nullptr, 10, res[i]));
-    printf("\nPlaintext = %s\n", p);
-    cout << "Ciphertext = " << mpz_get_ui(ciphers[i]) << endl;
-    printf("Result = %s\n", o);*/
+    cout << "\nPlaintext = " << p << endl;
+    cout << "Ciphertext = " << c << endl;
+    cout << "Result = " << o << endl;
+
+    double d1, d2;
+    opt_paillier_get_plaintext_t(d1, plains[i], pub);
+    opt_paillier_set_plaintext_t(temp, d1, pub);
+    opt_paillier_get_plaintext_t(d2, temp, pub);
+    cout << "d1: " << d1 << endl;
+    cout << "d2: " << d2 << endl;
 
     assert(0 == mpz_cmp(res[i], plains[i]));
   });
 
-  mpz_t out;
-  mpz_init(out);
   for (int i = 0; i < len / 2; ++i) {
-    opt_paillier_add(out, ciphers[i], ciphers[i + (len / 2)], pub);
+    opt_paillier_add(temp, ciphers[i], ciphers[i + (len / 2)], pub);
     cout << "===============================================" << endl;
     char *o;
     opt_paillier_get_plaintext(o, plains[i], pub);
@@ -180,8 +192,8 @@ TEST(demo, opt_paillier) {
     auto t = t1 + t2;
     cout << "t1 + t2: " << t << endl;
 
-    opt_paillier_decrypt(out, out, pub, pri);
-    opt_paillier_get_plaintext(o, out, pub);
+    opt_paillier_decrypt(temp, temp, pub, pri);
+    opt_paillier_get_plaintext(o, temp, pub);
     cout << "out: " << o << endl;
 
     assert(atoi(o) == t);
