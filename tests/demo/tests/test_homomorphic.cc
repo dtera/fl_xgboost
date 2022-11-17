@@ -22,13 +22,15 @@ mpz_t *mpz_ciphers = new mpz_t[len];
 mpz_t *mpz_res = new mpz_t[len];
 char **plains = new char *[len];
 char **res = new char *[len];
+double *plains_d = new double[len];
+double *res_d = new double[len];
 mpz_t mpz_plain_test;
 mpz_t mpz_cipher_test;
 mpz_t mpz_decrypt_test;
 mpz_t mpz_temp;
 
 default_random_engine e;
-uniform_int_distribution<long long> u(-10000, 10000);
+uniform_int_distribution<long long> u(-100000, 100000);
 
 opt_public_key_t *pub;
 opt_private_key_t *pri;
@@ -158,11 +160,14 @@ TEST(demo, opt_paillier) {
   TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
 
   for_out([&](int i) {
-    string t = to_string(u(e));
+    auto ue = u(e);
+    string t = to_string(ue);
     plains[i] = new char[32];
     res[i] = new char[32];
     mpz_init(mpz_ciphers[i]);
     move(t.begin(), t.end(), plains[i]);
+
+    plains_d[i] = 1.0 * ue / 1000;
   });
 
   opt_paillier_batch_encrypt(mpz_ciphers, plains, len, pub, pri);
@@ -174,7 +179,16 @@ TEST(demo, opt_paillier) {
     assert(0 == strcmp(plains[i], res[i]));
   });
 
-  for (int i = 0; i < len / 2; ++i) {
+  opt_paillier_batch_encrypt_t(mpz_ciphers, plains_d, len, pub, pri);
+  opt_paillier_batch_decrypt_t(res_d, mpz_ciphers, len, pub, pri);
+
+  for_out([&](int i) {
+    cout << "plains_d[" << i << "]: " << plains_d[i] << endl;
+    cout << "res_d[" << i << "]: " << res_d[i] << endl;
+    assert(abs(plains_d[i] - res_d[i]) < 0.000001);
+  });
+
+  /*for (int i = 0; i < len / 2; ++i) {
     opt_paillier_add(mpz_temp, mpz_ciphers[i], mpz_ciphers[i + (len / 2)], pub);
     opt_paillier_decrypt(mpz_temp, mpz_temp, pub, pri);
     auto t1 = atoi(plains[i]);
@@ -188,7 +202,7 @@ TEST(demo, opt_paillier) {
     opt_paillier_get_plaintext(o, mpz_temp, pub);
     cout << "out: " << o << endl;
     assert(atoi(o) == t);
-  }
+  }*/
 
   opt_paillier_freepubkey(pub);
   opt_paillier_freeprikey(pri);

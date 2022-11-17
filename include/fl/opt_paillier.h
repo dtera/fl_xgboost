@@ -172,41 +172,43 @@ void opt_paillier_get_plaintext_t(PLAIN_TYPE& plaintext, const mpz_t& mpz_plaint
 
 template <typename PLAIN_TYPE>
 void opt_paillier_encrypt_t(mpz_t& res, const PLAIN_TYPE& plaintext, const opt_public_key_t* pub,
-                            const opt_private_key_t* pri, int radix = 10, int precision = 8,
+                            const opt_private_key_t* pri, int precision = 8, int radix = 10,
                             const bool is_fb = true) {
   mpz_t temp;
   mpz_init(temp);
-  opt_paillier_set_plaintext_t(temp, plaintext, pub, radix, precision);
+  opt_paillier_set_plaintext_t(temp, plaintext, pub, precision, radix);
   opt_paillier_encrypt(res, temp, pub, pri, is_fb);
+  mpz_clear(temp);
 }
 
 template <typename PLAIN_TYPE>
 void opt_paillier_decrypt_t(PLAIN_TYPE& res, const mpz_t& ciphertext, const opt_public_key_t* pub,
-                            const opt_private_key_t* pri, int radix = 10, int precision = 8,
+                            const opt_private_key_t* pri, int precision = 8, int radix = 10,
                             const bool is_crt = true) {
   mpz_t temp;
   mpz_init(temp);
-  opt_paillier_set_plaintext_t(temp, res, pub, radix, precision);
   opt_paillier_decrypt(temp, ciphertext, pub, pri, is_crt);
+  opt_paillier_get_plaintext_t(res, temp, pub, precision, radix);
+  mpz_clear(temp);
 }
 
 template <typename PLAIN_TYPE>
-void opt_paillier_batch_encrypt_t(mpz_t* res, const PLAIN_TYPE* plaintext, size_t size,
+void opt_paillier_batch_encrypt_t(mpz_t* res, const PLAIN_TYPE& plaintext, size_t size,
                                   const opt_public_key_t* pub, const opt_private_key_t* pri,
                                   int32_t n_threads = 10, int radix = 10, int precision = 8,
                                   const bool is_fb = true) {
   xgboost::common::ParallelFor(size, n_threads, [&](int i) {
-    opt_paillier_encrypt(res[i], plaintext[i], pub, pri, radix, precision, is_fb);  //
+    opt_paillier_encrypt_t(res[i], plaintext[i], pub, pri, precision, radix, is_fb);  //
   });
 }
 
 template <typename PLAIN_TYPE>
-void opt_paillier_batch_decrypt_t(PLAIN_TYPE* res, const mpz_t* ciphertext, size_t size,
+void opt_paillier_batch_decrypt_t(PLAIN_TYPE& res, const mpz_t* ciphertext, size_t size,
                                   const opt_public_key_t* pub, const opt_private_key_t* pri,
                                   int32_t n_threads = 10, int radix = 10, int precision = 8,
                                   const bool is_crt = true) {
   xgboost::common::ParallelFor(size, n_threads, [&](int i) {
-    opt_paillier_decrypt(res[i], ciphertext[i], pub, pri, radix, precision, is_crt);
+    opt_paillier_decrypt_t(res[i], ciphertext[i], pub, pri, precision, radix, is_crt);
   });
 }
 
