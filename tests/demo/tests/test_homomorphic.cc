@@ -179,16 +179,7 @@ TEST(demo, opt_paillier) {
     assert(0 == strcmp(plains[i], res[i]));
   });
 
-  opt_paillier_batch_encrypt_t(mpz_ciphers, plains_d, len, pub, pri);
-  opt_paillier_batch_decrypt_t(res_d, mpz_ciphers, len, pub, pri);
-
-  for_out([&](int i) {
-    cout << "plains_d[" << i << "]: " << plains_d[i] << endl;
-    cout << "res_d[" << i << "]: " << res_d[i] << endl;
-    assert(abs(plains_d[i] - res_d[i]) < 0.000001);
-  });
-
-  /*for (int i = 0; i < len / 2; ++i) {
+  for (int i = 0; i < len / 2; ++i) {
     opt_paillier_add(mpz_temp, mpz_ciphers[i], mpz_ciphers[i + (len / 2)], pub);
     opt_paillier_decrypt(mpz_temp, mpz_temp, pub, pri);
     auto t1 = atoi(plains[i]);
@@ -198,11 +189,28 @@ TEST(demo, opt_paillier) {
     cout << "t2: " << t2 << endl;
     auto t = t1 + t2;
     cout << "t1 + t2: " << t << endl;
+    cout << "t1 - t2: " << t1 - t2 << endl;
     char *o;
     opt_paillier_get_plaintext(o, mpz_temp, pub);
-    cout << "out: " << o << endl;
+    cout << "add out1: " << o << endl;
     assert(atoi(o) == t);
-  }*/
+
+    opt_paillier_sub(mpz_temp, mpz_ciphers[i], mpz_ciphers[i + (len / 2)], pub);
+    opt_paillier_decrypt(mpz_temp, mpz_temp, pub, pri);
+    opt_paillier_get_plaintext(o, mpz_temp, pub);
+    cout << "sub out2: " << o << endl;
+
+    assert(atoi(o) == t1 - t2);
+  }
+
+  opt_paillier_batch_encrypt_t(mpz_ciphers, plains_d, len, pub, pri);
+  opt_paillier_batch_decrypt_t(res_d, mpz_ciphers, len, pub, pri);
+
+  for_out([&](int i) {
+    // cout << "plains_d[" << i << "]: " << plains_d[i] << endl;
+    // cout << "res_d[" << i << "]: " << res_d[i] << endl;
+    assert(abs(plains_d[i] - res_d[i]) < 0.000001);
+  });
 
   opt_paillier_freepubkey(pub);
   opt_paillier_freeprikey(pri);

@@ -124,6 +124,8 @@ void opt_paillier_batch_decrypt(char** res, const mpz_t* ciphertext, size_t size
 
 void opt_paillier_add(mpz_t& res, const mpz_t& op1, const mpz_t& op2, const opt_public_key_t* pub);
 
+void opt_paillier_sub(mpz_t& res, const mpz_t& op1, const mpz_t& op2, const opt_public_key_t* pub);
+
 void opt_paillier_constant_mul(mpz_t& res, const mpz_t& op1, const mpz_t& op2,
                                const opt_public_key_t* pub);
 
