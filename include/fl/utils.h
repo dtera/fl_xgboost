@@ -8,6 +8,7 @@
 
 #include <chrono>
 #include <cstdint>
+#include <functional>
 
 struct fb_instance {
   mpz_t m_mod;
@@ -70,5 +71,9 @@ void aby_prng(mpz_t rnd, mp_bitcnt_t len);
   auto end = chrono::high_resolution_clock::now();                                      \
   double cost = 1.0 * chrono::duration_cast<chrono::microseconds>(end - start).count(); \
   cout << #name << " costs: " << cost / 1000.0 << " ms." << endl;
+
+void repeat(
+    std::function<void(int)> fn, std::size_t n, std::function<void()> before = []() {},
+    std::function<void()> after = []() {});
 
 #endif  // DEMO_UTILS_H

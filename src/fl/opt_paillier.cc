@@ -9,9 +9,7 @@
 #include <iostream>
 #include <vector>
 
-#include "common/threading_utils.h"
-
-std::unordered_map<uint32_t, std::pair<uint32_t, uint32_t>> mapTo_nbits_lbits = {
+unordered_map<uint32_t, pair<uint32_t, uint32_t>> mapTo_nbits_lbits = {
     {1024, {432, 98}}, {2048, {448, 112}}, {3072, {512, 128}}, {7680, {768, 192}}};
 
 uint32_t prob = 30;
@@ -253,9 +251,9 @@ void opt_paillier_encrypt(mpz_t& res, const mpz_t& plaintext, const opt_public_k
   mpz_t r;
   mpz_init(r);
   aby_prng(r, pub->lbits);
-  // res = m*n
+  // mpz_res = m*n
   mpz_mul(res, plaintext, pub->n);
-  // res = (1+m*n)
+  // mpz_res = (1+m*n)
   mpz_add_ui(res, res, 1);
 
   if (pri == nullptr) {
@@ -270,7 +268,7 @@ void opt_paillier_encrypt(mpz_t& res, const mpz_t& plaintext, const opt_public_k
     }
   }
 
-  // res = (1+m*n)*hs^r mod n^2
+  // mpz_res = (1+m*n)*hs^r mod n^2
   mpz_mul(res, res, r);
   mpz_mod(res, res, pub->n_squared);
   mpz_clear(r);
@@ -334,6 +332,40 @@ void opt_paillier_batch_decrypt(mpz_t* res, const mpz_t* ciphertext, size_t size
                                 int32_t n_threads, const bool is_crt) {
   xgboost::common::ParallelFor(size, n_threads, [&](int i) {
     opt_paillier_decrypt(res[i], ciphertext[i], pub, pri, is_crt);
+  });
+}
+
+void opt_paillier_encrypt(mpz_t& res, const char* plaintext, const opt_public_key_t* pub,
+                          const opt_private_key_t* pri, int radix, const bool is_fb) {
+  mpz_t temp;
+  mpz_init(temp);
+  opt_paillier_set_plaintext(temp, plaintext, pub, radix);
+  opt_paillier_encrypt(res, temp, pub, pri, is_fb);
+  mpz_clear(temp);
+}
+
+void opt_paillier_decrypt(char*& res, const mpz_t& ciphertext, const opt_public_key_t* pub,
+                          const opt_private_key_t* pri, int radix, const bool is_crt) {
+  mpz_t temp;
+  mpz_init(temp);
+  opt_paillier_decrypt(temp, ciphertext, pub, pri, is_crt);
+  opt_paillier_get_plaintext(res, temp, pub, radix);
+  mpz_clear(temp);
+}
+
+void opt_paillier_batch_encrypt(mpz_t* res, char** plaintext, size_t size,
+                                const opt_public_key_t* pub, const opt_private_key_t* pri,
+                                int32_t n_threads, int radix, const bool is_fb) {
+  xgboost::common::ParallelFor(size, n_threads, [&](int i) {
+    opt_paillier_encrypt(res[i], plaintext[i], pub, pri, radix, is_fb);  //
+  });
+}
+
+void opt_paillier_batch_decrypt(char** res, const mpz_t* ciphertext, size_t size,
+                                const opt_public_key_t* pub, const opt_private_key_t* pri,
+                                int32_t n_threads, int radix, const bool is_crt) {
+  xgboost::common::ParallelFor(size, n_threads, [&](int i) {
+    opt_paillier_decrypt(res[i], ciphertext[i], pub, pri, radix, is_crt);
   });
 }
 

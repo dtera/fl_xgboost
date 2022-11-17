@@ -172,3 +172,12 @@ void aby_prng(mpz_t rnd, mp_bitcnt_t bitlen) {
 
   free(data);
 }
+
+void repeat(std::function<void(int)> fn, std::size_t n, std::function<void()> before,
+            std::function<void()> after) {
+  before();
+  for (int i = 0; i < n; ++i) {
+    fn(i);
+  }
+  after();
+}
