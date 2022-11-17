@@ -19,7 +19,7 @@ using namespace fl::he;
 uint32_t len = 1000;
 mpz_t *mpz_plains = new mpz_t[len];
 mpz_t *mpz_ciphers = new mpz_t[len];
-mpz_t *res = new mpz_t[len];
+mpz_t *mpz_res = new mpz_t[len];
 char **plains = new char *[len];
 char **res = new char *[len];
 mpz_t mpz_plain_test;
@@ -132,12 +132,12 @@ TEST(demo, paillier) {
     });
 
     bpk.encrypt(mpz_ciphers, mpz_plains, len);
-    batchDecrypt(res, mpz_ciphers, len, sk);
+    batchDecrypt(mpz_res, mpz_ciphers, len, sk);
     for_out([&](int i) {
       /*cout << endl << "Plaintext = " << mpz_get_ui(mpz_plains[i]) << endl;
       cout << "Ciphertext = " << mpz_get_ui(mpz_ciphers[i]) << endl;
       cout << "Result = " << mpz_get_ui(res[i]) << endl;*/
-      assert(mpz_get_ui(res[i]) == mpz_get_ui(mpz_plains[i]));
+      assert(mpz_get_ui(mpz_res[i]) == mpz_get_ui(mpz_plains[i]));
     });
 
     /*paillierAdd(res[0], mpz_ciphers[0], mpz_ciphers[1], &pk);
