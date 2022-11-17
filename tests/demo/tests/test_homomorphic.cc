@@ -16,34 +16,36 @@
 using namespace std;
 using namespace fl::he;
 
-uint32_t len = 100;
+uint32_t len = 1000;
 mpz_t *plains = new mpz_t[len];
 mpz_t *ciphers = new mpz_t[len];
 mpz_t *res = new mpz_t[len];
+mpz_t plain_test;
+mpz_t cipher_test;
+mpz_t decrypt_test;
 mpz_t temp;
 
 default_random_engine e;
-uniform_int_distribution<long long> u(-10000, 10000);
-xgboost::common::Monitor monitor_;
+uniform_int_distribution<long long> u(-1000, 10000);
 
 opt_public_key_t *pub;
 opt_private_key_t *pri;
 uint32_t bitLength = 1024;
 
-void init(std::function<void(int)> fn) {
+void init(std::function<void(int)> fn, size_t n = len) {
   srandom(0);
   mpz_init(temp);
-  for (int i = 0; i < len; ++i) {
+  for (int i = 0; i < n; ++i) {
     fn(i);
   }
 }
 
-void out(std::function<void(int)> fn) {
+void out(std::function<void(int)> fn, size_t n = len) {
   // cout << "====================================" << endl;
-  for (int i = 0; i < len; ++i) {
+  for (int i = 0; i < n; ++i) {
     fn(i);
   }
-  //  mpz_clear(temp);
+  mpz_clear(temp);
   //  delete[] plains;
   //  delete[] ciphers;
   //  delete[] res;
@@ -227,28 +229,63 @@ TEST(demo, opt_paillier) {
   opt_paillier_freeprikey(pri);
 }
 
-TEST(demo, opt_paillier_op) {
-  opt_paillier_keygen(&pub, &pri, bitLength);
+TEST(demo, opt_paillier_data_pack) {
+  TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
+  mpz_inits(plain_test, cipher_test, decrypt_test, nullptr);
 
-  int round = 1000;
+  CrtMod *crtmod;
+  size_t data_size = 10;
+  init_crt(&crtmod, data_size, mapTo_nbits_lbits[bitLength].second);
+  char **nums;
+  char **test;
+  nums = (char **)malloc(sizeof(char *) * data_size);
+  for (int i = 0; i < len; ++i) {
+    init(
+        [&](int j) {
+          nums[j] = new char[32];
+          auto t = to_string(u(e));
+          move(t.begin(), t.end(), nums[j]);
+        },
+        data_size);
+
+    data_packing_crt(temp, nums, data_size, crtmod);
+    opt_paillier_encrypt(cipher_test, temp, pub, pri);
+    opt_paillier_decrypt(decrypt_test, cipher_test, pub, pri);
+    data_retrieve_crt(test, decrypt_test, crtmod, data_size, pub);
+
+    char *o1, *o2;
+    opt_paillier_get_plaintext(o1, temp, pub);
+    cout << "====================================================" << endl;
+    cout << "pack: " << o1 << endl;
+    opt_paillier_get_plaintext(o2, decrypt_test, pub);
+    cout << "decrypt_pack: " << o2 << endl;
+
+    out(
+        [&](int j) {
+          cout << "nums[" << j << "]: " << nums[j] << endl;
+          cout << "test[" << j << "]: " << test[j] << endl;
+          assert(0 == strcmp(test[j], nums[j]));
+        },
+        data_size);
+  }
+  mpz_clears(plain_test, cipher_test, decrypt_test, nullptr);
+}
+
+TEST(demo, opt_paillier_op) {
+  TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
+
   mpz_t plain_test1;
   mpz_t plain_test2;
   mpz_t cipher_test1;
   mpz_t cipher_test2;
   mpz_t decrypt_test;
-  mpz_init(plain_test1);
-  mpz_init(plain_test2);
-  mpz_init(cipher_test1);
-  mpz_init(cipher_test2);
-  mpz_init(decrypt_test);
+  mpz_inits(plain_test1, plain_test2, cipher_test1, cipher_test2, decrypt_test, nullptr);
 
-  for (int i = 1; i <= round; ++i) {
+  for (int i = 1; i <= len; ++i) {
     cout << "==============================================================" << endl;
     string op1 = to_string(u(e));
     opt_paillier_set_plaintext(plain_test1, op1.c_str(), pub);
     opt_paillier_encrypt(cipher_test1, plain_test1, pub, pri);
-    printf("Text1 = %s\n", op1.c_str());
-    gmp_printf("Ciphertext = %Zd\n", cipher_test1);
 
     string op2 = to_string(u(e));
     opt_paillier_set_plaintext(plain_test2, op2.c_str(), pub);
@@ -262,6 +299,8 @@ TEST(demo, opt_paillier_op) {
 
     opt_paillier_decrypt(decrypt_test, cipher_test1, pub, pri);
 
+    printf("Text1 = %s\n", op1.c_str());
+    gmp_printf("Ciphertext = %Zd\n", cipher_test1);
     printf("Text2 = %s\n", op2.c_str());
     char *out;
     opt_paillier_get_plaintext(out, decrypt_test, pub);

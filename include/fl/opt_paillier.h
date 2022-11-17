@@ -11,7 +11,7 @@
 
 #include "utils.h"
 
-extern std::unordered_map<uint32_t, uint32_t> mapTo_nbits_lbits;
+extern std::unordered_map<uint32_t, std::pair<uint32_t, uint32_t>> mapTo_nbits_lbits;
 extern uint32_t prob;
 
 /**
@@ -151,5 +151,24 @@ void opt_paillier_get_plaintext_t(PLAIN_TYPE& plaintext, const mpz_t& mpz_plaint
     return;
   }
 }
+
+//====================================datapack begin====================================
+struct CrtMod {
+  mpz_t* crt_half_mod;
+  mpz_t* crt_mod;
+  size_t crt_size;
+  mp_bitcnt_t mod_size;
+};
+
+void init_crt(CrtMod** crtmod, const size_t crt_size, const mp_bitcnt_t mod_size);
+
+void data_packing_crt(mpz_t res, char** seq, const size_t seq_size, const CrtMod* crtmod,
+                      const int radix = 10);
+
+void data_retrieve_crt(char**& seq, const mpz_t pack, const CrtMod* crtmod, const size_t data_size,
+                       const opt_public_key_t* pub, const int radix = 10);
+
+void free_crt(CrtMod* crtmod);
+//====================================datapack end======================================
 
 #endif  // DEMO_OPT_PAILLIER_H
