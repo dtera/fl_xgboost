@@ -375,13 +375,10 @@ void opt_paillier_add(mpz_t& res, const mpz_t& op1, const mpz_t& op2, const opt_
 }
 
 void opt_paillier_sub(mpz_t& res, const mpz_t& op1, const mpz_t& op2, const opt_public_key_t* pub) {
-  mpz_t t1, t2;
-  mpz_inits(t1, t2, nullptr);
-  mpz_set_si(t1, -1);
-  opt_paillier_constant_mul(t2, op2, t1, pub);
-  mpz_mul(res, op1, t2);
+  mpz_set_si(res, -1);
+  opt_paillier_constant_mul(res, op2, res, pub);
+  mpz_mul(res, op1, res);
   mpz_mod(res, res, pub->n_squared);
-  mpz_clears(t1, t2, nullptr);
 }
 
 void opt_paillier_constant_mul(mpz_t& res, const mpz_t& op1, const mpz_t& op2,
