@@ -126,6 +126,9 @@ void opt_paillier_add(mpz_t& res, const mpz_t& op1, const mpz_t& op2, const opt_
 
 void opt_paillier_sub(mpz_t& res, const mpz_t& op1, const mpz_t& op2, const opt_public_key_t* pub);
 
+void opt_paillier_batch_add(mpz_t& res, const mpz_t* ops, const size_t size,
+                            const opt_public_key_t* pub, int32_t n_threads = 10);
+
 void opt_paillier_constant_mul(mpz_t& res, const mpz_t& op1, const mpz_t& op2,
                                const opt_public_key_t* pub);
 

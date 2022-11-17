@@ -212,6 +212,17 @@ TEST(demo, opt_paillier) {
     assert(abs(plains_d[i] - res_d[i]) < 0.000001);
   });
 
+  size_t size = 10;
+  opt_paillier_batch_add(mpz_temp, mpz_ciphers, size, pub);
+  double d1, d2 = 0;
+  opt_paillier_decrypt_t(d1, mpz_temp, pub, pri);
+  for (int i = 0; i < size; ++i) {
+    d2 += plains_d[i];
+    cout << "plains_d[" << i << "]: " << plains_d[i] << endl;
+  }
+  cout << "d1: " << d1 << endl;
+  cout << "d2: " << d2 << endl;
+
   opt_paillier_freepubkey(pub);
   opt_paillier_freeprikey(pri);
 }

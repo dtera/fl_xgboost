@@ -381,6 +381,21 @@ void opt_paillier_sub(mpz_t& res, const mpz_t& op1, const mpz_t& op2, const opt_
   mpz_mod(res, res, pub->n_squared);
 }
 
+void opt_paillier_batch_add(mpz_t& res, const mpz_t* ops, const size_t size,
+                            const opt_public_key_t* pub, int32_t n_threads) {
+  assert(size > 1);
+  opt_paillier_add(res, ops[0], ops[1], pub);
+  if (size > 2) {
+    mutex g_mutex;
+    xgboost::common::ParallelFor(size - 2, n_threads, [&](int i) {
+      int j = i + 2;
+      g_mutex.lock();
+      opt_paillier_add(res, res, ops[j], pub);
+      g_mutex.unlock();
+    });
+  }
+}
+
 void opt_paillier_constant_mul(mpz_t& res, const mpz_t& op1, const mpz_t& op2,
                                const opt_public_key_t* pub) {
   mpz_powm(res, op1, op2, pub->n_squared);
