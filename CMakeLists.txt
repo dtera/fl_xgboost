@@ -207,6 +207,9 @@ if (FORCE_SHARED_CRT)
 endif ()
 add_subdirectory(${xgboost_SOURCE_DIR}/dmlc-core)
 
+# fedxgb
+add_subdirectory(${xgboost_SOURCE_DIR}/fedxgb)
+
 if (MSVC)
   if (TARGET dmlc_unit_tests)
     target_compile_options(dmlc_unit_tests PRIVATE

@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.14)
 
-project(flcore VERSION 0.3 LANGUAGES C CXX)
+project(fedxgb VERSION 0.3 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_LOCAL "${PROJECT_SOURCE_DIR}/cmake")
@@ -20,7 +20,6 @@ find_package(GTest CONFIG REQUIRED)
 find_package(helib REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(Protobuf REQUIRED)
-find_package(xgboost REQUIRED)
 
 if (APPLE AND (NOT CMAKE_COMPILER_IS_GNUCC))
     # Require CMake 3.16+ for Mac to ensure that OpenMP can be located
@@ -39,7 +38,9 @@ if (NOT TARGET OpenMP::OpenMP_CXX)
 endif ()
 
 set(LIB_SUFFIX so)
-if (APPLE)
+# openssl
+find_package(OpenSSL)
+if (APPLE AND (NOT OpenSSL_FOUND))
     execute_process(COMMAND brew --prefix openssl
             OUTPUT_VARIABLE HOMEBREW_OPENSSL_PREFIX
             OUTPUT_STRIP_TRAILING_WHITESPACE)
@@ -47,7 +48,6 @@ if (APPLE)
     link_directories(${HOMEBREW_OPENSSL_PREFIX}/lib)
     link_libraries(libcrypto.${LIB_SUFFIX} libssl.${LIB_SUFFIX})
 endif ()
-
 
 file(GLOB PROTOS proto/*.proto)
 set(PROTO_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto-generated)
@@ -61,12 +61,12 @@ target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS}
 target_link_libraries(${PROJECT_NAME}_lib gRPC::grpc++_reflection protobuf::libprotobuf OpenMP::OpenMP_CXX)
 
 # Building grpc server
-add_executable(${PROJECT_NAME}_server ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/greeter_server.cc)
-target_link_libraries(${PROJECT_NAME}_server ${PROJECT_NAME}_lib)
+add_executable(${PROJECT_NAME}_greeter_server ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/greeter_server.cc)
+target_link_libraries(${PROJECT_NAME}_greeter_server ${PROJECT_NAME}_lib)
 
 # Building grpc client
-add_executable(${PROJECT_NAME}_client ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/greeter_client.cc)
-target_link_libraries(${PROJECT_NAME}_client ${PROJECT_NAME}_lib)
+add_executable(${PROJECT_NAME}_greeter_client ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/greeter_client.cc)
+target_link_libraries(${PROJECT_NAME}_greeter_client ${PROJECT_NAME}_lib)
 
 # Building tests
 add_executable(${PROJECT_NAME}_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc)
@@ -77,7 +77,7 @@ target_link_libraries(${PROJECT_NAME}_tests ${PROJECT_NAME}_lib
 file(GLOB_RECURSE TEST_SOURCES "tests/test_*.cc")
 target_sources(${PROJECT_NAME}_tests PRIVATE ${TEST_SOURCES})
 
-set_target_properties(${PROJECT_NAME}_server ${PROJECT_NAME}_client ${PROJECT_NAME}_tests PROPERTIES
+set_target_properties(${PROJECT_NAME}_greeter_server ${PROJECT_NAME}_greeter_client ${PROJECT_NAME}_tests PROPERTIES
         CXX_STANDARD ${CMAKE_CXX_STANDARD}
         CXX_EXTENSIONS OFF
         CXX_STANDARD_REQUIRED ON
