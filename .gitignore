@@ -108,7 +108,10 @@ CMakeSettings.json
 # IntelliJ/CLion
 .idea
 *.iml
-/cmake-build-debug/
+cmake-build-debug/
+cmake-build-release/
+/**/**/cmake-build-debug/
+/**/**/cmake-build-release/
 
 # GDB
 .gdb_history
