@@ -145,10 +145,6 @@ void opt_paillier_set_plaintext_t(mpz_t& mpz_plaintext, const PLAIN_TYPE& plaint
                                   const opt_public_key_t* pub, int precision = 8, int radix = 10) {
   if (std::is_same<PLAIN_TYPE, double>() || std::is_same<PLAIN_TYPE, float>()) {
     mpz_set_d(mpz_plaintext, plaintext * pow(10, precision));
-    if (mpz_cmp_ui(mpz_plaintext, 0) < 0) {
-      mpz_add(mpz_plaintext, mpz_plaintext, pub->n);
-      mpz_mod(mpz_plaintext, mpz_plaintext, pub->n);
-    }
   } else {
     opt_paillier_set_plaintext(mpz_plaintext, std::to_string(plaintext).c_str(), pub, radix);
   }
@@ -227,13 +223,74 @@ struct CrtMod {
 
 void init_crt(CrtMod** crtmod, const size_t crt_size, const mp_bitcnt_t mod_size);
 
-void data_packing_crt(mpz_t res, char** seq, const size_t seq_size, const CrtMod* crtmod,
+void data_packing_crt(mpz_t& res, char** seq, const size_t seq_size, const CrtMod* crtmod,
                       const int radix = 10);
 
-void data_retrieve_crt(char**& seq, const mpz_t pack, const CrtMod* crtmod, const size_t data_size,
+void data_retrieve_crt(char**& seq, const mpz_t& pack, const size_t data_size, const CrtMod* crtmod,
                        const opt_public_key_t* pub, const int radix = 10);
 
 void free_crt(CrtMod* crtmod);
+
+template <typename PLAIN_TYPE>
+void data_packing_crt_t(
+    mpz_t res, const PLAIN_TYPE* seq, const size_t seq_size, const CrtMod* crtmod,
+    const opt_public_key_t* pub,
+    function<void(mpz_t&, const PLAIN_TYPE&, const opt_public_key_t*, const int)> fn =
+        [](mpz_t& t, const PLAIN_TYPE& p, const opt_public_key_t* pub, const int radix) {
+          opt_paillier_set_plaintext_t(t, p, pub, radix);
+        },
+    const int radix = 10) {
+  if (seq_size > crtmod->crt_size) {
+    throw "size of packing is more than crt's";
+  }
+  mpz_set_ui(res, 0);
+  mpz_t cur, muls, coef;
+  mpz_inits(cur, muls, coef, nullptr);
+  mpz_set_ui(muls, 1);
+  for (size_t i = 0; i < seq_size; ++i) {
+    mpz_mul(muls, muls, crtmod->crt_mod[i]);
+  }
+  for (size_t i = 0; i < seq_size; ++i) {
+    fn(cur, seq[i], pub, radix);
+    if (mpz_cmp_ui(cur, 0) < 0) {
+      mpz_add(cur, cur, crtmod->crt_mod[i]);
+      mpz_mod(cur, cur, crtmod->crt_mod[i]);
+    }
+    mpz_divexact(coef, muls, crtmod->crt_mod[i]);
+    mpz_mul(cur, cur, coef);
+    mpz_invert(coef, coef, crtmod->crt_mod[i]);
+    mpz_mul(cur, cur, coef);
+    mpz_add(res, res, cur);
+    mpz_mod(res, res, muls);
+  }
+  mpz_clears(cur, muls, coef, nullptr);
+}
+
+template <typename PLAIN_TYPE>
+void data_retrieve_crt_t(
+    PLAIN_TYPE*& seq, const mpz_t& pack, const size_t data_size, const CrtMod* crtmod,
+    const opt_public_key_t* pub,
+    function<void(PLAIN_TYPE&, const mpz_t&, const opt_public_key_t*, const int)> fn =
+        [](PLAIN_TYPE& p, const mpz_t& t, const opt_public_key_t* pub, const int radix) {
+          opt_paillier_get_plaintext_t(p, t, pub, radix);
+        },
+    const int radix = 10) {
+  if (data_size > crtmod->crt_size) {
+    throw "size of packing is more than crt's";
+  }
+  seq = (PLAIN_TYPE*)malloc(sizeof(PLAIN_TYPE) * data_size);
+  mpz_t cur;
+  mpz_init(cur);
+  for (size_t i = 0; i < data_size; ++i) {
+    mpz_mod(cur, pack, crtmod->crt_mod[i]);
+    if (mpz_cmp(cur, crtmod->crt_half_mod[i]) >= 0) {
+      mpz_sub(cur, cur, crtmod->crt_mod[i]);
+    }
+    fn(seq[i], cur, pub, radix);
+  }
+  mpz_clear(cur);
+}
+
 //====================================datapack end======================================
 
 #endif  // DEMO_OPT_PAILLIER_H

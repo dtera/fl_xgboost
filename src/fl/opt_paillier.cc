@@ -459,51 +459,24 @@ void init_crt(CrtMod** crtmod, const size_t crt_size, const mp_bitcnt_t mod_size
   mpz_clear(cur);
 }
 
-void data_packing_crt(mpz_t res, char** seq, const size_t seq_size, const CrtMod* crtmod,
+void data_packing_crt(mpz_t& res, char** seq, const size_t seq_size, const CrtMod* crtmod,
                       const int radix) {
-  if (seq_size > crtmod->crt_size) {
-    throw "size of packing is more than crt's";
-  }
-  mpz_set_ui(res, 0);
-  mpz_t cur, muls, coef;
-  mpz_inits(cur, muls, coef, nullptr);
-  mpz_set_ui(muls, 1);
-  for (size_t i = 0; i < seq_size; ++i) {
-    mpz_mul(muls, muls, crtmod->crt_mod[i]);
-  }
-  for (size_t i = 0; i < seq_size; ++i) {
-    mpz_set_str(cur, seq[i], radix);
-    if (mpz_cmp_ui(cur, 0) < 0) {
-      mpz_add(cur, cur, crtmod->crt_mod[i]);
-      mpz_mod(cur, cur, crtmod->crt_mod[i]);
-    }
-    mpz_divexact(coef, muls, crtmod->crt_mod[i]);
-    mpz_mul(cur, cur, coef);
-    mpz_invert(coef, coef, crtmod->crt_mod[i]);
-    mpz_mul(cur, cur, coef);
-    mpz_add(res, res, cur);
-    mpz_mod(res, res, muls);
-  }
-  mpz_clears(cur, muls, coef, nullptr);
+  data_packing_crt_t<const char*>(
+      res, seq, seq_size, crtmod, nullptr,
+      [](mpz_t& temp, const char* c, const opt_public_key_t* pub, const int radix) {
+        mpz_set_str(temp, c, radix);
+      },
+      radix);
 }
 
-void data_retrieve_crt(char**& seq, const mpz_t pack, const CrtMod* crtmod, const size_t data_size,
+void data_retrieve_crt(char**& seq, const mpz_t& pack, const size_t data_size, const CrtMod* crtmod,
                        const opt_public_key_t* pub, const int radix) {
-  if (data_size > crtmod->crt_size) {
-    throw "size of packing is more than crt's";
-  }
-  seq = (char**)malloc(sizeof(char*) * data_size);
-  mpz_t cur;
-  mpz_init(cur);
-  for (size_t i = 0; i < data_size; ++i) {
-    seq[i] = nullptr;
-    mpz_mod(cur, pack, crtmod->crt_mod[i]);
-    if (mpz_cmp(cur, crtmod->crt_half_mod[i]) >= 0) {
-      mpz_sub(cur, cur, crtmod->crt_mod[i]);
-    }
-    opt_paillier_get_plaintext(seq[i], cur, pub, radix);
-  }
-  mpz_clear(cur);
+  data_retrieve_crt_t<char*>(
+      seq, pack, data_size, crtmod, pub,
+      [&](char*& p, const mpz_t& t, const opt_public_key_t* pub, const int radix) {
+        opt_paillier_get_plaintext(p, t, pub, radix);
+      },
+      radix);
 }
 
 void free_crt(CrtMod* crtmod) {

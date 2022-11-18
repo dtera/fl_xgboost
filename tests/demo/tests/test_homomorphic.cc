@@ -16,7 +16,7 @@
 using namespace std;
 using namespace fl::he;
 
-uint32_t len = 1000;
+uint32_t len = 100;
 mpz_t *mpz_plains = new mpz_t[len];
 mpz_t *mpz_ciphers = new mpz_t[len];
 mpz_t *mpz_res = new mpz_t[len];
@@ -235,17 +235,21 @@ TEST(demo, opt_paillier_data_pack) {
   init_crt(&crtmod, data_size, mapTo_nbits_lbits[bitLength].second);
   char **nums;
   char **test;
+  double *nums_d = new double[data_size];
+  double *test_d = new double[data_size];
   nums = (char **)malloc(sizeof(char *) * data_size);
   for (int i = 0; i < len; ++i) {
     for (int j = 0; j < data_size; ++j) {
       nums[j] = new char[32];
-      auto t = to_string(u(e));
+      auto ue = u(e);
+      auto t = to_string(ue);
+      nums_d[j] = 1.0 * ue / 1000;
       move(t.begin(), t.end(), nums[j]);
     }
     data_packing_crt(mpz_temp, nums, data_size, crtmod);
     opt_paillier_encrypt(mpz_cipher_test, mpz_temp, pub, pri);
     opt_paillier_decrypt(mpz_decrypt_test, mpz_cipher_test, pub, pri);
-    data_retrieve_crt(test, mpz_decrypt_test, crtmod, data_size, pub);
+    data_retrieve_crt(test, mpz_decrypt_test, data_size, crtmod, pub);
 
     char *o1, *o2;
     opt_paillier_get_plaintext(o1, mpz_temp, pub);
@@ -257,6 +261,22 @@ TEST(demo, opt_paillier_data_pack) {
       cout << "nums[" << j << "]: " << nums[j] << endl;
       cout << "test[" << j << "]: " << test[j] << endl;
       assert(0 == strcmp(test[j], nums[j]));
+    }
+
+    data_packing_crt_t<double>(mpz_temp, nums_d, data_size, crtmod, pub);
+    opt_paillier_encrypt(mpz_cipher_test, mpz_temp, pub, pri);
+    opt_paillier_decrypt(mpz_decrypt_test, mpz_cipher_test, pub, pri);
+    data_retrieve_crt_t<double>(test_d, mpz_decrypt_test, data_size, crtmod, pub);
+
+    opt_paillier_get_plaintext(o1, mpz_temp, pub);
+    cout << "====================================================" << endl;
+    cout << "pack: " << o1 << endl;
+    opt_paillier_get_plaintext(o2, mpz_decrypt_test, pub);
+    cout << "decrypt_pack: " << o2 << endl;
+    for (int j = 0; j < data_size; ++j) {
+      cout << "nums_d[" << j << "]: " << nums_d[j] << endl;
+      cout << "test_d[" << j << "]: " << test_d[j] << endl;
+      assert(abs(test_d[j] - nums_d[j]) < 0.000001);
     }
   }
 }
