@@ -34,7 +34,7 @@ link_libraries(${LINK_LIB})
 #list(APPEND CMAKE_PREFIX_PATH "/opt/homebrew/opt/grpc" "/opt/homebrew/opt/protobuf")
 
 # Cmake find modules
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/../../cmake/modules")
 
 # brew install grpc googletest helib libomp protobuf xgboost
 find_package(GRPC REQUIRED)
