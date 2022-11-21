@@ -5,9 +5,12 @@ set(CMAKE_CXX_STANDARD 17)
 
 set(CMAKE_LOCAL "${PROJECT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_LOCAL}/modules)
+#include(cmake/common.cmake)
 
 # Options
 option(USE_OPENMP "Build with OpenMP" ON)
+option(GRPC_FETCHCONTENT "GRPC FETCH CONTENT" ON)
+option(CMAKE_CROSSCOMPILING "CMAKE CROSS COMPILING" ON)
 
 file(GLOB_RECURSE SOURCES *.cc *.h)
 file(GLOB RM_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
@@ -20,6 +23,8 @@ find_package(GTest CONFIG REQUIRED)
 find_package(helib REQUIRED)
 find_package(OpenMP REQUIRED)
 find_package(Protobuf REQUIRED)
+find_package(Threads REQUIRED)
+find_package(OpenSSL)
 
 if (APPLE AND (NOT CMAKE_COMPILER_IS_GNUCC))
     # Require CMake 3.16+ for Mac to ensure that OpenMP can be located
@@ -38,15 +43,19 @@ if (NOT TARGET OpenMP::OpenMP_CXX)
 endif ()
 
 set(LIB_SUFFIX so)
-# openssl
-find_package(OpenSSL)
-if (APPLE AND (NOT OpenSSL_FOUND))
-    execute_process(COMMAND brew --prefix openssl
-            OUTPUT_VARIABLE HOMEBREW_OPENSSL_PREFIX
-            OUTPUT_STRIP_TRAILING_WHITESPACE)
-    include_directories(${HOMEBREW_OPENSSL_PREFIX}/include)
-    link_directories(${HOMEBREW_OPENSSL_PREFIX}/lib)
-    link_libraries(libcrypto.${LIB_SUFFIX} libssl.${LIB_SUFFIX})
+if (APPLE)
+    foreach (l openssl:libcrypto,libssl grpc:libgpr)
+        string(REGEX REPLACE "(.*)?:" "" libs ${l})
+        string(REGEX REPLACE "," ";" libs ${libs})
+        string(REGEX REPLACE ":(.*)?" "" ln ${l})
+        execute_process(COMMAND brew --prefix ${ln} OUTPUT_VARIABLE BREW_${ln}_PREFIX OUTPUT_STRIP_TRAILING_WHITESPACE)
+        include_directories(${BREW_${ln}_PREFIX}/include)
+        link_directories(${BREW_${ln}_PREFIX}/lib)
+        foreach (lib ${libs})
+            message(${lib})
+            link_libraries(${lib}.${LIB_SUFFIX})
+        endforeach ()
+    endforeach ()
 endif ()
 
 file(GLOB PROTOS proto/*.proto)
@@ -58,15 +67,26 @@ include_directories(./include ../src ${PROTO_GENERATED_DIR})
 
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
-target_link_libraries(${PROJECT_NAME}_lib gRPC::grpc++_reflection protobuf::libprotobuf OpenMP::OpenMP_CXX)
+target_link_libraries(${PROJECT_NAME}_lib protobuf::libprotobuf protobuf::libprotobuf-lite OpenMP::OpenMP_CXX
+        gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection)
 
+file(GLOB GRPC_SERVER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/*_server*.cc)
+file(GLOB GRPC_CLIENT_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/*_client*.cc)
 # Building grpc server
-add_executable(${PROJECT_NAME}_greeter_server ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/greeter_server.cc)
-target_link_libraries(${PROJECT_NAME}_greeter_server ${PROJECT_NAME}_lib)
+foreach (grpc_server_file ${GRPC_SERVER_FILES})
+    string(REPLACE ".cc" "" server_name ${grpc_server_file})
+    string(REGEX REPLACE "(.*)?/" "" server_name ${server_name})
+    add_executable(${PROJECT_NAME}_${server_name} ${grpc_server_file})
+    target_link_libraries(${PROJECT_NAME}_${server_name} ${PROJECT_NAME}_lib)
+endforeach ()
 
 # Building grpc client
-add_executable(${PROJECT_NAME}_greeter_client ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/greeter_client.cc)
-target_link_libraries(${PROJECT_NAME}_greeter_client ${PROJECT_NAME}_lib)
+foreach (grpc_client_file ${GRPC_CLIENT_FILES})
+    string(REPLACE ".cc" "" client_name ${grpc_client_file})
+    string(REGEX REPLACE "(.*)?/" "" client_name ${client_name})
+    add_executable(${PROJECT_NAME}_${client_name} ${grpc_client_file})
+    target_link_libraries(${PROJECT_NAME}_${client_name} ${PROJECT_NAME}_lib)
+endforeach ()
 
 # Building tests
 add_executable(${PROJECT_NAME}_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc)
