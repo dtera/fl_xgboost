@@ -12,7 +12,7 @@ option(USE_OPENMP "Build with OpenMP" ON)
 option(GRPC_FETCHCONTENT "GRPC FETCH CONTENT" ON)
 option(CMAKE_CROSSCOMPILING "CMAKE CROSS COMPILING" ON)
 
-file(GLOB_RECURSE SOURCES *.cpp *.cc *.h)
+file(GLOB_RECURSE SOURCES *.cpp *.cc *.h *.hpp)
 file(GLOB RM_SRCS src/comm/grpc/demo/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc)
 list(REMOVE_ITEM SOURCES ${RM_SRCS})
