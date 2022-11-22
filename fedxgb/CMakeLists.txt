@@ -3,7 +3,7 @@ cmake_minimum_required(VERSION 3.14)
 project(fedxgb VERSION 0.3 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 17)
 
-set(CMAKE_LOCAL "${PROJECT_SOURCE_DIR}/cmake")
+set(CMAKE_LOCAL "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 list(APPEND CMAKE_MODULE_PATH ${CMAKE_LOCAL}/modules)
 #include(cmake/common.cmake)
 
@@ -69,7 +69,7 @@ set(PROTO_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto-generated)
 file(MAKE_DIRECTORY ${PROTO_GENERATED_DIR})
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
-include_directories(./include ../src ${PROTO_GENERATED_DIR})
+include_directories(./include ./src ../src ${PROTO_GENERATED_DIR})
 
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
