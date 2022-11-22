@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package grpccomm;
+
+service MessageService {
+  rpc SendMessage (stream MessageRequest) returns (stream MessageResponse) {};
+}
+
+message MessageRequest {
+  MsgType msg_type = 1;
+}
+
+message MessageResponse {
+  MsgValue msg = 1;
+}
+
+enum MsgType {
+  GradPair = 0;
+  BestSplit = 1;
+}
+
+message MsgValue {
+  oneof type {
+    ScalaValue scala_msg = 1;
+    ListValue list_msg = 2;
+    StrKeyMapValue stringkey_map_msg = 3;
+    IntKeyMapValue intkey_map_msg = 4;
+  }
+}
+
+message ScalaValue {
+  oneof type {
+    float float_value = 1;
+    double double_value = 2;
+    int32 int_value = 3;
+    uint32 uint_value = 4;
+    int64 long_value = 5;
+    uint64 ulong_value = 6;
+    string str_value = 7;
+  }
+}
+
+message ListValue {
+  repeated MsgValue list_value = 1;
+}
+
+message StrKeyMapValue {
+  map<string, MsgValue> dict_value = 1;
+}
+
+message IntKeyMapValue {
+  map<int32, MsgValue> dict_value = 1;
+}

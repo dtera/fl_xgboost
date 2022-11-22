@@ -14,7 +14,7 @@ template <typename T>
 struct Message {
   MessageType msg_type = BestSplit;  // The type of message to trigger the corresponding handlers
   uint32_t sender = 0;               // The sender's ID
-  uint32_t receiver = 0;             // The receiver's ID
+  uint32_t receiver = 1;             // The receiver's ID
   uint32_t state = 0;                // The training round of the message
   T content;                         // The content of the message
   uint32_t timestamp = chrono::duration_cast<chrono::milliseconds>(
