@@ -13,7 +13,7 @@ option(GRPC_FETCHCONTENT "GRPC FETCH CONTENT" ON)
 option(CMAKE_CROSSCOMPILING "CMAKE CROSS COMPILING" ON)
 
 file(GLOB_RECURSE SOURCES *.cpp *.cc *.h)
-file(GLOB RM_SRCS ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
+file(GLOB RM_SRCS src/comm/grpc/demo/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc)
 list(REMOVE_ITEM SOURCES ${RM_SRCS})
 
@@ -70,8 +70,8 @@ target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS}
 target_link_libraries(${PROJECT_NAME}_lib protobuf::libprotobuf protobuf::libprotobuf-lite OpenMP::OpenMP_CXX
         gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection)
 
-file(GLOB GRPC_SERVER_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/*_server*.cc)
-file(GLOB GRPC_CLIENT_FILES ${CMAKE_CURRENT_SOURCE_DIR}/src/grpc/*_client*.cc)
+file(GLOB GRPC_SERVER_FILES src/comm/grpc/demo/*_server*.cc)
+file(GLOB GRPC_CLIENT_FILES src/comm/grpc/demo/*_client*.cc)
 # Building grpc server
 foreach (grpc_server_file ${GRPC_SERVER_FILES})
     string(REPLACE ".cc" "" server_name ${grpc_server_file})
