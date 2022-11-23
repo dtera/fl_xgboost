@@ -33,14 +33,17 @@ using namespace xgbcomm;
 class XgbServiceServer {
  private:
   XgbService::AsyncService service_;
-  unique_ptr<ServerCompletionQueue> cq_;
   unique_ptr<Server> server_;
-  ServerContext context_;
+  unique_ptr<ServerCompletionQueue> grad_cq_;
+  unique_ptr<ServerCompletionQueue> splits_cq_;
+  ServerContext grad_context_;
+  ServerContext splits_context_;
   GradPairsRequest grad_request_;
   SplitsRequest splits_request_;
   unique_ptr<ServerAsyncReaderWriter<GradPairsResponse, GradPairsRequest>> grad_stream_;
   unique_ptr<ServerAsyncReaderWriter<SplitsResponse, SplitsRequest>> splits_stream_;
-  unique_ptr<thread> grpc_thread_;
+  unique_ptr<thread> grad_thread_;
+  unique_ptr<thread> splits_thread_;
   bool is_running_ = true;
   string server_address_;
 
@@ -52,7 +55,9 @@ class XgbServiceServer {
 
   void AsyncSendResponse(XgbCommType t);
 
-  void GrpcThread();
+  void GradThread();
+
+  void SplitsThread();
 
  public:
   XgbServiceServer(const uint32_t port = 50001, const string& host = "0.0.0.0");

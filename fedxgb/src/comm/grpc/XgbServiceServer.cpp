@@ -48,54 +48,44 @@ void XgbServiceServer::setSplitsResponse(SplitsResponse& splitsResponse) {
   cout << "splits_request_: " << splits_request_.SerializeAsString() << endl;
 }
 
-void XgbServiceServer::GrpcThread() {
-  while (true) {
-    void* tag = nullptr;
-    bool ok = false;
-    if (!cq_->Next(&tag, &ok)) {
-      break;
-    }
-    if (ok) {
-      DEBUG << endl << "**** Processing completion queue tag " << tag << endl;
-      switch (static_cast<XgbCommType>(reinterpret_cast<size_t>(tag))) {
-        case XgbCommType::GRAD_CONNECT:
-          DEBUG << "Grad Service connected." << endl;
-          AsyncWaitForRequest(XgbCommType::GRAD_READ);
-          break;
-        case XgbCommType::GRAD_READ:
-          DEBUG << "Read grad pairs." << endl;
-          AsyncSendResponse(XgbCommType::GRAD_WRITE);
-          break;
-        case XgbCommType::GRAD_WRITE:
-          DEBUG << "Sending grad pairs(async)." << endl;
-          AsyncWaitForRequest(XgbCommType::GRAD_READ);
-          break;
-        case XgbCommType::SPLITS_CONNECT:
-          DEBUG << "Splits Service connected." << endl;
-          AsyncWaitForRequest(XgbCommType::SPLITS_READ);
-          break;
-        case XgbCommType::SPLITS_READ:
-          DEBUG << "Read splits." << endl;
-          AsyncSendResponse(XgbCommType::SPLITS_WRITE);
-          break;
-        case XgbCommType::SPLITS_WRITE:
-          DEBUG << "Sending splits(async)." << endl;
-          AsyncWaitForRequest(XgbCommType::SPLITS_READ);
-          break;
-        case XgbCommType::DONE:
-          DEBUG << "Server disconnecting." << endl;
-          is_running_ = false;
-          break;
-        case XgbCommType::FINISH:
-          DEBUG << "Server quit." << endl;
-          break;
-        default:
-          cerr << "Unexpected tag." << tag << endl;
-          //GPR_ASSERT(false);
-      }
-    }
+#define GrpcThread(t, TYPE)                                                          \
+  while (true) {                                                                     \
+    void* tag = nullptr;                                                             \
+    bool ok = false;                                                                 \
+    if (!t##_cq_->Next(&tag, &ok)) {                                                 \
+      break;                                                                         \
+    }                                                                                \
+    if (ok) {                                                                        \
+      DEBUG << endl << #t << "**** Processing completion queue tag " << tag << endl; \
+      switch (static_cast<XgbCommType>(reinterpret_cast<size_t>(tag))) {             \
+        case XgbCommType::TYPE##_CONNECT:                                            \
+          DEBUG << #t << " service connected." << endl;                              \
+          AsyncWaitForRequest(XgbCommType::TYPE##_READ);                             \
+          break;                                                                     \
+        case XgbCommType::TYPE##_READ:                                               \
+          DEBUG << #t << " read grad pairs." << endl;                                \
+          AsyncSendResponse(XgbCommType::TYPE##_WRITE);                              \
+          break;                                                                     \
+        case XgbCommType::TYPE##_WRITE:                                              \
+          DEBUG << #t << " sending grad pairs(async)." << endl;                      \
+          AsyncWaitForRequest(XgbCommType::TYPE##_READ);                             \
+          break;                                                                     \
+        case XgbCommType::DONE:                                                      \
+          DEBUG << #t << " server disconnecting." << endl;                           \
+          is_running_ = false;                                                       \
+          break;                                                                     \
+        case XgbCommType::FINISH:                                                    \
+          DEBUG << #t << " server quit." << endl;                                    \
+          break;                                                                     \
+        default:                                                                     \
+          cerr << #t << " unexpected tag." << tag << endl;                           \
+      }                                                                              \
+    }                                                                                \
   }
-}
+
+void XgbServiceServer::GradThread() { GrpcThread(grad, GRAD) }
+
+void XgbServiceServer::SplitsThread() { GrpcThread(splits, SPLITS) }
 
 bool XgbServiceServer::IsRunning() { return is_running_; }
 
@@ -103,28 +93,35 @@ void XgbServiceServer::Start() {
   ServerBuilder builder;
   builder.AddListeningPort(server_address_, grpc::InsecureServerCredentials());
   builder.RegisterService(&service_);
-  cq_ = builder.AddCompletionQueue();
+  grad_cq_ = builder.AddCompletionQueue();
+  splits_cq_ = builder.AddCompletionQueue();
   server_ = builder.BuildAndStart();
 
-  grad_stream_.reset(new ServerAsyncReaderWriter<GradPairsResponse, GradPairsRequest>(&context_));
-  service_.RequestGetEncriptedGradPairs(&context_, grad_stream_.get(), cq_.get(), cq_.get(),
+  grad_stream_.reset(
+      new ServerAsyncReaderWriter<GradPairsResponse, GradPairsRequest>(&grad_context_));
+  service_.RequestGetEncriptedGradPairs(&grad_context_, grad_stream_.get(), grad_cq_.get(),
+                                        grad_cq_.get(),
                                         reinterpret_cast<void*>(XgbCommType::GRAD_CONNECT));
 
-  splits_stream_.reset(new ServerAsyncReaderWriter<SplitsResponse, SplitsRequest>(&context_));
-  service_.RequestGetSplits(&context_, splits_stream_.get(), cq_.get(), cq_.get(),
-                            reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
+  splits_stream_.reset(
+      new ServerAsyncReaderWriter<SplitsResponse, SplitsRequest>(&splits_context_));
+  service_.RequestGetSplits(&splits_context_, splits_stream_.get(), splits_cq_.get(),
+                            splits_cq_.get(), reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
 
   // This is important as the server should know when the client is done.
-  context_.AsyncNotifyWhenDone(reinterpret_cast<void*>(XgbCommType::DONE));
-  grpc_thread_.reset(new thread((bind(&XgbServiceServer::GrpcThread, this))));
+  grad_context_.AsyncNotifyWhenDone(reinterpret_cast<void*>(XgbCommType::DONE));
+  splits_context_.AsyncNotifyWhenDone(reinterpret_cast<void*>(XgbCommType::DONE));
+  grad_thread_.reset(new thread((bind(&XgbServiceServer::GradThread, this))));
+  splits_thread_.reset(new thread((bind(&XgbServiceServer::SplitsThread, this))));
 
   cout << "Server listening on " << server_address_ << endl;
 }
 
 void XgbServiceServer::Stop() {
-  is_running_ = false;
   cout << "Shutting down server...." << endl;
   server_->Shutdown();
-  cq_->Shutdown();
-  grpc_thread_->join();
+  grad_cq_->Shutdown();
+  grad_thread_->join();
+  splits_cq_->Shutdown();
+  splits_thread_->join();
 }

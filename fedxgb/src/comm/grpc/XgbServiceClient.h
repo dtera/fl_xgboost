@@ -31,27 +31,29 @@ using namespace xgbcomm;
 
 class XgbServiceClient {
  private:
-  ClientContext context_;
-  CompletionQueue cq_;
+  ClientContext grad_context_;
+  ClientContext splits_context_;
+  CompletionQueue grad_cq_;
+  CompletionQueue splits_cq_;
   unique_ptr<XgbService::Stub> stub_;
   unique_ptr<ClientAsyncReaderWriter<GradPairsRequest, GradPairsResponse>> grad_stream_;
   unique_ptr<ClientAsyncReaderWriter<SplitsRequest, SplitsResponse>> splits_stream_;
   GradPairsResponse grad_response_;
   SplitsResponse splits_response_;
-  unique_ptr<thread> grpc_thread_;
+  unique_ptr<thread> grad_thread_;
+  unique_ptr<thread> splits_thread_;
   grpc::Status finish_status_ = grpc::Status::OK;
-  string server_address_;
 
   void AsyncRequestNextMessage(XgbCommType t);
 
-  void GrpcThread();
+  void GradThread();
+
+  void SplitsThread();
 
  public:
   XgbServiceClient(const uint32_t port = 50001, const string& host = "0.0.0.0");
 
   bool AsyncReq(const uint32_t version, XgbCommType t = XgbCommType::GRAD_WRITE);
-
-  void Start(XgbCommType t);
 
   void Stop();
 };

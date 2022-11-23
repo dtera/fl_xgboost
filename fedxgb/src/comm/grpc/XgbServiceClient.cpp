@@ -7,7 +7,12 @@
 XgbServiceClient::XgbServiceClient(const uint32_t port, const string& host)
     : stub_(XgbService::NewStub(
           grpc::CreateChannel(host + ":" + to_string(port), grpc::InsecureChannelCredentials()))) {
-  grpc_thread_.reset(new thread(bind(&XgbServiceClient::GrpcThread, this)));
+  grad_thread_.reset(new thread(bind(&XgbServiceClient::GradThread, this)));
+  splits_thread_.reset(new thread(bind(&XgbServiceClient::SplitsThread, this)));
+  grad_stream_ = stub_->AsyncGetEncriptedGradPairs(
+      &grad_context_, &grad_cq_, reinterpret_cast<void*>(XgbCommType::GRAD_CONNECT));
+  splits_stream_ = stub_->AsyncGetSplits(&splits_context_, &splits_cq_,
+                                         reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
 }
 
 void XgbServiceClient::AsyncRequestNextMessage(XgbCommType t) {
@@ -24,48 +29,45 @@ void XgbServiceClient::AsyncRequestNextMessage(XgbCommType t) {
   }
 }
 
-void XgbServiceClient::GrpcThread() {
-  while (true) {
-    void* got_tag;
-    bool ok = false;
-    if (!cq_.Next(&got_tag, &ok)) {
-      cerr << "Client stream closed." << endl;
-      break;
-    }
-    if (ok) {
-      DEBUG << endl << "**** Processing completion queue tag " << got_tag << endl;
-      switch (static_cast<XgbCommType>(reinterpret_cast<long>(got_tag))) {
-        case XgbCommType::GRAD_CONNECT:
-        case XgbCommType::SPLITS_CONNECT:
-          DEBUG << "Server connected." << endl;
-          break;
-        case XgbCommType::GRAD_READ:
-        case XgbCommType::SPLITS_READ:
-          DEBUG << "Read a new message." << endl;
-          break;
-        case XgbCommType::GRAD_WRITE:
-          DEBUG << "Sending message(async)." << endl;
-          AsyncRequestNextMessage(XgbCommType::GRAD_READ);
-          break;
-        case XgbCommType::SPLITS_WRITE:
-          DEBUG << "Sending message(async)." << endl;
-          AsyncRequestNextMessage(XgbCommType::SPLITS_READ);
-          break;
-        case XgbCommType::DONE:
-          DEBUG << "Server disconnecting." << endl;
-          break;
-        case XgbCommType::FINISH:
-          DEBUG << "Client finish; status = " << (finish_status_.ok() ? "ok" : "cancelled") << endl;
-          context_.TryCancel();
-          cq_.Shutdown();
-          break;
-        default:
-          cerr << "Unexpected tag " << got_tag << endl;
-          //GPR_ASSERT(false);
-      }
-    }
+#define GrpcThread(t, TYPE)                                                                        \
+  while (true) {                                                                                   \
+    void* got_tag;                                                                                 \
+    bool ok = false;                                                                               \
+    if (!t##_cq_.Next(&got_tag, &ok)) {                                                            \
+      cerr << #t << " client stream closed." << endl;                                              \
+      break;                                                                                       \
+    }                                                                                              \
+    if (ok) {                                                                                      \
+      DEBUG << endl << #t << "**** Processing completion queue tag " << got_tag << endl;           \
+      switch (static_cast<XgbCommType>(reinterpret_cast<long>(got_tag))) {                         \
+        case XgbCommType::TYPE##_CONNECT:                                                          \
+          DEBUG << #t << " server connected." << endl;                                             \
+          break;                                                                                   \
+        case XgbCommType::TYPE##_READ:                                                             \
+          DEBUG << #t << " read a new message." << endl;                                           \
+          break;                                                                                   \
+        case XgbCommType::TYPE##_WRITE:                                                            \
+          DEBUG << #t << " sending message(async)." << endl;                                       \
+          AsyncRequestNextMessage(XgbCommType::TYPE##_READ);                                       \
+          break;                                                                                   \
+        case XgbCommType::DONE:                                                                    \
+          DEBUG << #t << " server disconnecting." << endl;                                         \
+          break;                                                                                   \
+        case XgbCommType::FINISH:                                                                  \
+          DEBUG << #t << " client finish; status = " << (finish_status_.ok() ? "ok" : "cancelled") \
+                << endl;                                                                           \
+          t##_context_.TryCancel();                                                                \
+          t##_cq_.Shutdown();                                                                      \
+          break;                                                                                   \
+        default:                                                                                   \
+          cerr << #t << " unexpected tag " << got_tag << endl;                                     \
+      }                                                                                            \
+    }                                                                                              \
   }
-}
+
+void XgbServiceClient::GradThread() { GrpcThread(grad, GRAD) }
+
+void XgbServiceClient::SplitsThread() { GrpcThread(splits, SPLITS) }
 
 bool XgbServiceClient::AsyncReq(const uint32_t version, XgbCommType t) {
   cout << "** Sending request: " << version << endl;
@@ -93,27 +95,12 @@ bool XgbServiceClient::AsyncReq(const uint32_t version, XgbCommType t) {
   return true;
 }
 
-void XgbServiceClient::Start(XgbCommType t) {
-  switch (t) {
-    case XgbCommType::GRAD_CONNECT:
-      grad_stream_ = stub_->AsyncGetEncriptedGradPairs(
-          &context_, &cq_, reinterpret_cast<void*>(XgbCommType::GRAD_CONNECT));
-      break;
-    case XgbCommType::SPLITS_CONNECT:
-      splits_stream_ = stub_->AsyncGetSplits(&context_, &cq_,
-                                             reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
-      break;
-    default:
-      LOG(FATAL) << "Unexpected type: " << static_cast<int>(t) << endl;
-      GPR_ASSERT(false);
-  }
-}
-
 void XgbServiceClient::Stop() {
   DEBUG << "Shutting down client...." << endl;
-  //grad_stream_->WritesDone(reinterpret_cast<void*>(XgbCommType::DONE));
-  //splits_stream_->WritesDone(reinterpret_cast<void*>(XgbCommType::DONE));
-  grpc::Status status;
-  cq_.Shutdown();
-  grpc_thread_->join();
+  // grad_stream_->WritesDone(reinterpret_cast<void*>(XgbCommType::DONE));
+  // splits_stream_->WritesDone(reinterpret_cast<void*>(XgbCommType::DONE));
+  grad_cq_.Shutdown();
+  grad_thread_->join();
+  splits_cq_.Shutdown();
+  splits_thread_->join();
 }

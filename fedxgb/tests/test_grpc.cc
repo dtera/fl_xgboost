@@ -3,24 +3,24 @@
 //
 #include <gtest/gtest.h>
 
-#include "comm/grpc/XgbServiceServer.h"
-#include "comm/grpc/XgbServiceClient.h"
 #include "comm/grpc/GRPCComm.hpp"
+#include "comm/grpc/XgbServiceClient.h"
+#include "comm/grpc/XgbServiceServer.h"
 
 using namespace std;
 
 TEST(grpc, xgb_server) {
   XgbServiceServer server;
   server.Start();
-  while (server.IsRunning()) {}
-  //sleep(1);
+  while (server.IsRunning()) {
+  }
+  // sleep(1);
   server.Stop();
 }
 
 TEST(grpc, xgb_client) {
   XgbServiceClient client;
-  client.Start(XgbCommType::GRAD_CONNECT);
-  sleep(2);
+  sleep(1);
   client.AsyncReq(133);
   sleep(1);
   client.AsyncReq(0);
@@ -42,7 +42,7 @@ TEST(grpc, client) {
   Message<float>* message = nullptr;
   grpcClient.AsyncSendMessage(MsgType::BestSplit);
   grpcClient.receive<float>(message, [&](float& t, const grpccomm::ListValue& listValue) {
-    cout<< "listValue: " << listValue.SerializeAsString() << endl;
+    cout << "listValue: " << listValue.SerializeAsString() << endl;
     for (int i = 0; i < listValue.list_value_size(); ++i) {
       cout << listValue.list_value(i).scala_msg().float_value() << endl;
     }
