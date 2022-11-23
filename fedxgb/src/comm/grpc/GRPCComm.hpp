@@ -35,7 +35,7 @@ using grpccomm::MsgType;
 
 using namespace dmlc;
 
-enum class Type { READ = 1, WRITE = 2, CONNECT = 3, DONE = 4, FINISH = 5 };
+enum class CommType { READ = 1, WRITE = 2, CONNECT = 3, DONE = 4, FINISH = 5 };
 
 template <class T>
 class GRPCServer {
@@ -48,31 +48,26 @@ class GRPCServer {
   unique_ptr<ServerAsyncReaderWriter<MessageResponse, MessageRequest>> stream_;
   unique_ptr<thread> grpc_thread_;
   bool is_running_ = true;
-  unordered_map<string, shared_ptr<queue<Message<T>>>> msg_buf_;
-  function<void(grpccomm::ScalaValue*, const T)>* map_scala_val_;
+  unordered_map<uint32_t, Message<T>> msg_buf_;
+  function<void(grpccomm::ListValue*, const T)> map_list_val_;
 
   void AsyncWaitForRequest() {
     if (is_running_) {
-      stream_->Read(&request_, reinterpret_cast<void*>(Type::READ));
+      stream_->Read(&request_, reinterpret_cast<void*>(CommType::READ));
     }
   }
 
   void AsyncSendResponse() {
     MessageResponse response;
-    auto msgType = grpccomm::MsgType_Name(request_.msg_type());
-    while (msg_buf_.count(msgType) == 0) {
+    while (msg_buf_.count(request_.msg_type()) == 0) {
     }  // wait for such message
 
-    shared_ptr<queue<Message<T>>> q = msg_buf_[msgType];
+    Message<T> m = msg_buf_[request_.msg_type()];
     auto msg = response.mutable_msg();
-    while (!q->empty()) {
-      auto m = q->front();
-      auto v = msg->mutable_list_msg()->add_list_value();
-      *map_scala_val_(v->mutable_scala_msg(), m.content);
-      q->pop();
-    }
+    // map_list_val_(msg->mutable_list_msg(), m.content);
+    msg->mutable_scala_msg()->set_float_value(m.content);
 
-    stream_->Write(response, reinterpret_cast<void*>(Type::WRITE));
+    stream_->Write(response, reinterpret_cast<void*>(CommType::WRITE));
   }
 
   void GrpcThread() {
@@ -80,29 +75,29 @@ class GRPCServer {
       void* tag = nullptr;
       bool ok = false;
       if (!cq_->Next(&tag, &ok)) {
-        LOG(FATAL) << "Server stream closed.";
+        // LOG(FATAL) << "Server stream closed.";
         break;
       }
       if (ok) {
         LOG(DEBUG) << endl << "**** Processing completion queue tag " << tag << endl;
-        switch (static_cast<Type>(reinterpret_cast<size_t>(tag))) {
-          case Type::READ:
+        switch (static_cast<CommType>(reinterpret_cast<size_t>(tag))) {
+          case CommType::READ:
             LOG(DEBUG) << "Read a new message." << endl;
             AsyncSendResponse();
             break;
-          case Type::WRITE:
+          case CommType::WRITE:
             LOG(DEBUG) << "Sending message(async)." << endl;
             AsyncWaitForRequest();
             break;
-          case Type::CONNECT:
+          case CommType::CONNECT:
             LOG(DEBUG) << "Client connected." << endl;
             AsyncWaitForRequest();
             break;
-          case Type::DONE:
+          case CommType::DONE:
             LOG(DEBUG) << "Server disconnecting." << endl;
             is_running_ = false;
             break;
-          case Type::FINISH:
+          case CommType::FINISH:
             LOG(DEBUG) << "Server quit." << endl;
             break;
           default:
@@ -125,20 +120,24 @@ class GRPCServer {
 
     stream_.reset(new ServerAsyncReaderWriter<MessageResponse, MessageRequest>(&context_));
     service_.RequestSendMessage(&context_, stream_.get(), cq_.get(), cq_.get(),
-                                reinterpret_cast<void*>(Type::CONNECT));
+                                reinterpret_cast<void*>(CommType::CONNECT));
 
     // This is important as the server should know when the client is done.
-    context_.AsyncNotifyWhenDone(reinterpret_cast<void*>(Type::DONE));
+    context_.AsyncNotifyWhenDone(reinterpret_cast<void*>(CommType::DONE));
 
     grpc_thread_.reset(new thread((bind(&GRPCServer::GrpcThread, this))));
     cout << "Server listening on " << server_address << endl;
   }
 
-  void setMapScalaValFun(function<void(grpccomm::ScalaValue*, const T)>* f) { map_scala_val_ = f; }
+  void send(Message<T>& msg) { msg_buf_.insert({msg.msg_type, msg}); }
+
+  void setMapScalaValFun(function<void(grpccomm::ListValue*, const T)>& f) { map_list_val_ = f; }
+
+  bool IsRunning() { return is_running_; }
 
   void close() {
     cout << "Shutting down server...." << endl;
-    stream_->Finish(grpc::Status::CANCELLED, reinterpret_cast<void*>(Type::FINISH));
+    // stream_->Finish(grpc::Status::CANCELLED, reinterpret_cast<void*>(CommType::FINISH));
     server_->Shutdown();
     // Always shutdown the completion queue after the server.
     cq_->Shutdown();
@@ -147,37 +146,9 @@ class GRPCServer {
 };
 
 class GRPCClient {
- public:
-  explicit GRPCClient(shared_ptr<Channel> channel) : stub_(MessageService::NewStub(channel)) {
-    grpc_thread_.reset(new thread(bind(&GRPCClient::GrpcThread, this)));
-    stream_ = stub_->AsyncSendMessage(&context_, &cq_, reinterpret_cast<void*>(Type::CONNECT));
-  }
-
-  bool AsyncSendMessage(const string& msgType) {
-    if (msgType == "quit") {
-      stream_->WritesDone(reinterpret_cast<void*>(Type::DONE));
-      return false;
-    }
-
-    // TODO: Data we are sending to the server.
-    MessageRequest request;
-
-    cout << " ** Sending request: " << msgType << endl;
-    stream_->Write(request, reinterpret_cast<void*>(Type::WRITE));
-    return true;
-  }
-
-  ~GRPCClient() {
-    cout << "Shutting down client...." << endl;
-    grpc::Status status;
-    cq_.Shutdown();
-    grpc_thread_->join();
-  }
-
  private:
   void AsyncRequestNextMessage() {
-    // TODO:
-    stream_->Read(&response_, reinterpret_cast<void*>(Type::READ));
+    stream_->Read(&response_, reinterpret_cast<void*>(CommType::READ));
   }
 
   void GrpcThread() {
@@ -185,33 +156,33 @@ class GRPCClient {
       void* got_tag;
       bool ok = false;
       if (!cq_.Next(&got_tag, &ok)) {
-        cerr << "Client stream closed. Quitting" << endl;
+        // LOG(FATAL) << "Client stream closed." << endl;
         break;
       }
       if (ok) {
-        cout << endl << "**** Processing completion queue tag " << got_tag << endl;
-        switch (static_cast<Type>(reinterpret_cast<long>(got_tag))) {
-          case Type::READ:
-            cout << "Read a new message." << endl;
+        LOG(DEBUG) << endl << "**** Processing completion queue tag " << got_tag << endl;
+        switch (static_cast<CommType>(reinterpret_cast<long>(got_tag))) {
+          case CommType::READ:
+            LOG(DEBUG) << "Read a new message." << endl;
             break;
-          case Type::WRITE:
-            cout << "Sending message (async)." << endl;
+          case CommType::WRITE:
+            LOG(DEBUG) << "Sending message(async)." << endl;
             AsyncRequestNextMessage();
             break;
-          case Type::CONNECT:
-            cout << "Server connected." << endl;
+          case CommType::CONNECT:
+            LOG(DEBUG) << "Server connected." << endl;
             break;
-          case Type::DONE:
-            cout << "Server disconnecting." << endl;
+          case CommType::DONE:
+            LOG(DEBUG) << "Server disconnecting." << endl;
             break;
-          case Type::FINISH:
-            cout << "Client finish; status = " << (finish_status_.ok() ? "ok" : "cancelled")
-                 << endl;
+          case CommType::FINISH:
+            LOG(DEBUG) << "Client finish; status = " << (finish_status_.ok() ? "ok" : "cancelled")
+                       << endl;
             context_.TryCancel();
             cq_.Shutdown();
             break;
           default:
-            cerr << "Unexpected tag " << got_tag << endl;
+            LOG(FATAL) << "Unexpected tag " << got_tag << endl;
             GPR_ASSERT(false);
         }
       }
@@ -225,17 +196,49 @@ class GRPCClient {
   MessageResponse response_;
   unique_ptr<thread> grpc_thread_;
   grpc::Status finish_status_ = grpc::Status::OK;
+
+ public:
+  explicit GRPCClient(const uint32_t port = 50001, const string& host = "0.0.0.0")
+      : stub_(MessageService::NewStub(grpc::CreateChannel(host + ":" + to_string(port),
+                                                          grpc::InsecureChannelCredentials()))) {
+    grpc_thread_.reset(new thread(bind(&GRPCClient::GrpcThread, this)));
+    stream_ = stub_->AsyncSendMessage(&context_, &cq_, reinterpret_cast<void*>(CommType::CONNECT));
+  }
+
+  template <class T>
+  void receive(Message<T>* msg, function<void(T&, const grpccomm::ListValue&)> map_list_val_) {
+    auto list = response_.msg().list_msg();
+    auto sm = make_shared<Message<T>>();
+    msg = sm.get();
+    map_list_val_(msg->content, list);
+  }
+
+  bool AsyncSendMessage(const MsgType& msgType) {
+    // Data we are sending to the server.
+    MessageRequest request;
+    request.set_msg_type(msgType);
+
+    LOG(DEBUG) << " ** Sending request: " << grpccomm::MsgType_Name(msgType) << endl;
+    stream_->Write(request, reinterpret_cast<void*>(CommType::WRITE));
+    return true;
+  }
+
+  void close() {
+    LOG(DEBUG) << "Shutting down client...." << endl;
+    stream_->WritesDone(reinterpret_cast<void*>(CommType::DONE));
+    grpc::Status status;
+    cq_.Shutdown();
+    grpc_thread_->join();
+  }
 };
 
 template <class T>
 class GRPCComm : public BaseComm<T> {
  private:
-  queue<Message<T>> msg_buf_;
-
  public:
   GRPCComm(const uint32_t port = 50001, const string& host = "0.0.0.0");
   void send(const Message<T>& msg);
-  void reveive(Message<T>* msg);
+  void receive(Message<T>* msg);
   void close();
 };
 
@@ -243,12 +246,10 @@ template <class T>
 GRPCComm<T>::GRPCComm(const uint32_t port, const string& host) {}
 
 template <class T>
-void GRPCComm<T>::send(const Message<T>& msg) {
-  msg_buf_.push(msg);
-}
+void GRPCComm<T>::send(const Message<T>& msg) {}
 
 template <class T>
-void GRPCComm<T>::reveive(Message<T>* msg) {}
+void GRPCComm<T>::receive(Message<T>* msg) {}
 
 template <class T>
 void GRPCComm<T>::close() {}

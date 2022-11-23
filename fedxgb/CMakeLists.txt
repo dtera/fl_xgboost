@@ -98,6 +98,7 @@ endforeach ()
 add_executable(${PROJECT_NAME}_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc)
 target_link_libraries(${PROJECT_NAME}_tests ${PROJECT_NAME}_lib
         helib
+        objxgboost
         GTest::gtest GTest::gtest_main GTest::gmock GTest::gmock_main
         )
 file(GLOB_RECURSE TEST_SOURCES "tests/test_*.cc")

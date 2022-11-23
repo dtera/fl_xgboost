@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package grpccomm;
 
+// ========================================MessageService BEGIN========================================
 service MessageService {
   rpc SendMessage (stream MessageRequest) returns (stream MessageResponse) {};
 }
@@ -51,3 +52,4 @@ message StrKeyMapValue {
 message IntKeyMapValue {
   map<int32, MsgValue> dict_value = 1;
 }
+// ========================================MessageService END==========================================

@@ -27,7 +27,7 @@ template <typename T>
 class BaseComm {
   virtual void send(const Message<T>& msg) = 0;
 
-  virtual void reveive(Message<T>* msg) = 0;
+  virtual void receive(Message<T>* msg) = 0;
 
   virtual void close() = 0;
 };

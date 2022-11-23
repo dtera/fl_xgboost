@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+option java_multiple_files = true;
+option java_package = "dmlc.federated.xgboost";
+option java_outer_classname = "XGBProto";
+option objc_class_prefix = "XGB";
+
+package xgbcomm;
+
+service XgbService {
+  rpc GetEncriptedGradPairs (stream GradPairsRequest) returns (stream GradPairsResponse) {}
+  rpc GetSplits (stream SplitsRequest) returns (stream SplitsResponse) {}
+}
+
+message GradPairsRequest {
+  uint32 version = 1;
+}
+
+message GradPairsResponse {
+  uint32 version = 1;
+  repeated MpzType mpz_t = 2;
+}
+
+message SplitsRequest {
+  uint32 version = 1;
+}
+
+message SplitsResponse {
+  uint32 version = 1;
+  repeated EncriptedSplit encriptedSplit = 2;
+}
+
+message EncriptedSplit {
+  string mask_id = 1;
+  MpzType mpz_t = 2;
+}
+
+message MpzType {
+  /* Number of *limbs* allocated and pointed to by the _mp_d field.  */
+  int32 _mp_alloc = 1;
+  /* abs(_mp_size) is the number of limbs the last field points to.
+     If _mp_size is negative this is a negative number.  */
+  int32 _mp_size = 2;
+  /* Pointer to the limbs.  */
+  repeated uint64 _mp_d = 3;
+}
