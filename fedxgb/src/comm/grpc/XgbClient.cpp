@@ -2,17 +2,17 @@
 // Created by HqZhao on 2022/11/23.
 //
 
-#include "XgbServiceAsyncClient.h"
+#include "XgbClient.h"
 
 XgbServiceAsyncClient::XgbServiceAsyncClient(const uint32_t port, const string& host)
     : stub_(XgbService::NewStub(
           grpc::CreateChannel(host + ":" + to_string(port), grpc::InsecureChannelCredentials()))) {
   grad_thread_.reset(new thread(bind(&XgbServiceAsyncClient::GradThread, this)));
   splits_thread_.reset(new thread(bind(&XgbServiceAsyncClient::SplitsThread, this)));
-  grad_stream_ = stub_->AsyncGetEncriptedGradPairs(
+  grad_stream_ = stub_->AsyncGetEncriptedGradPairs_(
       &grad_context_, &grad_cq_, reinterpret_cast<void*>(XgbCommType::GRAD_CONNECT));
-  splits_stream_ = stub_->AsyncGetSplits(&splits_context_, &splits_cq_,
-                                         reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
+  splits_stream_ = stub_->AsyncGetEncriptedSplits_(
+      &splits_context_, &splits_cq_, reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
   this_thread::sleep_for(chrono::microseconds(520));
 }
 
@@ -106,3 +106,33 @@ void XgbServiceAsyncClient::Stop() {
   splits_cq_.Shutdown();
   splits_thread_->join();
 }
+
+//=================================XgbServiceClient Begin=================================
+XgbServiceClient::XgbServiceClient(const uint32_t port, const string& host)
+    : stub_(XgbService::NewStub(
+          grpc::CreateChannel(host + ":" + to_string(port), grpc::InsecureChannelCredentials()))) {}
+
+#define GetRpcRes(ReqType, processResStatments)                                               \
+  ReqType##Request request;                                                                   \
+  request.set_version(version);                                                               \
+                                                                                              \
+  ClientContext context;                                                                      \
+  auto status = stub_->GetEncripted##ReqType(&context, request, response);                    \
+  if (status.ok()) {                                                                          \
+    processResStatments                                                                       \
+  } else {                                                                                    \
+    cerr << "code: " << status.error_code() << ", error: " << status.error_message() << endl; \
+  }
+
+void XgbServiceClient::GetEncriptedGradPairs(const uint32_t& version, GradPairsResponse* response) {
+  GetRpcRes(GradPairs, {
+
+                       })
+}
+
+void XgbServiceClient::GetEncriptedSplits(const uint32_t& version, SplitsResponse* response) {
+  GetRpcRes(Splits, {
+
+                    })
+}
+//=================================XgbServiceClient End===================================

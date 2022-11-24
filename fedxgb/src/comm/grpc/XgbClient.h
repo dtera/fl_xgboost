@@ -51,9 +51,23 @@ class XgbServiceAsyncClient {
   void SplitsThread();
 
  public:
-  XgbServiceAsyncClient(const uint32_t port = 50001, const string& host = "0.0.0.0");
+  XgbServiceAsyncClient(const uint32_t port = 50001, const string &host = "0.0.0.0");
 
   bool AsyncReq(const uint32_t version, XgbCommType t = XgbCommType::GRAD_WRITE);
 
   void Stop();
 };
+
+//=================================XgbServiceClient Begin=================================
+class XgbServiceClient {
+ private:
+  std::unique_ptr<XgbService::Stub> stub_;
+
+ public:
+  XgbServiceClient(const uint32_t port = 50001, const string &host = "0.0.0.0");
+
+  void GetEncriptedGradPairs(const uint32_t &version, GradPairsResponse *response);
+
+  void GetEncriptedSplits(const uint32_t &version, SplitsResponse *response);
+};
+//=================================XgbServiceClient End===================================

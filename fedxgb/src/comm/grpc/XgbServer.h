@@ -20,6 +20,7 @@ using grpc::ServerAsyncReaderWriter;
 using grpc::ServerBuilder;
 using grpc::ServerCompletionQueue;
 using grpc::ServerContext;
+using grpc::ServerReaderWriter;
 using grpc::Status;
 using xgbcomm::GradPairsRequest;
 using xgbcomm::GradPairsResponse;
@@ -47,9 +48,9 @@ class XgbServiceAsyncServer {
   bool is_running_ = true;
   string server_address_;
 
-  void setGradPairsResponse(GradPairsResponse& gradPairsResponse);
+  void setGradPairsResponse(GradPairsResponse &gradPairsResponse);
 
-  void setSplitsResponse(SplitsResponse& splitsResponse);
+  void setSplitsResponse(SplitsResponse &splitsResponse);
 
   void AsyncWaitForRequest(XgbCommType t);
 
@@ -62,9 +63,31 @@ class XgbServiceAsyncServer {
   void Start();
 
  public:
-  XgbServiceAsyncServer(const uint32_t port = 50001, const string& host = "0.0.0.0");
+  XgbServiceAsyncServer(const uint32_t port = 50001, const string &host = "0.0.0.0");
 
   bool IsRunning();
 
   void Stop();
 };
+
+//=================================XgbServiceServer Begin=================================
+class XgbServiceServer final : public XgbService::Service {
+ private:
+  string server_address_;
+  unique_ptr<thread> xgb_thread_;
+  unique_ptr<Server> server_;
+
+ public:
+  XgbServiceServer(const uint32_t port = 50001, const string &host = "0.0.0.0");
+
+  void Run();
+
+  void Shutdown();
+
+  Status GetEncriptedGradPairs(ServerContext *context, const GradPairsRequest *request,
+                               GradPairsResponse *response) override;
+
+  Status GetEncriptedSplits(ServerContext *context, const SplitsRequest *request,
+                            SplitsResponse *response) override;
+};
+//=================================XgbServiceServer End===================================

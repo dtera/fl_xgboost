@@ -8,8 +8,10 @@ option objc_class_prefix = "XGB";
 package xgbcomm;
 
 service XgbService {
-  rpc GetEncriptedGradPairs (stream GradPairsRequest) returns (stream GradPairsResponse) {}
-  rpc GetSplits (stream SplitsRequest) returns (stream SplitsResponse) {}
+  rpc GetEncriptedGradPairs_ (stream GradPairsRequest) returns (stream GradPairsResponse) {}
+  rpc GetEncriptedSplits_ (stream SplitsRequest) returns (stream SplitsResponse) {}
+  rpc GetEncriptedGradPairs (GradPairsRequest) returns (GradPairsResponse) {}
+  rpc GetEncriptedSplits (SplitsRequest) returns (SplitsResponse) {}
 }
 
 message GradPairsRequest {

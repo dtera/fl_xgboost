@@ -2,7 +2,7 @@
 // Created by HqZhao on 2022/11/23.
 //
 
-#include "XgbServiceAsyncServer.h"
+#include "XgbServer.h"
 
 XgbServiceAsyncServer::XgbServiceAsyncServer(const uint32_t port, const string& host)
     : server_address_(host + ":" + to_string(port)) {
@@ -19,14 +19,15 @@ void XgbServiceAsyncServer::Start() {
 
   grad_stream_.reset(
       new ServerAsyncReaderWriter<GradPairsResponse, GradPairsRequest>(&grad_context_));
-  service_.RequestGetEncriptedGradPairs(&grad_context_, grad_stream_.get(), grad_cq_.get(),
-                                        grad_cq_.get(),
-                                        reinterpret_cast<void*>(XgbCommType::GRAD_CONNECT));
+  service_.RequestGetEncriptedGradPairs_(&grad_context_, grad_stream_.get(), grad_cq_.get(),
+                                         grad_cq_.get(),
+                                         reinterpret_cast<void*>(XgbCommType::GRAD_CONNECT));
 
   splits_stream_.reset(
       new ServerAsyncReaderWriter<SplitsResponse, SplitsRequest>(&splits_context_));
-  service_.RequestGetSplits(&splits_context_, splits_stream_.get(), splits_cq_.get(),
-                            splits_cq_.get(), reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
+  service_.RequestGetEncriptedSplits_(&splits_context_, splits_stream_.get(), splits_cq_.get(),
+                                      splits_cq_.get(),
+                                      reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
 
   // This is important as the server should know when the client is done.
   grad_context_.AsyncNotifyWhenDone(reinterpret_cast<void*>(XgbCommType::DONE));
@@ -129,3 +130,42 @@ void XgbServiceAsyncServer::Stop() {
   splits_cq_->Shutdown();
   splits_thread_->join();
 }
+
+//=================================XgbServiceServer Begin=================================
+XgbServiceServer::XgbServiceServer(const uint32_t port, const string& host)
+    : server_address_(host + ":" + to_string(port)) {
+  xgb_thread_.reset(new thread((bind(&XgbServiceServer::Run, this))));
+}
+
+void XgbServiceServer::Run() {
+  grpc::EnableDefaultHealthCheckService(true);
+  grpc::reflection::InitProtoReflectionServerBuilderPlugin();
+  ServerBuilder builder;
+  // Listen on the given address without any authentication mechanism.
+  builder.AddListeningPort(server_address_, grpc::InsecureServerCredentials());
+  // Register "service" as the instance through which we'll communicate with
+  // clients. In this case it corresponds to an *synchronous* service.
+  builder.RegisterService(this);
+  // Finally assemble the server.
+  server_ = builder.BuildAndStart();
+  cout << "Server listening on " << server_address_ << endl;
+  server_->Wait();
+}
+
+void XgbServiceServer::Shutdown() {
+  server_->Shutdown();
+  xgb_thread_->join();
+}
+
+Status XgbServiceServer::GetEncriptedGradPairs(ServerContext* context,
+                                               const GradPairsRequest* request,
+                                               GradPairsResponse* response) {
+  response->set_version(request->version());
+  return Status::OK;
+}
+Status XgbServiceServer::GetEncriptedSplits(ServerContext* context, const SplitsRequest* request,
+                                            SplitsResponse* response) {
+  response->set_version(request->version());
+  return Status::OK;
+}
+//=================================XgbServiceServer End===================================
