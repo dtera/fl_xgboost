@@ -30,7 +30,7 @@ using xgbcomm::XgbService;
 using namespace std;
 using namespace xgbcomm;
 
-class XgbServiceServer {
+class XgbServiceAsyncServer {
  private:
   XgbService::AsyncService service_;
   unique_ptr<Server> server_;
@@ -59,12 +59,12 @@ class XgbServiceServer {
 
   void SplitsThread();
 
+  void Start();
+
  public:
-  XgbServiceServer(const uint32_t port = 50001, const string& host = "0.0.0.0");
+  XgbServiceAsyncServer(const uint32_t port = 50001, const string& host = "0.0.0.0");
 
   bool IsRunning();
-
-  void Start();
 
   void Stop();
 };

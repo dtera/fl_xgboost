@@ -29,7 +29,7 @@ using xgbcomm::XgbService;
 using namespace std;
 using namespace xgbcomm;
 
-class XgbServiceClient {
+class XgbServiceAsyncClient {
  private:
   ClientContext grad_context_;
   ClientContext splits_context_;
@@ -51,7 +51,7 @@ class XgbServiceClient {
   void SplitsThread();
 
  public:
-  XgbServiceClient(const uint32_t port = 50001, const string& host = "0.0.0.0");
+  XgbServiceAsyncClient(const uint32_t port = 50001, const string& host = "0.0.0.0");
 
   bool AsyncReq(const uint32_t version, XgbCommType t = XgbCommType::GRAD_WRITE);
 

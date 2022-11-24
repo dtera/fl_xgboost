@@ -2,20 +2,21 @@
 // Created by HqZhao on 2022/11/23.
 //
 
-#include "XgbServiceClient.h"
+#include "XgbServiceAsyncClient.h"
 
-XgbServiceClient::XgbServiceClient(const uint32_t port, const string& host)
+XgbServiceAsyncClient::XgbServiceAsyncClient(const uint32_t port, const string& host)
     : stub_(XgbService::NewStub(
           grpc::CreateChannel(host + ":" + to_string(port), grpc::InsecureChannelCredentials()))) {
-  grad_thread_.reset(new thread(bind(&XgbServiceClient::GradThread, this)));
-  splits_thread_.reset(new thread(bind(&XgbServiceClient::SplitsThread, this)));
+  grad_thread_.reset(new thread(bind(&XgbServiceAsyncClient::GradThread, this)));
+  splits_thread_.reset(new thread(bind(&XgbServiceAsyncClient::SplitsThread, this)));
   grad_stream_ = stub_->AsyncGetEncriptedGradPairs(
       &grad_context_, &grad_cq_, reinterpret_cast<void*>(XgbCommType::GRAD_CONNECT));
   splits_stream_ = stub_->AsyncGetSplits(&splits_context_, &splits_cq_,
                                          reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
+  this_thread::sleep_for(chrono::microseconds(520));
 }
 
-void XgbServiceClient::AsyncRequestNextMessage(XgbCommType t) {
+void XgbServiceAsyncClient::AsyncRequestNextMessage(XgbCommType t) {
   switch (t) {
     case XgbCommType::GRAD_READ:
       grad_stream_->Read(&grad_response_, reinterpret_cast<void*>(XgbCommType::GRAD_READ));
@@ -65,12 +66,12 @@ void XgbServiceClient::AsyncRequestNextMessage(XgbCommType t) {
     }                                                                                              \
   }
 
-void XgbServiceClient::GradThread() { GrpcThread(grad, GRAD) }
+void XgbServiceAsyncClient::GradThread() { GrpcThread(grad, GRAD) }
 
-void XgbServiceClient::SplitsThread() { GrpcThread(splits, SPLITS) }
+void XgbServiceAsyncClient::SplitsThread() { GrpcThread(splits, SPLITS) }
 
-bool XgbServiceClient::AsyncReq(const uint32_t version, XgbCommType t) {
-  cout << "** Sending request: " << version << endl;
+bool XgbServiceAsyncClient::AsyncReq(const uint32_t version, XgbCommType t) {
+  cout << "** request: " << version << ", grad.version: " << grad_response_.version() << endl;
   if (t == XgbCommType::GRAD_WRITE) {
     if (version == 0) {
       grad_stream_->WritesDone(reinterpret_cast<void*>(XgbCommType::DONE));
@@ -91,14 +92,15 @@ bool XgbServiceClient::AsyncReq(const uint32_t version, XgbCommType t) {
     LOG(FATAL) << "Unexpected type: " << static_cast<int>(t) << endl;
     GPR_ASSERT(false);
   }
+  this_thread::sleep_for(chrono::microseconds(520));
 
   return true;
 }
 
-void XgbServiceClient::Stop() {
+void XgbServiceAsyncClient::Stop() {
   DEBUG << "Shutting down client...." << endl;
-  // grad_stream_->WritesDone(reinterpret_cast<void*>(XgbCommType::DONE));
-  // splits_stream_->WritesDone(reinterpret_cast<void*>(XgbCommType::DONE));
+  grad_stream_->WritesDone(reinterpret_cast<void*>(XgbCommType::DONE));
+  splits_stream_->WritesDone(reinterpret_cast<void*>(XgbCommType::DONE));
   grad_cq_.Shutdown();
   grad_thread_->join();
   splits_cq_.Shutdown();

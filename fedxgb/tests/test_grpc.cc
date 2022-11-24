@@ -4,14 +4,13 @@
 #include <gtest/gtest.h>
 
 #include "comm/grpc/GRPCComm.hpp"
-#include "comm/grpc/XgbServiceClient.h"
-#include "comm/grpc/XgbServiceServer.h"
+#include "comm/grpc/XgbServiceAsyncClient.h"
+#include "comm/grpc/XgbServiceAsyncServer.h"
 
 using namespace std;
 
 TEST(grpc, xgb_server) {
-  XgbServiceServer server;
-  server.Start();
+  XgbServiceAsyncServer server;
   while (server.IsRunning()) {
   }
   // sleep(1);
@@ -19,11 +18,10 @@ TEST(grpc, xgb_server) {
 }
 
 TEST(grpc, xgb_client) {
-  XgbServiceClient client;
-  sleep(1);
-  client.AsyncReq(133);
-  sleep(1);
-  client.AsyncReq(0);
+  XgbServiceAsyncClient client;
+  for (int i = 1; i < 100; ++i) {
+    client.AsyncReq(i);
+  }
   client.Stop();
 }
 

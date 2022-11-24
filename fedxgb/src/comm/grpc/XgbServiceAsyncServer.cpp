@@ -2,12 +2,42 @@
 // Created by HqZhao on 2022/11/23.
 //
 
-#include "XgbServiceServer.h"
+#include "XgbServiceAsyncServer.h"
 
-XgbServiceServer::XgbServiceServer(const uint32_t port, const string& host)
-    : server_address_(host + ":" + to_string(port)) {}
+XgbServiceAsyncServer::XgbServiceAsyncServer(const uint32_t port, const string& host)
+    : server_address_(host + ":" + to_string(port)) {
+  Start();
+}
 
-void XgbServiceServer::AsyncWaitForRequest(XgbCommType t) {
+void XgbServiceAsyncServer::Start() {
+  ServerBuilder builder;
+  builder.AddListeningPort(server_address_, grpc::InsecureServerCredentials());
+  builder.RegisterService(&service_);
+  grad_cq_ = builder.AddCompletionQueue();
+  splits_cq_ = builder.AddCompletionQueue();
+  server_ = builder.BuildAndStart();
+
+  grad_stream_.reset(
+      new ServerAsyncReaderWriter<GradPairsResponse, GradPairsRequest>(&grad_context_));
+  service_.RequestGetEncriptedGradPairs(&grad_context_, grad_stream_.get(), grad_cq_.get(),
+                                        grad_cq_.get(),
+                                        reinterpret_cast<void*>(XgbCommType::GRAD_CONNECT));
+
+  splits_stream_.reset(
+      new ServerAsyncReaderWriter<SplitsResponse, SplitsRequest>(&splits_context_));
+  service_.RequestGetSplits(&splits_context_, splits_stream_.get(), splits_cq_.get(),
+                            splits_cq_.get(), reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
+
+  // This is important as the server should know when the client is done.
+  grad_context_.AsyncNotifyWhenDone(reinterpret_cast<void*>(XgbCommType::DONE));
+  splits_context_.AsyncNotifyWhenDone(reinterpret_cast<void*>(XgbCommType::DONE));
+  grad_thread_.reset(new thread((bind(&XgbServiceAsyncServer::GradThread, this))));
+  splits_thread_.reset(new thread((bind(&XgbServiceAsyncServer::SplitsThread, this))));
+
+  cout << "Server listening on " << server_address_ << endl;
+}
+
+void XgbServiceAsyncServer::AsyncWaitForRequest(XgbCommType t) {
   if (is_running_) {
     switch (t) {
       case XgbCommType::GRAD_READ:
@@ -25,7 +55,7 @@ void XgbServiceServer::AsyncWaitForRequest(XgbCommType t) {
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "ConstantConditionsOC"
-void XgbServiceServer::AsyncSendResponse(XgbCommType t) {
+void XgbServiceAsyncServer::AsyncSendResponse(XgbCommType t) {
   if (t == XgbCommType::GRAD_WRITE) {
     GradPairsResponse gradPairsResponse;
     setGradPairsResponse(gradPairsResponse);
@@ -40,12 +70,14 @@ void XgbServiceServer::AsyncSendResponse(XgbCommType t) {
   }
 }
 
-void XgbServiceServer::setGradPairsResponse(GradPairsResponse& gradPairsResponse) {
-  cout << "grad_request_: " << grad_request_.SerializeAsString() << endl;
+void XgbServiceAsyncServer::setGradPairsResponse(GradPairsResponse& gradPairsResponse) {
+  gradPairsResponse.set_version(grad_request_.version());
+  cout << "gradPairsResponse: " << gradPairsResponse.version() << endl;
 }
 
-void XgbServiceServer::setSplitsResponse(SplitsResponse& splitsResponse) {
-  cout << "splits_request_: " << splits_request_.SerializeAsString() << endl;
+void XgbServiceAsyncServer::setSplitsResponse(SplitsResponse& splitsResponse) {
+  splitsResponse.set_version(splits_request_.version());
+  cout << "splitsResponse: " << splitsResponse.version() << endl;
 }
 
 #define GrpcThread(t, TYPE)                                                          \
@@ -83,41 +115,13 @@ void XgbServiceServer::setSplitsResponse(SplitsResponse& splitsResponse) {
     }                                                                                \
   }
 
-void XgbServiceServer::GradThread() { GrpcThread(grad, GRAD) }
+void XgbServiceAsyncServer::GradThread() { GrpcThread(grad, GRAD) }
 
-void XgbServiceServer::SplitsThread() { GrpcThread(splits, SPLITS) }
+void XgbServiceAsyncServer::SplitsThread() { GrpcThread(splits, SPLITS) }
 
-bool XgbServiceServer::IsRunning() { return is_running_; }
+bool XgbServiceAsyncServer::IsRunning() { return is_running_; }
 
-void XgbServiceServer::Start() {
-  ServerBuilder builder;
-  builder.AddListeningPort(server_address_, grpc::InsecureServerCredentials());
-  builder.RegisterService(&service_);
-  grad_cq_ = builder.AddCompletionQueue();
-  splits_cq_ = builder.AddCompletionQueue();
-  server_ = builder.BuildAndStart();
-
-  grad_stream_.reset(
-      new ServerAsyncReaderWriter<GradPairsResponse, GradPairsRequest>(&grad_context_));
-  service_.RequestGetEncriptedGradPairs(&grad_context_, grad_stream_.get(), grad_cq_.get(),
-                                        grad_cq_.get(),
-                                        reinterpret_cast<void*>(XgbCommType::GRAD_CONNECT));
-
-  splits_stream_.reset(
-      new ServerAsyncReaderWriter<SplitsResponse, SplitsRequest>(&splits_context_));
-  service_.RequestGetSplits(&splits_context_, splits_stream_.get(), splits_cq_.get(),
-                            splits_cq_.get(), reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
-
-  // This is important as the server should know when the client is done.
-  grad_context_.AsyncNotifyWhenDone(reinterpret_cast<void*>(XgbCommType::DONE));
-  splits_context_.AsyncNotifyWhenDone(reinterpret_cast<void*>(XgbCommType::DONE));
-  grad_thread_.reset(new thread((bind(&XgbServiceServer::GradThread, this))));
-  splits_thread_.reset(new thread((bind(&XgbServiceServer::SplitsThread, this))));
-
-  cout << "Server listening on " << server_address_ << endl;
-}
-
-void XgbServiceServer::Stop() {
+void XgbServiceAsyncServer::Stop() {
   cout << "Shutting down server...." << endl;
   server_->Shutdown();
   grad_cq_->Shutdown();
