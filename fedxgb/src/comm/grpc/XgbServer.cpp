@@ -157,10 +157,35 @@ void XgbServiceServer::Shutdown() {
   xgb_thread_->join();
 }
 
+void XgbServiceServer::SendGradPairs(const uint32_t version, mpz_t* grad_pairs, size_t size) {
+  grad_pairs_.insert({version, {size, grad_pairs}});
+}
+
 Status XgbServiceServer::GetEncriptedGradPairs(ServerContext* context,
                                                const GradPairsRequest* request,
                                                GradPairsResponse* response) {
+  do { /* do nothing, waiting for data prepared. */
+  } while (!grad_pairs_.count(request->version()));
+  if (grad_pairs_.count(request->version() - 1)) {  // remove the last version if exists
+    grad_pairs_.erase(request->version() - 1);
+  }
   response->set_version(request->version());
+  DEBUG << "response.version: " << response->version() << endl;
+  size_t size;
+  mpz_t* grad_pairs;
+  tie(size, grad_pairs) = grad_pairs_[request->version()];
+  auto encripted_grad_pairs = response->mutable_encripted_grad_pairs();
+  for (int i = 0; i < size; ++i) {
+    auto encripted_grad_pair = encripted_grad_pairs->Add();
+    encripted_grad_pair->set__mp_alloc(grad_pairs[i]->_mp_alloc);
+    encripted_grad_pair->set__mp_size(grad_pairs[i]->_mp_size);
+    auto mp = grad_pairs[i]->_mp_d;
+    for (int j = 0; j < grad_pairs[i]->_mp_size; ++j) {
+      auto t = encripted_grad_pair->mutable__mp_d()->Add();
+      *t = mp[j];
+    }
+  }
+
   return Status::OK;
 }
 Status XgbServiceServer::GetEncriptedSplits(ServerContext* context, const SplitsRequest* request,
@@ -168,4 +193,5 @@ Status XgbServiceServer::GetEncriptedSplits(ServerContext* context, const Splits
   response->set_version(request->version());
   return Status::OK;
 }
+
 //=================================XgbServiceServer End===================================

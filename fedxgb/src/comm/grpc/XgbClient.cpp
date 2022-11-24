@@ -108,31 +108,64 @@ void XgbServiceAsyncClient::Stop() {
 }
 
 //=================================XgbServiceClient Begin=================================
-XgbServiceClient::XgbServiceClient(const uint32_t port, const string& host)
-    : stub_(XgbService::NewStub(
+XgbServiceClient::XgbServiceClient(const uint32_t port, const string& host, int32_t n_threads)
+    : n_threads(n_threads),
+      stub_(XgbService::NewStub(
           grpc::CreateChannel(host + ":" + to_string(port), grpc::InsecureChannelCredentials()))) {}
 
 #define GetRpcRes(ReqType, processResStatments)                                               \
   ReqType##Request request;                                                                   \
+  ReqType##Response response;                                                                 \
   request.set_version(version);                                                               \
                                                                                               \
   ClientContext context;                                                                      \
-  auto status = stub_->GetEncripted##ReqType(&context, request, response);                    \
+  auto status = stub_->GetEncripted##ReqType(&context, request, &response);                   \
   if (status.ok()) {                                                                          \
+    DEBUG << "** RPC request success! " << endl;                                              \
     processResStatments                                                                       \
   } else {                                                                                    \
     cerr << "code: " << status.error_code() << ", error: " << status.error_message() << endl; \
   }
 
-void XgbServiceClient::GetEncriptedGradPairs(const uint32_t& version, GradPairsResponse* response) {
+void XgbServiceClient::GetEncriptedGradPairs(const uint32_t& version, mpz_t* encriptedGradPairs) {
+  //mutex mtx;
   GetRpcRes(GradPairs, {
-
-                       })
+    auto egps = response.encripted_grad_pairs();
+    //encriptedGradPairs = new mpz_t[egps.size()];
+    xgboost::common::ParallelFor(egps.size(), n_threads, [&](int i) {
+      encriptedGradPairs[i]->_mp_alloc = egps[i]._mp_alloc();
+      encriptedGradPairs[i]->_mp_size = egps[i]._mp_size();
+      encriptedGradPairs[i]->_mp_d = new mp_limb_t[egps[i]._mp_d().size()];
+      for (int j = 0; j < egps[i]._mp_d().size(); ++j) {
+        encriptedGradPairs[i]->_mp_d[j] = egps[i]._mp_d()[j];
+      }
+    });
+  });
+  DEBUG << "response.version: " << response.version() << endl;
+  DEBUG << "gradPairs[0]._mp_alloc: " << encriptedGradPairs[0]->_mp_alloc << endl;
+  DEBUG << "gradPairs[0]._mp_size: " << encriptedGradPairs[0]->_mp_size << endl;
+  DEBUG << "gradPairs[0]._mp_d: " << *encriptedGradPairs[0]->_mp_d << endl;
 }
 
-void XgbServiceClient::GetEncriptedSplits(const uint32_t& version, SplitsResponse* response) {
+shared_ptr<XgbEncriptedSplit*> XgbServiceClient::GetEncriptedSplits(const uint32_t& version) {
+  shared_ptr<XgbEncriptedSplit*> encriptedSplits;
   GetRpcRes(Splits, {
+    auto ess = response.encriptedsplit();
+    encriptedSplits = make_shared<XgbEncriptedSplit*>(new XgbEncriptedSplit[ess.size()]);
+    xgboost::common::ParallelFor(ess.size(), n_threads, [&](int i) {
+      XgbEncriptedSplit encriptedSplit;
+      encriptedSplit.mask_id = ess[i].mask_id();
 
-                    })
+      auto t = ess[i].encripted_grad_pair_sum();
+      encriptedSplit.encripted_grad_pair_sum->_mp_alloc = t._mp_alloc();
+      encriptedSplit.encripted_grad_pair_sum->_mp_size = t._mp_size();
+      auto mp_d = t._mp_d();
+      encriptedSplit.encripted_grad_pair_sum->_mp_d = new mp_limb_t[mp_d.size()];
+      for (int j = 0; j < mp_d.size(); ++j) {
+        encriptedSplit.encripted_grad_pair_sum->_mp_d[j] = mp_d[j];
+      }
+    });
+  });
+  return encriptedSplits;
 }
 //=================================XgbServiceClient End===================================

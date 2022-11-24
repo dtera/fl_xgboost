@@ -3,6 +3,7 @@
 //
 #pragma once
 
+#include <gmp.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
@@ -13,6 +14,7 @@
 #include <thread>
 
 #include "common.h"
+#include "common/threading_utils.h"
 #include "xgbcomm.grpc.pb.h"
 
 using grpc::Channel;
@@ -59,15 +61,22 @@ class XgbServiceAsyncClient {
 };
 
 //=================================XgbServiceClient Begin=================================
+struct XgbEncriptedSplit {
+  string mask_id;
+  mpz_t encripted_grad_pair_sum;
+};
+
 class XgbServiceClient {
  private:
   std::unique_ptr<XgbService::Stub> stub_;
+  int32_t n_threads;
 
  public:
-  XgbServiceClient(const uint32_t port = 50001, const string &host = "0.0.0.0");
+  XgbServiceClient(const uint32_t port = 50001, const string &host = "0.0.0.0",
+                   int32_t n_threads = 10);
 
-  void GetEncriptedGradPairs(const uint32_t &version, GradPairsResponse *response);
+  void GetEncriptedGradPairs(const uint32_t &version, mpz_t *encriptedGradPairs);
 
-  void GetEncriptedSplits(const uint32_t &version, SplitsResponse *response);
+  shared_ptr<XgbEncriptedSplit *> GetEncriptedSplits(const uint32_t &version);
 };
 //=================================XgbServiceClient End===================================

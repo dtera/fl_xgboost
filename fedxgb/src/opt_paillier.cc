@@ -9,7 +9,7 @@
 #include <iostream>
 #include <vector>
 
-unordered_map<uint32_t, pair<uint32_t, uint32_t>> mapTo_nbits_lbits = {
+std::unordered_map<uint32_t, std::pair<uint32_t, uint32_t>> mapTo_nbits_lbits = {
     {1024, {432, 98}}, {2048, {448, 112}}, {3072, {512, 128}}, {7680, {768, 192}}};
 
 uint32_t prob = 30;
@@ -386,7 +386,7 @@ void opt_paillier_batch_add(mpz_t& res, const mpz_t* ops, const size_t size,
   assert(size > 1);
   opt_paillier_add(res, ops[0], ops[1], pub);
   if (size > 2) {
-    mutex g_mutex;
+    std::mutex g_mutex;
     xgboost::common::ParallelFor(size - 2, n_threads, [&](int i) {
       int j = i + 2;
       g_mutex.lock();

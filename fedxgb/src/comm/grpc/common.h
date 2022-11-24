@@ -6,7 +6,7 @@
 
 #include "xgboost/logging.h"
 
-#define DEBUG std::cout //LOG(DEBUG)
+#define DEBUG LOG(DEBUG) //std::cout
 #define INFO LOG(INFO)
 
 enum class XgbCommType {

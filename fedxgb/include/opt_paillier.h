@@ -12,8 +12,6 @@
 #include "../../src/common/threading_utils.h"
 #include "utils.h"
 
-using namespace std;
-
 extern std::unordered_map<uint32_t, std::pair<uint32_t, uint32_t>> mapTo_nbits_lbits;
 extern uint32_t prob;
 
@@ -159,13 +157,13 @@ void opt_paillier_get_plaintext_t(PLAIN_TYPE& plaintext, const mpz_t& mpz_plaint
   if (std::is_same<PLAIN_TYPE, char>() || std::is_same<PLAIN_TYPE, short>() ||
       std::is_same<PLAIN_TYPE, int>() || std::is_same<PLAIN_TYPE, uint8_t>() ||
       std::is_same<PLAIN_TYPE, uint16_t>()) {
-    plaintext = atoi(temp);
+    plaintext = std::atoi(temp);
   } else if (std::is_same<PLAIN_TYPE, uint32_t>()) {
-    plaintext = atol(temp);
+    plaintext = std::atol(temp);
   } else if (std::is_same<PLAIN_TYPE, int64_t>() || std::is_same<PLAIN_TYPE, uint64_t>()) {
     plaintext = atoll(temp);
   } else if (std::is_same<PLAIN_TYPE, double>() || std::is_same<PLAIN_TYPE, float>()) {
-    plaintext = atof(temp) / pow(10, precision);
+    plaintext = std::atof(temp) / pow(10, precision);
   } else {
     return;
   }
@@ -195,9 +193,9 @@ void opt_paillier_decrypt_t(PLAIN_TYPE& res, const mpz_t& ciphertext, const opt_
 
 template <typename PLAIN_TYPE>
 void opt_paillier_batch_encrypt_t(mpz_t* res, const PLAIN_TYPE& plaintext, size_t size,
-                                  const opt_public_key_t* pub, const opt_private_key_t* pri,
-                                  int32_t n_threads = 10, int radix = 10, int precision = 8,
-                                  const bool is_fb = true) {
+                                  const opt_public_key_t* pub,
+                                  const opt_private_key_t* pri = nullptr, int32_t n_threads = 10,
+                                  int radix = 10, int precision = 8, const bool is_fb = true) {
   xgboost::common::ParallelFor(size, n_threads, [&](int i) {
     opt_paillier_encrypt_t(res[i], plaintext[i], pub, pri, precision, radix, is_fb);  //
   });
@@ -235,7 +233,7 @@ template <typename PLAIN_TYPE>
 void data_packing_crt_t(
     mpz_t res, const PLAIN_TYPE* seq, const size_t seq_size, const CrtMod* crtmod,
     const opt_public_key_t* pub,
-    function<void(mpz_t&, const PLAIN_TYPE&, const opt_public_key_t*, const int)> fn =
+    std::function<void(mpz_t&, const PLAIN_TYPE&, const opt_public_key_t*, const int)> fn =
         [](mpz_t& t, const PLAIN_TYPE& p, const opt_public_key_t* pub, const int radix) {
           opt_paillier_set_plaintext_t(t, p, pub, radix);
         },
@@ -270,7 +268,7 @@ template <typename PLAIN_TYPE>
 void data_retrieve_crt_t(
     PLAIN_TYPE*& seq, const mpz_t& pack, const size_t data_size, const CrtMod* crtmod,
     const opt_public_key_t* pub,
-    function<void(PLAIN_TYPE&, const mpz_t&, const opt_public_key_t*, const int)> fn =
+    std::function<void(PLAIN_TYPE&, const mpz_t&, const opt_public_key_t*, const int)> fn =
         [](PLAIN_TYPE& p, const mpz_t& t, const opt_public_key_t* pub, const int radix) {
           opt_paillier_get_plaintext_t(p, t, pub, radix);
         },

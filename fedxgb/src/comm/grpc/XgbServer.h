@@ -3,6 +3,7 @@
 //
 #pragma once
 
+#include <gmp.h>
 #include <grpcpp/ext/proto_server_reflection_plugin.h>
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
@@ -76,6 +77,7 @@ class XgbServiceServer final : public XgbService::Service {
   string server_address_;
   unique_ptr<thread> xgb_thread_;
   unique_ptr<Server> server_;
+  unordered_map<uint32_t, pair<size_t, mpz_t *>> grad_pairs_;
 
  public:
   XgbServiceServer(const uint32_t port = 50001, const string &host = "0.0.0.0");
@@ -83,6 +85,8 @@ class XgbServiceServer final : public XgbService::Service {
   void Run();
 
   void Shutdown();
+
+  void SendGradPairs(const uint32_t version, mpz_t *grad_pairs, size_t size);
 
   Status GetEncriptedGradPairs(ServerContext *context, const GradPairsRequest *request,
                                GradPairsResponse *response) override;

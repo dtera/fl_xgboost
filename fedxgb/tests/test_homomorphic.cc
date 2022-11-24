@@ -170,7 +170,7 @@ TEST(demo, opt_paillier) {
     plains_d[i] = 1.0 * ue / 1000;
   });
 
-  opt_paillier_batch_encrypt(mpz_ciphers, plains, len, pub, pri);
+  opt_paillier_batch_encrypt(mpz_ciphers, plains, len, pub);
   opt_paillier_batch_decrypt(res, mpz_ciphers, len, pub, pri);
 
   for_out([&](int i) {
@@ -203,7 +203,7 @@ TEST(demo, opt_paillier) {
     assert(atoi(o) == t1 - t2);
   }
 
-  opt_paillier_batch_encrypt_t(mpz_ciphers, plains_d, len, pub, pri);
+  opt_paillier_batch_encrypt_t(mpz_ciphers, plains_d, len, pub);
   opt_paillier_batch_decrypt_t(res_d, mpz_ciphers, len, pub, pri);
 
   for_out([&](int i) {
