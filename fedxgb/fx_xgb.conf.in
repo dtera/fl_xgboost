@@ -7,6 +7,7 @@ seed = 0
 min_child_weight = 0
 max_depth = 8
 verbosity = 1
+num_round = 10
 tree_method = hist
 eval_metric = auc
 
