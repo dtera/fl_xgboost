@@ -61,15 +61,11 @@ class XgbServiceAsyncClient {
 };
 
 //=================================XgbServiceClient Begin=================================
-struct XgbEncriptedSplit {
-  string mask_id;
-  mpz_t encripted_grad_pair_sum;
-};
-
 class XgbServiceClient {
  private:
   std::unique_ptr<XgbService::Stub> stub_;
-  int32_t n_threads;
+  int32_t n_threads_;
+  grpc::ChannelArguments channel_args_;
 
  public:
   XgbServiceClient(const uint32_t port = 50001, const string &host = "0.0.0.0",
@@ -77,6 +73,6 @@ class XgbServiceClient {
 
   void GetEncriptedGradPairs(const uint32_t &version, mpz_t *encriptedGradPairs);
 
-  shared_ptr<XgbEncriptedSplit *> GetEncriptedSplits(const uint32_t &version);
+  void GetEncriptedSplits(const uint32_t &version, XgbEncriptedSplit *encriptedSplits);
 };
 //=================================XgbServiceClient End===================================

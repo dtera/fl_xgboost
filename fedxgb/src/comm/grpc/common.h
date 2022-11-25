@@ -6,7 +6,7 @@
 
 #include "xgboost/logging.h"
 
-#define DEBUG LOG(DEBUG) //std::cout
+#define DEBUG LOG(DEBUG)  // std::cout
 #define INFO LOG(INFO)
 
 enum class XgbCommType {
@@ -19,3 +19,10 @@ enum class XgbCommType {
   DONE = 7,
   FINISH = 8
 };
+
+struct XgbEncriptedSplit {
+  std::string mask_id;
+  mpz_t encripted_grad_pair_sum;
+};
+
+#define MAX_MESSAGE_LENGTH 10 * 1024 * 1024 * 1024l

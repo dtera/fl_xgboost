@@ -143,6 +143,8 @@ void XgbServiceServer::Run() {
   ServerBuilder builder;
   // Listen on the given address without any authentication mechanism.
   builder.AddListeningPort(server_address_, grpc::InsecureServerCredentials());
+  builder.AddChannelArgument("grpc.max_send_message_length", MAX_MESSAGE_LENGTH);
+  builder.AddChannelArgument("grpc.max_receive_message_length", MAX_MESSAGE_LENGTH);
   // Register "service" as the instance through which we'll communicate with
   // clients. In this case it corresponds to an *synchronous* service.
   builder.RegisterService(this);
@@ -161,22 +163,32 @@ void XgbServiceServer::SendGradPairs(const uint32_t version, mpz_t* grad_pairs, 
   grad_pairs_.insert({version, {size, grad_pairs}});
 }
 
+void XgbServiceServer::SendSplits(const uint32_t version, XgbEncriptedSplit* splits, size_t size) {
+  splits_.insert({version, {size, splits}});
+}
+
+#define GetEncriptedData(type, DATATYPE, process_stats)                                  \
+  do { /* do nothing, waiting for data prepared. */                                      \
+  } while (!type##s_.count(request->version()));                                         \
+  if (type##s_.count(request->version() - 1)) { /* remove the last version if exists. */ \
+    type##s_.erase(request->version() - 1);                                              \
+  }                                                                                      \
+  response->set_version(request->version());                                             \
+  DEBUG << "response.version: " << response->version() << endl;                          \
+  size_t size;                                                                           \
+  DATATYPE* type##s;                                                                     \
+  tie(size, type##s) = type##s_[request->version()];                                     \
+  auto encripted_##type##s = response->mutable_encripted_##type##s();                    \
+  for (int i = 0; i < size; ++i) {                                                       \
+    auto encripted_##type = encripted_##type##s->Add();                                  \
+    process_stats                                                                        \
+  }                                                                                      \
+  return Status::OK;
+
 Status XgbServiceServer::GetEncriptedGradPairs(ServerContext* context,
                                                const GradPairsRequest* request,
                                                GradPairsResponse* response) {
-  do { /* do nothing, waiting for data prepared. */
-  } while (!grad_pairs_.count(request->version()));
-  if (grad_pairs_.count(request->version() - 1)) {  // remove the last version if exists
-    grad_pairs_.erase(request->version() - 1);
-  }
-  response->set_version(request->version());
-  DEBUG << "response.version: " << response->version() << endl;
-  size_t size;
-  mpz_t* grad_pairs;
-  tie(size, grad_pairs) = grad_pairs_[request->version()];
-  auto encripted_grad_pairs = response->mutable_encripted_grad_pairs();
-  for (int i = 0; i < size; ++i) {
-    auto encripted_grad_pair = encripted_grad_pairs->Add();
+  GetEncriptedData(grad_pair, mpz_t, {
     encripted_grad_pair->set__mp_alloc(grad_pairs[i]->_mp_alloc);
     encripted_grad_pair->set__mp_size(grad_pairs[i]->_mp_size);
     auto mp = grad_pairs[i]->_mp_d;
@@ -184,14 +196,22 @@ Status XgbServiceServer::GetEncriptedGradPairs(ServerContext* context,
       auto t = encripted_grad_pair->mutable__mp_d()->Add();
       *t = mp[j];
     }
-  }
-
-  return Status::OK;
+  });
 }
+
 Status XgbServiceServer::GetEncriptedSplits(ServerContext* context, const SplitsRequest* request,
                                             SplitsResponse* response) {
-  response->set_version(request->version());
-  return Status::OK;
+  GetEncriptedData(split, XgbEncriptedSplit, {
+    encripted_split->set_mask_id(splits[i].mask_id);
+    auto encripted_grad_pair_sum = encripted_split->mutable_encripted_grad_pair_sum();
+    encripted_grad_pair_sum->set__mp_alloc(splits[i].encripted_grad_pair_sum->_mp_alloc);
+    encripted_grad_pair_sum->set__mp_size(splits[i].encripted_grad_pair_sum->_mp_size);
+    auto mp = splits[i].encripted_grad_pair_sum->_mp_d;
+    for (int j = 0; j < splits[i].encripted_grad_pair_sum->_mp_size; ++j) {
+      auto t = encripted_grad_pair_sum->mutable__mp_d()->Add();
+      *t = mp[j];
+    }
+  });
 }
 
 //=================================XgbServiceServer End===================================

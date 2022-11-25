@@ -29,7 +29,7 @@ message SplitsRequest {
 
 message SplitsResponse {
   uint32 version = 1;
-  repeated EncriptedSplit encriptedSplit = 2;
+  repeated EncriptedSplit encripted_splits = 2;
 }
 
 message EncriptedSplit {

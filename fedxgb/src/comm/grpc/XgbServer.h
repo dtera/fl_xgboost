@@ -78,6 +78,7 @@ class XgbServiceServer final : public XgbService::Service {
   unique_ptr<thread> xgb_thread_;
   unique_ptr<Server> server_;
   unordered_map<uint32_t, pair<size_t, mpz_t *>> grad_pairs_;
+  unordered_map<uint32_t, pair<size_t, XgbEncriptedSplit *>> splits_;
 
  public:
   XgbServiceServer(const uint32_t port = 50001, const string &host = "0.0.0.0");
@@ -87,6 +88,8 @@ class XgbServiceServer final : public XgbService::Service {
   void Shutdown();
 
   void SendGradPairs(const uint32_t version, mpz_t *grad_pairs, size_t size);
+
+  void SendSplits(const uint32_t version, XgbEncriptedSplit *splits, size_t size);
 
   Status GetEncriptedGradPairs(ServerContext *context, const GradPairsRequest *request,
                                GradPairsResponse *response) override;

@@ -18,6 +18,9 @@ mpz_t *mpz_ciphers_ = new mpz_t[len_];
 mpz_t *mpz_res_ = new mpz_t[len_];
 float *plains_f_ = new float[len_];
 float *res_f_ = new float[len_];
+mpz_t *res_encripted_grad_pairs_ = new mpz_t[len_];
+XgbEncriptedSplit *encripted_splits_ = new XgbEncriptedSplit[len_];
+XgbEncriptedSplit *res_encripted_splits_ = new XgbEncriptedSplit[len_];
 
 uniform_int_distribution<long long> u_(-100000, 100000);
 default_random_engine e_;
@@ -29,50 +32,56 @@ uint32_t bitLength_ = 1024;
 TEST(grpc, xgb_server) {
   XgbServiceServer server;
   cout << "XgbServiceServer Running..." << endl;
-  cout << "Do other things..." << endl;
   TIME_STAT(opt_paillier_keygen(&pub_, &pri_, bitLength_), KeyGen)
-
   repeat(
       [&](int i) {
         mpz_init(mpz_ciphers_[i]);
-        plains_f_[i] = 1.0 * u_(e_) / 1000;
+        auto t = u_(e_);
+        plains_f_[i] = 1.0 * t / 1000;
+        encripted_splits_[i].mask_id = to_string(t);
       },
       len_);
 
   opt_paillier_batch_encrypt_t(mpz_ciphers_, plains_f_, len_, pub_, pri_);
-  // opt_paillier_batch_decrypt_t(res_f, mpz_ciphers, len, pub, pri);
-
+  repeat(
+      [&](int i) {
+        encripted_splits_[i].encripted_grad_pair_sum->_mp_alloc = mpz_ciphers_[i]->_mp_alloc;
+        encripted_splits_[i].encripted_grad_pair_sum->_mp_size = mpz_ciphers_[i]->_mp_size;
+        encripted_splits_[i].encripted_grad_pair_sum->_mp_d = mpz_ciphers_[i]->_mp_d;
+      },
+      len_);
   server.SendGradPairs(1, mpz_ciphers_, len_);
+  server.SendSplits(1, encripted_splits_, len_);
 
-  sleep(1);
   XgbServiceClient client;
   for (int i = 1; i < 2; ++i) {
-    mpz_t *encriptedGradPairs = new mpz_t[len_];
-    client.GetEncriptedGradPairs(i, encriptedGradPairs);
-    opt_paillier_batch_decrypt_t(res_f_, encriptedGradPairs, len_, pub_, pri_);
+    client.GetEncriptedGradPairs(i, res_encripted_grad_pairs_);
+    client.GetEncriptedSplits(i, res_encripted_splits_);
+    opt_paillier_batch_decrypt_t(res_f_, res_encripted_grad_pairs_, len_, pub_, pri_);
     for (int j = 0; j < len_; ++j) {
-      DEBUG << "mpz_ciphers_[" << j << "]._mp_alloc: " << mpz_ciphers_[j]->_mp_alloc << endl;
-      DEBUG << "mpz_ciphers_[" << j << "]._mp_size: " << mpz_ciphers_[j]->_mp_size << endl;
-      DEBUG << "mpz_ciphers_[" << j << "]._mp_d: " << *mpz_ciphers_[j]->_mp_d << endl;
-
-      char *c1, *c2;
+      char *c1, *c2, *c3, *c4;
       opt_paillier_get_plaintext(c1, mpz_ciphers_[j], pub_);
-      opt_paillier_get_plaintext(c2, encriptedGradPairs[j], pub_);
-      cout << "mpz_ciphers_[" << j << "]: " << c1 << endl;
-      cout << "encriptedGradPairs[" << i << "]: " << c2 << endl;
+      opt_paillier_get_plaintext(c2, res_encripted_grad_pairs_[j], pub_);
+      cout << "\nmpz_ciphers_[" << j << "]: " << c1 << endl;
+      cout << "res_encripted_grad_pairs_[" << j << "]: " << c2 << endl;
       cout << "plains_f_[" << j << "]: " << plains_f_[j] << endl;
       cout << "res_f_[" << j << "]: " << res_f_[j] << endl;
       assert(abs(plains_f_[j] - res_f_[j]) < 0.000001);
+      cout << "==========================================================" << endl;
+      opt_paillier_get_plaintext(c3, encripted_splits_[j].encripted_grad_pair_sum, pub_);
+      opt_paillier_get_plaintext(c4, res_encripted_splits_[j].encripted_grad_pair_sum, pub_);
+      cout << "encripted_splits_[" << j << "]: " << c3 << endl;
+      cout << "res_encripted_splits_[" << j << "]: " << c4 << endl;
     }
   }
-  sleep(5);
+  // sleep(20);
   server.Shutdown();
 }
 
 TEST(grpc, xgb_client) {
   XgbServiceClient client;
   for (int i = 1; i < 2; ++i) {
-    mpz_t *encriptedGradPairs = nullptr;
+    mpz_t *encriptedGradPairs = new mpz_t[len_];
     client.GetEncriptedGradPairs(i, encriptedGradPairs);
   }
 }
