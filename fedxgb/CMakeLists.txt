@@ -77,7 +77,7 @@ target_link_libraries(${PROJECT_NAME}_lib protobuf::libprotobuf protobuf::libpro
         gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection)
 
 file(GLOB GRPC_SERVER_FILES src/comm/grpc/demo/*_server*.cc)
-file(GLOB GRPC_CLIENT_FILES src/comm/grpc/demo/*_client*.cc)
+file(GLOB GRPC_CLIENT_FILES src/comm/grpc/demo/*_client*.cc src/*main.cc)
 # Building grpc server
 foreach (grpc_server_file ${GRPC_SERVER_FILES})
     string(REPLACE ".cc" "" server_name ${grpc_server_file})
