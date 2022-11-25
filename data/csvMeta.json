@@ -1,0 +1,10 @@
+{
+  "dataType": "csv",
+  "dimensions": 2,
+  "dataPath": "data/csvDataTemplate",
+  "header": "sid,feature1,feature2,label",
+  "separator": ",",
+  "labelCol": 3,
+  "idCol": 0,
+  "feModelName": "com.tencent.angel.fl.util.CSVMeta"
+}
