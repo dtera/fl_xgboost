@@ -65,12 +65,12 @@ uint32_t aby_rand();
  */
 void aby_prng(mpz_t rnd, mp_bitcnt_t len);
 
-#define TIME_STAT(statments, name)                                                      \
-  auto start = chrono::high_resolution_clock::now();                                    \
-  statments;                                                                            \
-  auto end = chrono::high_resolution_clock::now();                                      \
-  double cost = 1.0 * chrono::duration_cast<chrono::microseconds>(end - start).count(); \
-  cout << #name << " costs: " << cost / 1000.0 << " ms." << endl;
+#define TIME_STAT(statments, name)                                                                \
+  auto start = std::chrono::high_resolution_clock::now();                                         \
+  statments;                                                                                      \
+  auto end = std::chrono::high_resolution_clock::now();                                           \
+  double cost = 1.0 * std::chrono::duration_cast<std::chrono::microseconds>(end - start).count(); \
+  std::cout << #name << " costs: " << cost / 1000.0 << " ms." << std::endl;
 
 void repeat(
     std::function<void(int)> fn, std::size_t n, std::function<void()> before = []() {},

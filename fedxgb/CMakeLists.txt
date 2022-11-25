@@ -18,14 +18,14 @@ file(GLOB RM_SRCS src/comm/grpc/demo/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
 list(REMOVE_ITEM SOURCES ${RM_SRCS})
 
 # brew install grpc googletest helib libomp protobuf xgboost
-foreach (required_pkg GRPC GTest:CONFIG helib OpenMP Opt@OpenSSL Protobuf Threads)
-    string(REGEX REPLACE "(:(.*)?)|(Opt@)" "" pkg_name ${required_pkg})
-    string(REGEX MATCH ":(.*)?$" f1 ${required_pkg})
-    string(FIND ${required_pkg} "Opt@" f2)
+foreach (pkg GRPC GTest:CONFIG helib OpenMP Opt@OpenSSL Protobuf Threads)
+    string(REGEX REPLACE "(:(.*)?)|(Opt@)" "" pkg_name ${pkg})
+    string(REGEX MATCH ":(.*)?$" f1 ${pkg})
+    string(FIND ${pkg} "Opt@" f2)
     set(c "")
     set(r "")
     if (NOT ${f1} STREQUAL "")
-        string(REGEX REPLACE "(.*)?:" "" c ${required_pkg})
+        string(REGEX REPLACE "(.*)?:" "" c ${pkg})
         string(REGEX REPLACE "," ";" c ${c})
     endif ()
     if (${f2} STREQUAL -1)
@@ -69,16 +69,16 @@ set(PROTO_GENERATED_DIR ${CMAKE_CURRENT_BINARY_DIR}/proto-generated)
 file(MAKE_DIRECTORY ${PROTO_GENERATED_DIR})
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
-include_directories(./include ./src ../src ${PROTO_GENERATED_DIR})
+include_directories(./include ./src ../src ${PROTO_GENERATED_DIR}
+        ${xgboost_SOURCE_DIR}/include ${xgboost_SOURCE_DIR}/dmlc-core/include ${xgboost_SOURCE_DIR}/rabit/include)
 
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
 target_link_libraries(${PROJECT_NAME}_lib protobuf::libprotobuf protobuf::libprotobuf-lite OpenMP::OpenMP_CXX
         gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection)
 
-file(GLOB GRPC_SERVER_FILES src/comm/grpc/demo/*_server*.cc)
-file(GLOB GRPC_CLIENT_FILES src/comm/grpc/demo/*_client*.cc src/*main.cc)
 # Building grpc server
+file(GLOB GRPC_SERVER_FILES src/comm/grpc/demo/*_server*.cc)
 foreach (grpc_server_file ${GRPC_SERVER_FILES})
     string(REPLACE ".cc" "" server_name ${grpc_server_file})
     string(REGEX REPLACE "(.*)?/" "" server_name ${server_name})
@@ -87,11 +87,21 @@ foreach (grpc_server_file ${GRPC_SERVER_FILES})
 endforeach ()
 
 # Building grpc client
+file(GLOB GRPC_CLIENT_FILES src/comm/grpc/demo/*_client*.cc)
 foreach (grpc_client_file ${GRPC_CLIENT_FILES})
     string(REPLACE ".cc" "" client_name ${grpc_client_file})
     string(REGEX REPLACE "(.*)?/" "" client_name ${client_name})
     add_executable(${PROJECT_NAME}_${client_name} ${grpc_client_file})
     target_link_libraries(${PROJECT_NAME}_${client_name} ${PROJECT_NAME}_lib)
+endforeach ()
+
+# Building xgb client
+file(GLOB XGB_CLIENT_FILES src/*main.cc)
+foreach (xgb_client_file ${XGB_CLIENT_FILES})
+    string(REPLACE ".cc" "" client_name ${xgb_client_file})
+    string(REGEX REPLACE "(.*)?/" "" client_name ${xgb_client_file})
+    add_executable(${PROJECT_NAME}_${client_name} ${xgb_client_file})
+    target_link_libraries(${PROJECT_NAME}_${client_name} ${PROJECT_NAME}_lib objxgboost)
 endforeach ()
 
 # Building tests
