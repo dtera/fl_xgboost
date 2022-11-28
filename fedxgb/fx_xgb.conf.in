@@ -7,11 +7,10 @@ seed = 0
 min_child_weight = 0
 max_depth = 8
 verbosity = 1
-num_round = 10
 tree_method = hist
 eval_metric = auc
 
-num_round = 2
+num_round = 4
 save_period = 0
 data = "../../data/a9a.train?format=libsvm"
 eval[test] = "../../data/a9a.test?format=libsvm"
