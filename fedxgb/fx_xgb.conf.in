@@ -12,8 +12,8 @@ eval_metric = auc
 
 num_round = 4
 save_period = 0
-data = "../../data/a9a.train?format=libsvm"
-eval[test] = "../../data/a9a.test?format=libsvm"
+data = "../../data/a9a.guest.train?format=libsvm"
+eval[test] = "../../data/a9a.guest.test?format=libsvm"
 model_dir = ../../models/
 model_out = ../../models/a9a.json
 dump_format = json
