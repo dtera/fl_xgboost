@@ -779,8 +779,9 @@ DMatrix *TryLoadBinary(std::string fname, bool silent) {
 
 DMatrix* DMatrix::Load(const std::string& uri, bool silent, DataSplitMode data_split_mode,
                        const std::string& file_format) {
-  CHECK(data_split_mode == DataSplitMode::kRow || data_split_mode == DataSplitMode::kNone)
-      << "Precondition violated; data split mode can only be 'row' or 'none'";
+  CHECK(data_split_mode == DataSplitMode::kRow || data_split_mode == DataSplitMode::kCol ||
+        data_split_mode == DataSplitMode::kNone)
+      << "Precondition violated; data split mode can only be 'row', 'col' or 'none'";
   std::string fname, cache_file;
   size_t dlm_pos = uri.find('#');
   if (dlm_pos != std::string::npos) {
