@@ -523,6 +523,12 @@ class LearnerConfiguration : public Learner {
       this->ValidateParameters();
     }
 
+    // config rpc service for xgb
+    if (server_ == nullptr && tparam_.dsplit == DataSplitMode::kAuto) {
+      server_.reset(new XgbServiceServer());
+      //client_.reset(new XgbServiceClient());
+    }
+
     cfg_.clear();
     monitor_.Stop("Configure");
   }
@@ -1244,6 +1250,10 @@ class LearnerImpl : public LearnerIO {
     if (local_map->find(this) != local_map->cend()) {
       local_map->erase(this);
     }
+    if (server_ != nullptr) {
+      server_->Shutdown();
+    }
+
   }
   // Configuration before data is known.
   void CheckDataSplitMode() {

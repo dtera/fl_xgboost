@@ -18,9 +18,13 @@ endif (USE_CUDA)
 
 target_include_directories(objxgboost
   PRIVATE
+  ${xgboost_SOURCE_DIR}/src
   ${xgboost_SOURCE_DIR}/include
   ${xgboost_SOURCE_DIR}/dmlc-core/include
-  ${xgboost_SOURCE_DIR}/rabit/include)
+  ${xgboost_SOURCE_DIR}/fedxgb/include
+  ${xgboost_SOURCE_DIR}/rabit/include
+  ${CMAKE_CURRENT_BINARY_DIR}/../fedxgb/proto-generated
+  )
 
 if (LOG_CAPI_INVOCATION)
   target_compile_definitions(objxgboost PRIVATE -DLOG_CAPI_INVOCATION=1)

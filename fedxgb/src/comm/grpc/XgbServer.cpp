@@ -2,7 +2,7 @@
 // Created by HqZhao on 2022/11/23.
 //
 
-#include "XgbServer.h"
+#include "comm/grpc/XgbServer.h"
 
 XgbServiceAsyncServer::XgbServiceAsyncServer(const uint32_t port, const string& host)
     : server_address_(host + ":" + to_string(port)) {

@@ -2,7 +2,7 @@
 // Created by HqZhao on 2022/11/23.
 //
 
-#include "XgbClient.h"
+#include "comm/grpc/XgbClient.h"
 
 XgbServiceAsyncClient::XgbServiceAsyncClient(const uint32_t port, const string& host)
     : stub_(XgbService::NewStub(
