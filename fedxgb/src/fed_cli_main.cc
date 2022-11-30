@@ -82,6 +82,7 @@ struct CLIParam : public XGBoostParameter<CLIParam> {
   std::vector<std::pair<std::string, std::string>> cfg;
 
   static constexpr char const* const kNull = "NULL";
+  static const unordered_map<int, string> dsplit_map;
 
   // declare parameters
   DMLC_DECLARE_PARAMETER(CLIParam) {
@@ -165,6 +166,7 @@ struct CLIParam : public XGBoostParameter<CLIParam> {
     if (name_pred == "stdout") {
       save_period = 0;
     }
+    cfg.push_back({"dsplit", dsplit_map.at(dsplit)});
     if (dsplit == static_cast<int>(xgboost::DataSplitMode::kAuto)) {
       if (collective::IsFederated()) {
         dsplit = static_cast<int>(DataSplitMode::kNone);
@@ -178,6 +180,8 @@ struct CLIParam : public XGBoostParameter<CLIParam> {
 };
 
 constexpr char const* const CLIParam::kNull;
+const unordered_map<int, string> CLIParam::dsplit_map = {
+    {0, "auto"}, {1, "col"}, {2, "row"}, {3, "none"}};
 
 DMLC_REGISTER_PARAMETER(CLIParam);
 

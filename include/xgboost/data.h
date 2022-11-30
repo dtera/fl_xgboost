@@ -44,6 +44,10 @@ enum class DataSplitMode : int {
   kAuto = 0, kCol = 1, kRow = 2, kNone = 3
 };
 
+enum class FedratedRole : int {
+  Guest = 0, Host = 1
+};
+
 /*!
  * \brief Meta information about dataset, always sit in memory.
  */
@@ -683,6 +687,7 @@ inline BatchSet<ExtSparsePage> DMatrix::GetBatches() {
 }  // namespace xgboost
 
 DECLARE_FIELD_ENUM_CLASS(xgboost::DataSplitMode);
+DECLARE_FIELD_ENUM_CLASS(xgboost::FedratedRole);
 
 namespace dmlc {
 DMLC_DECLARE_TRAITS(is_pod, xgboost::Entry, true);
