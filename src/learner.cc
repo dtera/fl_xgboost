@@ -305,8 +305,8 @@ struct LearnerTrainParam : public XGBoostParameter<LearnerTrainParam> {
 struct FederatedParam : public XGBoostParameter<FederatedParam> {
   // federated role, can be guest or host
   FedratedRole fl_role{FedratedRole::Guest};
-  std::string fl_address;
-  uint32_t fl_port;
+  std::string fl_address; // for host
+  uint32_t fl_port; // for guest
 
   DMLC_DECLARE_PARAMETER(FederatedParam) {
     DMLC_DECLARE_FIELD(fl_role)
@@ -1531,6 +1531,8 @@ class LearnerImpl : public LearnerIO {
   static int32_t constexpr kRandSeedMagic = 127;
   // gradient pairs
   HostDeviceVector<GradientPair> gpair_;
+  // encrypted gradient pairs
+  //HostDeviceVector<EncryptedGradientPair> encrypted_gpair_;
   /*! \brief Temporary storage to prediction.  Useful for storing data transformed by
    *  objective function */
   PredictionContainer output_predictions_;
