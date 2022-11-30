@@ -526,7 +526,7 @@ int main(int argc, char* argv[]) {
           xgboost::CLI cli(argc, argv);
           rc = cli.Run();
         },
-        fl_xgboost);
+        fl_xgboost)
 
     return rc;
   } catch (dmlc::Error const& e) {
@@ -534,5 +534,4 @@ int main(int argc, char* argv[]) {
     xgboost::CLIError(e);
     return 1;
   }
-  return 0;
 }
