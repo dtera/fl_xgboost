@@ -9,7 +9,7 @@
 #include <string>
 #include <unordered_map>
 
-#include "../../src/common/threading_utils.h"
+#include "common/threading_utils.h"
 #include "utils.h"
 
 extern std::unordered_map<uint32_t, std::pair<uint32_t, uint32_t>> mapTo_nbits_lbits;
