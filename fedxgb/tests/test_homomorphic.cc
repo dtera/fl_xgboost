@@ -156,6 +156,57 @@ TEST(demo, paillier) {
   }
 }
 
+TEST(demo, EncryptedType) {
+  TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
+
+  mpz_t mpz_t1, mpz_t2;
+  mpz_inits(mpz_t1, mpz_t2, nullptr);
+  opt_paillier_encrypt_t(mpz_t1, 13.3, pub);
+  opt_paillier_encrypt_t(mpz_t2, 15.6, pub);
+  cout << "==============================================" << endl;
+  EncryptedType et1(mpz_t1);
+  EncryptedType et2(mpz_t2);
+  opt_paillier_decrypt(et1.data_, et1.data_, pub, pri);
+  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
+  cout << "et1: " << et1 << endl;
+  cout << "et2: " << et2 << endl;
+  et1.SetData(mpz_t1);
+  et2.SetData(mpz_t2);
+  cout << "==============================================" << endl;
+  auto et = et1 + et2;
+  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
+  cout << "et1 + et2: " << et << endl;
+  et2 += et1;
+  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
+  cout << "et2 += et1: " << et2 << endl;
+  et2.SetData(mpz_t2);
+  cout << "==============================================" << endl;
+  et = et1 - et2;
+  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
+  cout << "et1 - et2: " << et << endl;
+  et1 -= et2;
+  opt_paillier_decrypt(et1.data_, et1.data_, pub, pri);
+  cout << "et1 -= et2: " << et1 << endl;
+  et1.SetData(mpz_t1);
+  cout << "==============================================" << endl;
+  et = et2 * 2;
+  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
+  cout << "et2 * 2: " << et << endl;
+  et2 *= 2;
+  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
+  cout << "et2 *= 2: " << et2 << endl;
+  et2.SetData(mpz_t2);
+  cout << "==============================================" << endl;
+  et = et2 / 2;
+  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
+  cout << "et2 / 2: " << et << endl;
+  et2 /= 2;
+  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
+  cout << "et2 /= 2: " << et2 << endl;
+
+  mpz_clears(mpz_t1, mpz_t2, nullptr);
+}
+
 TEST(demo, opt_paillier) {
   TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
 

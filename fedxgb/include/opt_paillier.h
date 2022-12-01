@@ -171,8 +171,8 @@ void opt_paillier_get_plaintext_t(PLAIN_TYPE& plaintext, const mpz_t& mpz_plaint
 
 template <typename PLAIN_TYPE>
 void opt_paillier_encrypt_t(mpz_t& res, const PLAIN_TYPE& plaintext, const opt_public_key_t* pub,
-                            const opt_private_key_t* pri, int precision = 8, int radix = 10,
-                            const bool is_fb = true) {
+                            const opt_private_key_t* pri = nullptr, int precision = 8,
+                            int radix = 10, const bool is_fb = true) {
   mpz_t temp;
   mpz_init(temp);
   opt_paillier_set_plaintext_t(temp, plaintext, pub, precision, radix);
@@ -301,65 +301,75 @@ void data_retrieve_crt_t(
 //====================================datapack end======================================
 
 //====================================EncryptedType begin===============================
+// public key
+extern opt_public_key_t* pub;
+extern opt_private_key_t* pri;
+template <class T = float>
 class EncryptedType {
  public:
   // encrypted data
   mpz_t data_;
-  // public key
-  opt_public_key_t* pub_;
+  uint32_t mul_cnt_{0};
 
-  XGBOOST_DEVICE EncryptedType(opt_public_key_t* pub) {
-    mpz_init(data_);
-    pub_ = pub;
-  }
+  XGBOOST_DEVICE EncryptedType() { mpz_init(data_); }
 
-  XGBOOST_DEVICE EncryptedType(mpz_t& data, opt_public_key_t* pub) : EncryptedType(pub) {
+  XGBOOST_DEVICE EncryptedType(const mpz_t& data) : EncryptedType() { SetData(data); }
+
+  XGBOOST_DEVICE EncryptedType(const EncryptedType& g) : EncryptedType() { SetData(g.data_); }
+
+  XGBOOST_DEVICE void SetData(const mpz_t& data) {
     mpz_set(data_, data);
+    mul_cnt_ = 0;
   }
-
-  EncryptedType(const EncryptedType& g) = default;
 
   XGBOOST_DEVICE EncryptedType& operator+=(const EncryptedType& et) {
-    opt_paillier_add(data_, data_, et.data_, pub_);
+    opt_paillier_add(data_, data_, et.data_, pub);
     return *this;
   }
 
   XGBOOST_DEVICE EncryptedType operator+(const EncryptedType& et) const {
-    EncryptedType g(pub_);
-    opt_paillier_add(g.data_, data_, et.data_, pub_);
+    EncryptedType g;
+    opt_paillier_add(g.data_, data_, et.data_, pub);
     return g;
   }
 
   XGBOOST_DEVICE EncryptedType& operator-=(const EncryptedType& et) {
-    opt_paillier_sub(data_, data_, et.data_, pub_);
+    mpz_t temp;
+    mpz_init(temp);
+    opt_paillier_sub(temp, data_, et.data_, pub);
+    SetData(temp);
     return *this;
   }
 
   XGBOOST_DEVICE EncryptedType operator-(const EncryptedType& et) const {
-    EncryptedType g(pub_);
-    opt_paillier_sub(g.data_, data_, et.data_, pub_);
+    EncryptedType g;
+    opt_paillier_sub(g.data_, data_, et.data_, pub);
     return g;
   }
 
   XGBOOST_DEVICE EncryptedType& operator*=(float multiplier) {
-    opt_paillier_constant_mul_t(data_, data_, multiplier, pub_);
+    opt_paillier_constant_mul_t(data_, data_, multiplier, pub);
+    mul_cnt_++;
     return *this;
   }
 
   XGBOOST_DEVICE EncryptedType operator*(float multiplier) const {
-    EncryptedType g(pub_);
-    opt_paillier_constant_mul_t(g.data_, data_, multiplier, pub_);
+    EncryptedType g;
+    opt_paillier_constant_mul_t(g.data_, data_, multiplier, pub);
+    g.mul_cnt_++;
     return g;
   }
 
   XGBOOST_DEVICE EncryptedType& operator/=(float divisor) {
-    opt_paillier_constant_mul_t(data_, data_, 1 / divisor, pub_);
+    opt_paillier_constant_mul_t(data_, data_, 1 / divisor, pub);
+    mul_cnt_++;
     return *this;
   }
 
   XGBOOST_DEVICE EncryptedType operator/(float divisor) const {
-    EncryptedType g(pub_);
-    opt_paillier_constant_mul_t(g.data_, data_, 1 / divisor, pub_);
+    EncryptedType g;
+    opt_paillier_constant_mul_t(g.data_, data_, 1 / divisor, pub);
+    g.mul_cnt_++;
     return g;
   }
 
@@ -370,14 +380,24 @@ class EncryptedType {
   XGBOOST_DEVICE explicit EncryptedType(int value) {
     mpz_t temp;
     mpz_init(temp);
-    opt_paillier_set_plaintext_t(temp, value, pub_);
-    *this = EncryptedType(temp, pub_);
+    opt_paillier_set_plaintext_t(temp, value, pub);
+    *this = EncryptedType(temp, pub);
   }
 
   friend std::ostream& operator<<(std::ostream& os, const EncryptedType& g) {
-    char* o;
-    opt_paillier_get_plaintext(o, g.data_, g.pub_);
-    os << o;
+    if (std::is_same<T, char>() || std::is_same<T, short>() || std::is_same<T, int>() ||
+        std::is_same<T, uint8_t>() || std::is_same<T, uint16_t>() || std::is_same<T, uint32_t>() ||
+        std::is_same<T, int64_t>() || std::is_same<T, uint64_t>() || std::is_same<T, double>() ||
+        std::is_same<T, float>()) {
+      T o;
+      opt_paillier_get_plaintext_t(o, g.data_, pub, 8 * (g.mul_cnt_ + 1));
+      os << o;
+    } else {
+      char* o;
+      opt_paillier_get_plaintext(o, g.data_, pub);
+      os << o;
+    }
+
     return os;
   }
 };
