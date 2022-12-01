@@ -75,7 +75,9 @@ include_directories(./include ./src ../src ${PROTO_GENERATED_DIR}
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
 target_link_libraries(${PROJECT_NAME}_lib protobuf::libprotobuf protobuf::libprotobuf-lite OpenMP::OpenMP_CXX
-        gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection)
+        gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection helib)
+
+set(EXE_TARGETS)
 
 # Building grpc server
 file(GLOB GRPC_SERVER_FILES src/comm/grpc/demo/*_server*.cc)
@@ -84,6 +86,7 @@ foreach (grpc_server_file ${GRPC_SERVER_FILES})
     string(REGEX REPLACE "(.*)?/" "" server_name ${server_name})
     add_executable(${PROJECT_NAME}_${server_name} ${grpc_server_file})
     target_link_libraries(${PROJECT_NAME}_${server_name} ${PROJECT_NAME}_lib)
+    list(APPEND EXE_TARGETS ${PROJECT_NAME}_${server_name})
 endforeach ()
 
 # Building grpc client
@@ -93,6 +96,7 @@ foreach (grpc_client_file ${GRPC_CLIENT_FILES})
     string(REGEX REPLACE "(.*)?/" "" client_name ${client_name})
     add_executable(${PROJECT_NAME}_${client_name} ${grpc_client_file})
     target_link_libraries(${PROJECT_NAME}_${client_name} ${PROJECT_NAME}_lib)
+    list(APPEND EXE_TARGETS ${PROJECT_NAME}_${client_name})
 endforeach ()
 
 # Building xgb client
@@ -102,19 +106,23 @@ foreach (xgb_client_file ${XGB_CLIENT_FILES})
     string(REGEX REPLACE "(.*)?/" "" client_name ${xgb_client_file})
     add_executable(${PROJECT_NAME}_${client_name} ${xgb_client_file})
     target_link_libraries(${PROJECT_NAME}_${client_name} ${PROJECT_NAME}_lib objxgboost)
+    list(APPEND EXE_TARGETS ${PROJECT_NAME}_${client_name})
 endforeach ()
 
 # Building tests
 add_executable(${PROJECT_NAME}_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc)
 target_link_libraries(${PROJECT_NAME}_tests ${PROJECT_NAME}_lib
-        helib
         objxgboost
         GTest::gtest GTest::gtest_main GTest::gmock GTest::gmock_main
         )
 file(GLOB_RECURSE TEST_SOURCES "tests/test_*.cc")
 target_sources(${PROJECT_NAME}_tests PRIVATE ${TEST_SOURCES})
+list(APPEND EXE_TARGETS ${PROJECT_NAME}_tests)
 
-set_target_properties(${PROJECT_NAME}_greeter_server ${PROJECT_NAME}_greeter_client ${PROJECT_NAME}_tests PROPERTIES
+foreach (target ${EXE_TARGETS})
+    message(target: ${target})
+endforeach ()
+set_target_properties(${EXE_TARGETS} PROPERTIES
         CXX_STANDARD ${CMAKE_CXX_STANDARD}
         CXX_EXTENSIONS OFF
         CXX_STANDARD_REQUIRED ON

@@ -538,9 +538,10 @@ class LearnerConfiguration : public Learner {
     this->ConfigureMetrics(args);
 
     // config rpc service for xgb
-    if (server_ == nullptr && tparam_.dsplit == DataSplitMode::kCol) {
+    if (server_ == nullptr && pub_ == nullptr && tparam_.dsplit == DataSplitMode::kCol) {
       if (fparam_.fl_role == FedratedRole::Guest) {
         server_.reset(new XgbServiceServer(fparam_.fl_port));
+        opt_paillier_keygen(&pub_, &pri_, 1024);
       } else {
         auto p = fparam_.fl_address.find(":");
         client_.reset(new XgbServiceClient(atoi(fparam_.fl_address.substr(p + 1).c_str()),
@@ -1532,7 +1533,7 @@ class LearnerImpl : public LearnerIO {
   // gradient pairs
   HostDeviceVector<GradientPair> gpair_;
   // encrypted gradient pairs
-  //HostDeviceVector<EncryptedGradientPair> encrypted_gpair_;
+  vector<EncryptedGradientPair> encrypted_gpair_;
   /*! \brief Temporary storage to prediction.  Useful for storing data transformed by
    *  objective function */
   PredictionContainer output_predictions_;

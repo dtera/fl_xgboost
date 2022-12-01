@@ -301,15 +301,13 @@ void data_retrieve_crt_t(
 //====================================datapack end======================================
 
 //====================================EncryptedType begin===============================
-// public key
-extern opt_public_key_t* pub;
-extern opt_private_key_t* pri;
 template <class T = float>
 class EncryptedType {
  public:
   // encrypted data
   mpz_t data_;
   uint32_t mul_cnt_{0};
+  static opt_public_key_t* pub;
 
   XGBOOST_DEVICE EncryptedType() { mpz_init(data_); }
 
@@ -378,7 +376,7 @@ class EncryptedType {
     mpz_t temp;
     mpz_init(temp);
     opt_paillier_set_plaintext_t(temp, value, pub);
-    *this = EncryptedType(temp, pub);
+    *this = EncryptedType(temp);
   }
 
   friend std::ostream& operator<<(std::ostream& os, const EncryptedType& g) {
@@ -398,5 +396,8 @@ class EncryptedType {
     return os;
   }
 };
+
+template <class T>
+opt_public_key_t* EncryptedType<T>::pub = nullptr;
 //====================================EncryptedType end=================================
 #endif  // DEMO_OPT_PAILLIER_H

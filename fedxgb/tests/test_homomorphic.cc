@@ -158,6 +158,7 @@ TEST(demo, paillier) {
 
 TEST(demo, EncryptedType) {
   TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
+  EncryptedType<float>::pub = pub;
 
   mpz_t mpz_t1, mpz_t2;
   mpz_inits(mpz_t1, mpz_t2, nullptr);
