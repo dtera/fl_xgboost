@@ -8,12 +8,12 @@
 
 #include <dmlc/base.h>
 #include <dmlc/omp.h>
-#include <gmp.h>
 #include <cmath>
 #include <iostream>
 #include <vector>
 #include <string>
 #include <utility>
+
 /*!
  * \brief string flag for R library, to leave hooks when needed.
  */
@@ -257,8 +257,6 @@ class GradientPairInternal {
 
 /*! \brief gradient statistics pair usually needed in gradient boosting */
 using GradientPair = detail::GradientPairInternal<float>;
-/*! \brief gradient statistics pair usually needed in gradient boosting */
-using EncryptedGradientPair = detail::GradientPairInternal<mpz_t>;
 /*! \brief High precision gradient statistics pair */
 using GradientPairPrecise = detail::GradientPairInternal<double>;
 
