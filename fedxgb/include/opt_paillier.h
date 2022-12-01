@@ -334,10 +334,7 @@ class EncryptedType {
   }
 
   XGBOOST_DEVICE EncryptedType& operator-=(const EncryptedType& et) {
-    mpz_t temp;
-    mpz_init(temp);
-    opt_paillier_sub(temp, data_, et.data_, pub);
-    SetData(temp);
+    opt_paillier_sub(data_, data_, et.data_, pub);
     return *this;
   }
 
