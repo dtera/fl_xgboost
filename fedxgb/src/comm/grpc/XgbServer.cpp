@@ -159,12 +159,40 @@ void XgbServiceServer::Shutdown() {
   xgb_thread_->join();
 }
 
+void XgbServiceServer::SendPubKey(opt_public_key_t* pub) { pub_ = pub; }
+
 void XgbServiceServer::SendGradPairs(const uint32_t version, mpz_t* grad_pairs, size_t size) {
   grad_pairs_.insert({version, {size, grad_pairs}});
 }
 
 void XgbServiceServer::SendSplits(const uint32_t version, XgbEncriptedSplit* splits, size_t size) {
   splits_.insert({version, {size, splits}});
+}
+Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
+                                   PubKeyResponse* response) {
+  do { /* do nothing, waiting for data prepared. */
+  } while (pub_ == nullptr);
+  // set response
+  response->set_nbits(pub_->nbits);
+  response->set_lbits(pub_->lbits);
+  mpz_t2_mpz_type(response->mutable_n(), pub_->n);
+  mpz_t2_mpz_type(response->mutable_half_n(), pub_->half_n);
+  mpz_t2_mpz_type(response->mutable_n_squared(), pub_->n_squared);
+  mpz_t2_mpz_type(response->mutable_h_s(), pub_->h_s);
+  auto fb_mod_p_sqaured = response->mutable_fb_mod_p_sqaured();
+  mpz_t2_mpz_type(fb_mod_p_sqaured->mutable_m_mod(), pub_->fb_mod_P_sqaured.m_mod);
+  mpz_t2_mpz_type(fb_mod_p_sqaured->mutable_m_table_g(), *pub_->fb_mod_P_sqaured.m_table_G);
+  fb_mod_p_sqaured->set_m_h(pub_->fb_mod_P_sqaured.m_h);
+  fb_mod_p_sqaured->set_m_t(pub_->fb_mod_P_sqaured.m_t);
+  fb_mod_p_sqaured->set_m_w(pub_->fb_mod_P_sqaured.m_w);
+  auto fb_mod_q_sqaured = response->mutable_fb_mod_q_sqaured();
+  mpz_t2_mpz_type(fb_mod_q_sqaured->mutable_m_mod(), pub_->fb_mod_Q_sqaured.m_mod);
+  mpz_t2_mpz_type(fb_mod_q_sqaured->mutable_m_table_g(), *pub_->fb_mod_Q_sqaured.m_table_G);
+  fb_mod_q_sqaured->set_m_h(pub_->fb_mod_Q_sqaured.m_h);
+  fb_mod_q_sqaured->set_m_t(pub_->fb_mod_Q_sqaured.m_t);
+  fb_mod_q_sqaured->set_m_w(pub_->fb_mod_Q_sqaured.m_w);
+
+  return Status::OK;
 }
 
 #define GetEncriptedData(type, DATATYPE, process_stats)                                  \
@@ -188,15 +216,7 @@ void XgbServiceServer::SendSplits(const uint32_t version, XgbEncriptedSplit* spl
 Status XgbServiceServer::GetEncriptedGradPairs(ServerContext* context,
                                                const GradPairsRequest* request,
                                                GradPairsResponse* response) {
-  GetEncriptedData(grad_pair, mpz_t, {
-    encripted_grad_pair->set__mp_alloc(grad_pairs[i]->_mp_alloc);
-    encripted_grad_pair->set__mp_size(grad_pairs[i]->_mp_size);
-    auto mp = grad_pairs[i]->_mp_d;
-    for (int j = 0; j < grad_pairs[i]->_mp_size; ++j) {
-      auto t = encripted_grad_pair->mutable__mp_d()->Add();
-      *t = mp[j];
-    }
-  });
+  GetEncriptedData(grad_pair, mpz_t, { mpz_t2_mpz_type(encripted_grad_pair, grad_pairs[i]); });
 }
 
 Status XgbServiceServer::GetEncriptedSplits(ServerContext* context, const SplitsRequest* request,
@@ -204,13 +224,7 @@ Status XgbServiceServer::GetEncriptedSplits(ServerContext* context, const Splits
   GetEncriptedData(split, XgbEncriptedSplit, {
     encripted_split->set_mask_id(splits[i].mask_id);
     auto encripted_grad_pair_sum = encripted_split->mutable_encripted_grad_pair_sum();
-    encripted_grad_pair_sum->set__mp_alloc(splits[i].encripted_grad_pair_sum->_mp_alloc);
-    encripted_grad_pair_sum->set__mp_size(splits[i].encripted_grad_pair_sum->_mp_size);
-    auto mp = splits[i].encripted_grad_pair_sum->_mp_d;
-    for (int j = 0; j < splits[i].encripted_grad_pair_sum->_mp_size; ++j) {
-      auto t = encripted_grad_pair_sum->mutable__mp_d()->Add();
-      *t = mp[j];
-    }
+    mpz_t2_mpz_type(encripted_grad_pair_sum, splits[i].encripted_grad_pair_sum);
   });
 }
 

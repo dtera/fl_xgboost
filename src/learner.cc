@@ -305,8 +305,9 @@ struct LearnerTrainParam : public XGBoostParameter<LearnerTrainParam> {
 struct FederatedParam : public XGBoostParameter<FederatedParam> {
   // federated role, can be guest or host
   FedratedRole fl_role{FedratedRole::Guest};
-  std::string fl_address; // for host
-  uint32_t fl_port; // for guest
+  std::string fl_address;  // for host
+  uint32_t fl_port;        // for guest
+  uint32_t fl_bit_len;
 
   DMLC_DECLARE_PARAMETER(FederatedParam) {
     DMLC_DECLARE_FIELD(fl_role)
@@ -318,6 +319,10 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
         .set_default("0.0.0.0:50001")
         .describe("Address for grpc communication.");
     DMLC_DECLARE_FIELD(fl_port).set_default(50001).describe("Port for grpc communication.");
+    DMLC_DECLARE_FIELD(fl_bit_len)
+        .set_default(1024)
+        .set_range(1024, 7680)
+        .describe("Bit length of secret key.");
   }
 };
 
@@ -541,7 +546,7 @@ class LearnerConfiguration : public Learner {
     if (server_ == nullptr && pub_ == nullptr && tparam_.dsplit == DataSplitMode::kCol) {
       if (fparam_.fl_role == FedratedRole::Guest) {
         server_.reset(new XgbServiceServer(fparam_.fl_port));
-        opt_paillier_keygen(&pub_, &pri_, 1024);
+        opt_paillier_keygen(&pub_, &pri_, fparam_.fl_bit_len);
       } else {
         auto p = fparam_.fl_address.find(":");
         client_.reset(new XgbServiceClient(atoi(fparam_.fl_address.substr(p + 1).c_str()),

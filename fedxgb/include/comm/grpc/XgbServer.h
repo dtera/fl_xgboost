@@ -14,6 +14,7 @@
 #include <thread>
 
 #include "common.h"
+#include "opt_paillier.h"
 #include "xgbcomm.grpc.pb.h"
 
 using grpc::Server;
@@ -79,6 +80,7 @@ class XgbServiceServer final : public XgbService::Service {
   unique_ptr<Server> server_;
   unordered_map<uint32_t, pair<size_t, mpz_t *>> grad_pairs_;
   unordered_map<uint32_t, pair<size_t, XgbEncriptedSplit *>> splits_;
+  opt_public_key_t *pub_;
 
  public:
   XgbServiceServer(const uint32_t port = 50001, const string &host = "0.0.0.0");
@@ -87,9 +89,14 @@ class XgbServiceServer final : public XgbService::Service {
 
   void Shutdown();
 
+  void SendPubKey(opt_public_key_t *pub);
+
   void SendGradPairs(const uint32_t version, mpz_t *grad_pairs, size_t size);
 
   void SendSplits(const uint32_t version, XgbEncriptedSplit *splits, size_t size);
+
+  Status GetPubKey(ServerContext *context, const Request *request,
+                   PubKeyResponse *response) override;
 
   Status GetEncriptedGradPairs(ServerContext *context, const GradPairsRequest *request,
                                GradPairsResponse *response) override;

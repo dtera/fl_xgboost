@@ -22,3 +22,4 @@ dump_format = json
 # federated params
 fl_port = 50002
 fl_role = guest
+fl_bit_len = 1024

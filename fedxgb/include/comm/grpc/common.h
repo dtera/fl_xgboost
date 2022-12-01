@@ -4,10 +4,15 @@
 
 #pragma once
 
+#include <gmp.h>
+
+#include "xgbcomm.grpc.pb.h"
 #include "xgboost/logging.h"
 
 #define DEBUG LOG(DEBUG)  // std::cout
 #define INFO LOG(INFO)
+
+using xgbcomm::MpzType;
 
 enum class XgbCommType {
   GRAD_CONNECT = 1,
@@ -24,5 +29,9 @@ struct XgbEncriptedSplit {
   std::string mask_id;
   mpz_t encripted_grad_pair_sum;
 };
+
+void mpz_t2_mpz_type(MpzType *mt, const mpz_t &m_t);
+
+void mpz_type2_mpz_t(mpz_t &m_t, const MpzType &mt);
 
 #define MAX_MESSAGE_LENGTH 10 * 1024 * 1024 * 1024l

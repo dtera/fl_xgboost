@@ -10,8 +10,23 @@ package xgbcomm;
 service XgbService {
   rpc GetEncriptedGradPairs_ (stream GradPairsRequest) returns (stream GradPairsResponse) {}
   rpc GetEncriptedSplits_ (stream SplitsRequest) returns (stream SplitsResponse) {}
+  rpc GetPubKey (Request) returns (PubKeyResponse) {}
   rpc GetEncriptedGradPairs (GradPairsRequest) returns (GradPairsResponse) {}
   rpc GetEncriptedSplits (SplitsRequest) returns (SplitsResponse) {}
+}
+
+message Request {}
+
+message PubKeyResponse {
+  uint32 nbits = 1;
+  uint32 lbits = 2;
+  MpzType n = 3;          // n=P*Q
+  MpzType half_n = 4;     // plaintext domain for precomputing
+  MpzType n_squared = 5;  // n=n^2
+  MpzType h_s = 6;        // h_s=(-y^2b)^n mod n^2
+  /* fixed-base parameters */
+  FBInstance fb_mod_P_sqaured = 7;
+  FBInstance fb_mod_Q_sqaured = 8;
 }
 
 message GradPairsRequest {
@@ -45,4 +60,12 @@ message MpzType {
   int32 _mp_size = 2;
   /* Pointer to the limbs.  */
   repeated uint64 _mp_d = 3;
+}
+
+message FBInstance {
+  MpzType m_mod = 1;
+  MpzType m_table_G = 2;
+  uint32 m_h = 3;
+  uint32 m_t = 4;
+  uint32 m_w = 5;
 }

@@ -135,14 +135,8 @@ void XgbServiceClient::GetEncriptedGradPairs(const uint32_t& version, mpz_t* enc
   GetRpcRes(GradPairs, {
     auto egps = response.encripted_grad_pairs();
     // encriptedGradPairs = new mpz_t[egps.size()];
-    xgboost::common::ParallelFor(egps.size(), n_threads_, [&](int i) {
-      encriptedGradPairs[i]->_mp_alloc = egps[i]._mp_alloc();
-      encriptedGradPairs[i]->_mp_size = egps[i]._mp_size();
-      encriptedGradPairs[i]->_mp_d = new mp_limb_t[egps[i]._mp_d().size()];
-      for (int j = 0; j < egps[i]._mp_d().size(); ++j) {
-        encriptedGradPairs[i]->_mp_d[j] = egps[i]._mp_d()[j];
-      }
-    });
+    xgboost::common::ParallelFor(egps.size(), n_threads_,
+                                 [&](int i) { mpz_type2_mpz_t(encriptedGradPairs[i], egps[i]); });
   });
   DEBUG << "response.version: " << response.version() << endl;
   DEBUG << "gradPairs[0]._mp_alloc: " << encriptedGradPairs[0]->_mp_alloc << endl;
@@ -157,15 +151,8 @@ void XgbServiceClient::GetEncriptedSplits(const uint32_t& version,
     // encriptedSplits = make_shared<XgbEncriptedSplit*>(new XgbEncriptedSplit[ess.size()]);
     xgboost::common::ParallelFor(ess.size(), n_threads_, [&](int i) {
       encriptedSplits[i].mask_id = ess[i].mask_id();
-
       auto t = ess[i].encripted_grad_pair_sum();
-      encriptedSplits[i].encripted_grad_pair_sum->_mp_alloc = t._mp_alloc();
-      encriptedSplits[i].encripted_grad_pair_sum->_mp_size = t._mp_size();
-      auto mp_d = t._mp_d();
-      encriptedSplits[i].encripted_grad_pair_sum->_mp_d = new mp_limb_t[mp_d.size()];
-      for (int j = 0; j < mp_d.size(); ++j) {
-        encriptedSplits[i].encripted_grad_pair_sum->_mp_d[j] = mp_d[j];
-      }
+      mpz_type2_mpz_t(encriptedSplits[i].encripted_grad_pair_sum, t);
     });
   });
 }
