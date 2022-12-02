@@ -35,3 +35,17 @@ void mpz_t2_mpz_type(MpzType *mt, const mpz_t &m_t);
 void mpz_type2_mpz_t(mpz_t &m_t, const MpzType &mt);
 
 #define MAX_MESSAGE_LENGTH 10 * 1024 * 1024 * 1024l
+
+#define RpcRequest(Request, RequestFunc, Response, SetRequest, SetResponse)                   \
+  Request request;                                                                            \
+  Response response;                                                                          \
+  SetRequest;                                                                                 \
+                                                                                              \
+  ClientContext context;                                                                      \
+  auto status = stub_->RequestFunc(&context, request, &response);                             \
+  if (status.ok()) {                                                                          \
+    cout << "** RPC request success! " << endl;                                               \
+    SetResponse;                                                                              \
+  } else {                                                                                    \
+    cerr << "code: " << status.error_code() << ", error: " << status.error_message() << endl; \
+  }

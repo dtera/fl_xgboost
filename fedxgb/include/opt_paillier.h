@@ -33,6 +33,58 @@ struct opt_public_key_t {
   /* fixed-base parameters */
   fb_instance fb_mod_P_sqaured;
   fb_instance fb_mod_Q_sqaured;
+
+  friend std::ostream& operator<<(std::ostream& os, const opt_public_key_t& k) {
+    os << "nbits: " << k.nbits << std::endl;
+    os << "lbits: " << k.lbits << std::endl;
+
+    os << "[mpz_t]n: " << std::endl;
+    os << "\tn._mp_alloc: " << k.n->_mp_alloc << std::endl;
+    os << "\tn._mp_size: " << k.n->_mp_size << std::endl;
+    os << "\tn._mp_d: " << *k.n->_mp_d << std::endl;
+
+    os << "[mpz_t]half_n: " << std::endl;
+    os << "\thalf_n._mp_alloc: " << k.half_n->_mp_alloc << std::endl;
+    os << "\thalf_n._mp_size: " << k.half_n->_mp_size << std::endl;
+    os << "\thalf_n._mp_d: " << *k.half_n->_mp_d << std::endl;
+
+    os << "[mpz_t]n_squared: " << std::endl;
+    os << "\tn_squared._mp_alloc: " << k.n_squared->_mp_alloc << std::endl;
+    os << "\tn_squared._mp_size: " << k.n_squared->_mp_size << std::endl;
+    os << "\tn_squared._mp_d: " << *k.n_squared->_mp_d << std::endl;
+
+    os << "[mpz_t]h_s: " << std::endl;
+    os << "\th_s._mp_alloc: " << k.h_s->_mp_alloc << std::endl;
+    os << "\th_s._mp_size: " << k.h_s->_mp_size << std::endl;
+    os << "\th_s._mp_d: " << *k.h_s->_mp_d << std::endl;
+
+    os << "[fb_instance]fb_mod_P_sqaured: " << std::endl;
+    os << "\t[mpz_t]m_mod: " << std::endl;
+    os << "\t\tm_mod._mp_alloc: " << k.fb_mod_P_sqaured.m_mod->_mp_alloc << std::endl;
+    os << "\t\tm_mod._mp_size: " << k.fb_mod_P_sqaured.m_mod->_mp_size << std::endl;
+    os << "\t\tm_mod._mp_d: " << *k.fb_mod_P_sqaured.m_mod->_mp_d << std::endl;
+    os << "\t[mpz_t]m_table_G: " << std::endl;
+    os << "\t\tm_table_G._mp_alloc: " << (*k.fb_mod_P_sqaured.m_table_G)->_mp_alloc << std::endl;
+    os << "\t\tm_table_G._mp_size: " << (*k.fb_mod_P_sqaured.m_table_G)->_mp_size << std::endl;
+    os << "\t\tm_table_G._mp_d: " << *(*k.fb_mod_P_sqaured.m_table_G)->_mp_d << std::endl;
+    os << "\tm_h: " << k.fb_mod_P_sqaured.m_h << std::endl;
+    os << "\tm_t: " << k.fb_mod_P_sqaured.m_t << std::endl;
+    os << "\tm_w: " << k.fb_mod_P_sqaured.m_w << std::endl;
+
+    os << "[fb_instance]fb_mod_Q_sqaured: " << std::endl;
+    os << "\t[mpz_t]m_mod: " << std::endl;
+    os << "\t\tm_mod._mp_alloc: " << k.fb_mod_Q_sqaured.m_mod->_mp_alloc << std::endl;
+    os << "\t\tm_mod._mp_size: " << k.fb_mod_Q_sqaured.m_mod->_mp_size << std::endl;
+    os << "\t\tm_mod._mp_d: " << *k.fb_mod_Q_sqaured.m_mod->_mp_d << std::endl;
+    os << "\t[mpz_t]m_table_G: " << std::endl;
+    os << "\t\tm_table_G._mp_alloc: " << (*k.fb_mod_Q_sqaured.m_table_G)->_mp_alloc << std::endl;
+    os << "\t\tm_table_G._mp_size: " << (*k.fb_mod_Q_sqaured.m_table_G)->_mp_size << std::endl;
+    os << "\t\tm_table_G._mp_d: " << *(*k.fb_mod_Q_sqaured.m_table_G)->_mp_d << std::endl;
+    os << "\tm_h: " << k.fb_mod_Q_sqaured.m_h << std::endl;
+    os << "\tm_t: " << k.fb_mod_Q_sqaured.m_t << std::endl;
+    os << "\tm_w: " << k.fb_mod_Q_sqaured.m_w << std::endl;
+    return os;
+  }
 };
 /**
  * @brief TYPES

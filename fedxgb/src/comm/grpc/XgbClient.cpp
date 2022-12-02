@@ -116,28 +116,45 @@ XgbServiceClient::XgbServiceClient(const uint32_t port, const string& host, int3
       host + ":" + to_string(port), grpc::InsecureChannelCredentials(), channel_args_));
 }
 
-#define GetRpcRes(ReqType, processResStatments)                                               \
-  ReqType##Request request;                                                                   \
-  ReqType##Response response;                                                                 \
-  request.set_version(version);                                                               \
-                                                                                              \
-  ClientContext context;                                                                      \
-  auto status = stub_->GetEncripted##ReqType(&context, request, &response);                   \
-  if (status.ok()) {                                                                          \
-    DEBUG << "** RPC request success! " << endl;                                              \
-    processResStatments                                                                       \
-  } else {                                                                                    \
-    cerr << "code: " << status.error_code() << ", error: " << status.error_message() << endl; \
-  }
+void XgbServiceClient::GetPubKey(opt_public_key_t** pub) {
+  *pub = (opt_public_key_t*)malloc(sizeof(opt_public_key_t));
+  RpcRequest(Request, GetPubKey, PubKeyResponse, , {
+    (*pub)->nbits = response.nbits();
+    (*pub)->lbits = response.lbits();
+    mpz_type2_mpz_t((*pub)->n, response.n());
+    mpz_type2_mpz_t((*pub)->half_n, response.half_n());
+    mpz_type2_mpz_t((*pub)->n_squared, response.n_squared());
+    mpz_type2_mpz_t((*pub)->h_s, response.h_s());
+    auto mod_p_sqaured = response.fb_mod_p_sqaured();
+    mpz_type2_mpz_t((*pub)->fb_mod_P_sqaured.m_mod, mod_p_sqaured.m_mod());
+    (*pub)->fb_mod_P_sqaured.m_table_G = new mpz_t[mod_p_sqaured.m_t() + 1];
+    for (int i = 0; i <= mod_p_sqaured.m_t(); ++i) {
+      mpz_type2_mpz_t((*pub)->fb_mod_P_sqaured.m_table_G[i], mod_p_sqaured.m_table_g(i));
+    }
+    (*pub)->fb_mod_P_sqaured.m_h = mod_p_sqaured.m_h();
+    (*pub)->fb_mod_P_sqaured.m_t = mod_p_sqaured.m_t();
+    (*pub)->fb_mod_P_sqaured.m_w = mod_p_sqaured.m_w();
+    auto mod_q_sqaured = response.fb_mod_q_sqaured();
+    mpz_type2_mpz_t((*pub)->fb_mod_Q_sqaured.m_mod, mod_q_sqaured.m_mod());
+    (*pub)->fb_mod_Q_sqaured.m_table_G = new mpz_t[mod_q_sqaured.m_t() + 1];
+    for (int i = 0; i <= mod_q_sqaured.m_t(); ++i) {
+      mpz_type2_mpz_t((*pub)->fb_mod_Q_sqaured.m_table_G[i], mod_q_sqaured.m_table_g(i));
+    }
+    (*pub)->fb_mod_Q_sqaured.m_h = mod_q_sqaured.m_h();
+    (*pub)->fb_mod_Q_sqaured.m_t = mod_q_sqaured.m_t();
+    (*pub)->fb_mod_Q_sqaured.m_w = mod_q_sqaured.m_w();
+  });
+}
 
 void XgbServiceClient::GetEncriptedGradPairs(const uint32_t& version, mpz_t* encriptedGradPairs) {
-  // mutex mtx;
-  GetRpcRes(GradPairs, {
-    auto egps = response.encripted_grad_pairs();
-    // encriptedGradPairs = new mpz_t[egps.size()];
-    xgboost::common::ParallelFor(egps.size(), n_threads_,
-                                 [&](int i) { mpz_type2_mpz_t(encriptedGradPairs[i], egps[i]); });
-  });
+  RpcRequest(GradPairsRequest, GetEncriptedGradPairs, GradPairsResponse,
+             request.set_version(version), {
+               auto egps = response.encripted_grad_pairs();
+               // encriptedGradPairs = new mpz_t[egps.size()];
+               xgboost::common::ParallelFor(egps.size(), n_threads_, [&](int i) {
+                 mpz_type2_mpz_t(encriptedGradPairs[i], egps[i]);
+               });
+             });
   DEBUG << "response.version: " << response.version() << endl;
   DEBUG << "gradPairs[0]._mp_alloc: " << encriptedGradPairs[0]->_mp_alloc << endl;
   DEBUG << "gradPairs[0]._mp_size: " << encriptedGradPairs[0]->_mp_size << endl;
@@ -146,7 +163,7 @@ void XgbServiceClient::GetEncriptedGradPairs(const uint32_t& version, mpz_t* enc
 
 void XgbServiceClient::GetEncriptedSplits(const uint32_t& version,
                                           XgbEncriptedSplit* encriptedSplits) {
-  GetRpcRes(Splits, {
+  RpcRequest(SplitsRequest, GetEncriptedSplits, SplitsResponse, request.set_version(version), {
     auto ess = response.encripted_splits();
     // encriptedSplits = make_shared<XgbEncriptedSplit*>(new XgbEncriptedSplit[ess.size()]);
     xgboost::common::ParallelFor(ess.size(), n_threads_, [&](int i) {

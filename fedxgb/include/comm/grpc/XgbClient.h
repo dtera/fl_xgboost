@@ -15,6 +15,7 @@
 
 #include "common.h"
 #include "common/threading_utils.h"
+#include "opt_paillier.h"
 #include "xgbcomm.grpc.pb.h"
 
 using grpc::Channel;
@@ -70,6 +71,8 @@ class XgbServiceClient {
  public:
   XgbServiceClient(const uint32_t port = 50001, const string &host = "0.0.0.0",
                    int32_t n_threads = 10);
+
+  void GetPubKey(opt_public_key_t **pub);
 
   void GetEncriptedGradPairs(const uint32_t &version, mpz_t *encriptedGradPairs);
 

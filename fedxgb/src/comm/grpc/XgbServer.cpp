@@ -181,13 +181,19 @@ Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* reques
   mpz_t2_mpz_type(response->mutable_h_s(), pub_->h_s);
   auto fb_mod_p_sqaured = response->mutable_fb_mod_p_sqaured();
   mpz_t2_mpz_type(fb_mod_p_sqaured->mutable_m_mod(), pub_->fb_mod_P_sqaured.m_mod);
-  mpz_t2_mpz_type(fb_mod_p_sqaured->mutable_m_table_g(), *pub_->fb_mod_P_sqaured.m_table_G);
+  for (int i = 0; i <= pub_->fb_mod_P_sqaured.m_t; ++i) {
+    auto m_table_g = fb_mod_p_sqaured->mutable_m_table_g()->Add();
+    mpz_t2_mpz_type(m_table_g, pub_->fb_mod_P_sqaured.m_table_G[i]);
+  }
   fb_mod_p_sqaured->set_m_h(pub_->fb_mod_P_sqaured.m_h);
   fb_mod_p_sqaured->set_m_t(pub_->fb_mod_P_sqaured.m_t);
   fb_mod_p_sqaured->set_m_w(pub_->fb_mod_P_sqaured.m_w);
   auto fb_mod_q_sqaured = response->mutable_fb_mod_q_sqaured();
   mpz_t2_mpz_type(fb_mod_q_sqaured->mutable_m_mod(), pub_->fb_mod_Q_sqaured.m_mod);
-  mpz_t2_mpz_type(fb_mod_q_sqaured->mutable_m_table_g(), *pub_->fb_mod_Q_sqaured.m_table_G);
+  for (int i = 0; i <= pub_->fb_mod_Q_sqaured.m_t; ++i) {
+    auto m_table_g = fb_mod_q_sqaured->mutable_m_table_g()->Add();
+    mpz_t2_mpz_type(m_table_g, pub_->fb_mod_Q_sqaured.m_table_G[i]);
+  }
   fb_mod_q_sqaured->set_m_h(pub_->fb_mod_Q_sqaured.m_h);
   fb_mod_q_sqaured->set_m_t(pub_->fb_mod_Q_sqaured.m_t);
   fb_mod_q_sqaured->set_m_w(pub_->fb_mod_Q_sqaured.m_w);

@@ -64,7 +64,7 @@ message MpzType {
 
 message FBInstance {
   MpzType m_mod = 1;
-  MpzType m_table_G = 2;
+  repeated MpzType m_table_G = 2;
   uint32 m_h = 3;
   uint32 m_t = 4;
   uint32 m_w = 5;

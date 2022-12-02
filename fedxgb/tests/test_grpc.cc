@@ -52,8 +52,11 @@ TEST(grpc, xgb_server) {
       len_);
   server.SendGradPairs(1, mpz_ciphers_, len_);
   server.SendSplits(1, encripted_splits_, len_);
+  server.SendPubKey(pub_);
+  cout << *pub_ << endl;
+  sleep(30000);
 
-  XgbServiceClient client;
+  /*XgbServiceClient client;
   for (int i = 1; i < 2; ++i) {
     client.GetEncriptedGradPairs(i, res_encripted_grad_pairs_);
     client.GetEncriptedSplits(i, res_encripted_splits_);
@@ -73,17 +76,15 @@ TEST(grpc, xgb_server) {
       cout << "encripted_splits_[" << j << "]: " << c3 << endl;
       cout << "res_encripted_splits_[" << j << "]: " << c4 << endl;
     }
-  }
-  // sleep(20);
+  }*/
   server.Shutdown();
 }
 
 TEST(grpc, xgb_client) {
   XgbServiceClient client;
-  for (int i = 1; i < 2; ++i) {
-    mpz_t *encriptedGradPairs = new mpz_t[len_];
-    client.GetEncriptedGradPairs(i, encriptedGradPairs);
-  }
+  opt_public_key_t *pub;
+  client.GetPubKey(&pub);
+  cout << *pub << endl;
 }
 
 TEST(grpc, xgb_async_server) {
