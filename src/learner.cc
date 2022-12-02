@@ -548,7 +548,7 @@ class LearnerConfiguration : public Learner {
         server_.reset(new XgbServiceServer(fparam_.fl_port));
         opt_paillier_keygen(&pub_, &pri_, fparam_.fl_bit_len);
         server_->SendPubKey(pub_);
-        sleep(10);
+        // sleep(10);
       } else {
         auto p = fparam_.fl_address.find(":");
         client_.reset(new XgbServiceClient(atoi(fparam_.fl_address.substr(p + 1).c_str()),
@@ -1262,7 +1262,10 @@ class LearnerIO : public LearnerConfiguration {
  */
 class LearnerImpl : public LearnerIO {
  public:
-  explicit LearnerImpl(std::vector<std::shared_ptr<DMatrix>> cache) : LearnerIO{cache} {}
+  explicit LearnerImpl(std::vector<std::shared_ptr<DMatrix>> cache) : LearnerIO{cache} {
+    encrypted_gpair_.resize(cache[0]->Info().num_row_);
+    DEBUG << "encrypted_gpair_.size(): " << encrypted_gpair_.size() << endl;
+  }
   ~LearnerImpl() override {
     auto local_map = LearnerAPIThreadLocalStore::Get();
     if (local_map->find(this) != local_map->cend()) {
@@ -1350,10 +1353,17 @@ class LearnerImpl : public LearnerIO {
     TrainingObserver::Instance().Observe(predt.predictions, "Predictions");
     monitor_.Stop("PredictRaw");
 
-    monitor_.Start("GetGradient");
-    obj_->GetGradient(predt.predictions, train->Info(), iter, &gpair_);
-    monitor_.Stop("GetGradient");
-    TrainingObserver::Instance().Observe(gpair_, "Gradients");
+    if (fparam_.fl_role == FedratedRole::Guest) {
+      monitor_.Start("GetGradient");
+      obj_->GetGradient(predt.predictions, train->Info(), iter, &gpair_);
+      monitor_.Stop("GetGradient");
+      TrainingObserver::Instance().Observe(gpair_, "Gradients");
+    }
+
+    monitor_.Start("GetEncryptedGradient");
+    GetEncryptedGradient(encrypted_gpair_, gpair_);
+    monitor_.Stop("GetEncryptedGradient");
+    TrainingObserver::Instance().Observe(gpair_, "EncryptedGradients");
 
     gbm_->DoBoost(train.get(), &gpair_, &predt, obj_.get());
     monitor_.Stop("UpdateOneIter");
@@ -1496,6 +1506,11 @@ class LearnerImpl : public LearnerIO {
   }
 
  protected:
+  void GetEncryptedGradient(vector<EncryptedGradientPair>& encrypted_gpair,
+                            HostDeviceVector<GradientPair>& gpair) {
+
+  }
+
   /*!
    * \brief get un-transformed prediction
    * \param data training data matrix
