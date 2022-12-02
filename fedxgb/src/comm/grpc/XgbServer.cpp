@@ -150,7 +150,7 @@ void XgbServiceServer::Run() {
   builder.RegisterService(this);
   // Finally assemble the server.
   server_ = builder.BuildAndStart();
-  cout << "Server listening on " << server_address_ << endl;
+  cout << "RPC Server listening on " << server_address_ << endl;
   server_->Wait();
 }
 

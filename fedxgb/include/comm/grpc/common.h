@@ -11,6 +11,7 @@
 
 #define DEBUG LOG(DEBUG)  // std::cout
 #define INFO LOG(INFO)
+#define ERROR LOG(FATAL)
 
 using xgbcomm::MpzType;
 
@@ -36,16 +37,17 @@ void mpz_type2_mpz_t(mpz_t &m_t, const MpzType &mt);
 
 #define MAX_MESSAGE_LENGTH 10 * 1024 * 1024 * 1024l
 
-#define RpcRequest(Request, RequestFunc, Response, SetRequest, SetResponse)                   \
-  Request request;                                                                            \
-  Response response;                                                                          \
-  SetRequest;                                                                                 \
-                                                                                              \
-  ClientContext context;                                                                      \
-  auto status = stub_->RequestFunc(&context, request, &response);                             \
-  if (status.ok()) {                                                                          \
-    cout << "** RPC request success! " << endl;                                               \
-    SetResponse;                                                                              \
-  } else {                                                                                    \
-    cerr << "code: " << status.error_code() << ", error: " << status.error_message() << endl; \
+#define RpcRequest(Request, RequestFunc, Response, SetRequest, SetResponse)               \
+  Request request;                                                                        \
+  Response response;                                                                      \
+  SetRequest;                                                                             \
+                                                                                          \
+  ClientContext context;                                                                  \
+  context.set_wait_for_ready(true);                                                       \
+  auto s = stub_->RequestFunc(&context, request, &response);                              \
+  if (s.ok()) {                                                                           \
+    DEBUG << "** RPC request success! " << std::endl;                                     \
+    SetResponse;                                                                          \
+  } else {                                                                                \
+    ERROR << "code: " << s.error_code() << ", error: " << s.error_message() << std::endl; \
   }
