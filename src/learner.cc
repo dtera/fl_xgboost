@@ -1265,6 +1265,7 @@ class LearnerImpl : public LearnerIO {
   explicit LearnerImpl(std::vector<std::shared_ptr<DMatrix>> cache) : LearnerIO{cache} {
     encrypted_gpair_.resize(cache[0]->Info().num_row_);
     DEBUG << "encrypted_gpair_.size(): " << encrypted_gpair_.size() << endl;
+    cout << "omp_get_num_procs: " << omp_get_num_procs() << endl;
   }
   ~LearnerImpl() override {
     auto local_map = LearnerAPIThreadLocalStore::Get();
@@ -1361,7 +1362,8 @@ class LearnerImpl : public LearnerIO {
     }
 
     monitor_.Start("GetEncryptedGradient");
-    GetEncryptedGradient(encrypted_gpair_, gpair_);
+    TIME_STAT(opt_paillier_batch_encrypt(encrypted_gpair_, gpair_.HostVector(), pub_, pri_),
+              GetEncryptedGradient)
     monitor_.Stop("GetEncryptedGradient");
     TrainingObserver::Instance().Observe(gpair_, "EncryptedGradients");
 
@@ -1506,11 +1508,6 @@ class LearnerImpl : public LearnerIO {
   }
 
  protected:
-  void GetEncryptedGradient(vector<EncryptedGradientPair>& encrypted_gpair,
-                            HostDeviceVector<GradientPair>& gpair) {
-
-  }
-
   /*!
    * \brief get un-transformed prediction
    * \param data training data matrix

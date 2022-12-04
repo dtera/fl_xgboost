@@ -11,6 +11,7 @@
 
 #include "common/threading_utils.h"
 #include "utils.h"
+#include "xgboost/base.h"
 
 extern std::unordered_map<uint32_t, std::pair<uint32_t, uint32_t>> mapTo_nbits_lbits;
 extern uint32_t prob;
@@ -151,11 +152,11 @@ void opt_paillier_decrypt(mpz_t& res, const mpz_t& ciphertext, const opt_public_
 
 void opt_paillier_batch_encrypt(mpz_t* res, const mpz_t* plaintext, size_t size,
                                 const opt_public_key_t* pub, const opt_private_key_t* pri = nullptr,
-                                int32_t n_threads = 10, const bool is_fb = true);
+                                int32_t n_threads = omp_get_num_procs(), const bool is_fb = true);
 
 void opt_paillier_batch_decrypt(mpz_t* res, const mpz_t* ciphertext, size_t size,
                                 const opt_public_key_t* pub, const opt_private_key_t* pri,
-                                int32_t n_threads = 10, const bool is_crt = true);
+                                int32_t n_threads = omp_get_num_procs(), const bool is_crt = true);
 
 void opt_paillier_encrypt(mpz_t& res, const char* plaintext, const opt_public_key_t* pub,
                           const opt_private_key_t* pri = nullptr, int radix = 10,
@@ -166,18 +167,20 @@ void opt_paillier_decrypt(char*& res, const mpz_t& ciphertext, const opt_public_
 
 void opt_paillier_batch_encrypt(mpz_t* res, char** plaintext, size_t size,
                                 const opt_public_key_t* pub, const opt_private_key_t* pri = nullptr,
-                                int32_t n_threads = 10, int radix = 10, const bool is_fb = true);
+                                int32_t n_threads = omp_get_num_procs(), int radix = 10,
+                                const bool is_fb = true);
 
 void opt_paillier_batch_decrypt(char** res, const mpz_t* ciphertext, size_t size,
                                 const opt_public_key_t* pub, const opt_private_key_t* pri,
-                                int32_t n_threads = 10, int radix = 10, const bool is_crt = true);
+                                int32_t n_threads = omp_get_num_procs(), int radix = 10,
+                                const bool is_crt = true);
 
 void opt_paillier_add(mpz_t& res, const mpz_t& op1, const mpz_t& op2, const opt_public_key_t* pub);
 
 void opt_paillier_sub(mpz_t& res, const mpz_t& op1, const mpz_t& op2, const opt_public_key_t* pub);
 
 void opt_paillier_batch_add(mpz_t& res, const mpz_t* ops, const size_t size,
-                            const opt_public_key_t* pub, int32_t n_threads = 10);
+                            const opt_public_key_t* pub, int32_t n_threads = omp_get_num_procs());
 
 void opt_paillier_constant_mul(mpz_t& res, const mpz_t& op1, const mpz_t& op2,
                                const opt_public_key_t* pub);
@@ -246,8 +249,9 @@ void opt_paillier_decrypt_t(PLAIN_TYPE& res, const mpz_t& ciphertext, const opt_
 template <typename PLAIN_TYPE>
 void opt_paillier_batch_encrypt_t(mpz_t* res, const PLAIN_TYPE& plaintext, size_t size,
                                   const opt_public_key_t* pub,
-                                  const opt_private_key_t* pri = nullptr, int32_t n_threads = 10,
-                                  int radix = 10, int precision = 8, const bool is_fb = true) {
+                                  const opt_private_key_t* pri = nullptr,
+                                  int32_t n_threads = omp_get_num_procs(), int precision = 8,
+                                  int radix = 10, const bool is_fb = true) {
   xgboost::common::ParallelFor(size, n_threads, [&](int i) {
     opt_paillier_encrypt_t(res[i], plaintext[i], pub, pri, precision, radix, is_fb);  //
   });
@@ -256,8 +260,8 @@ void opt_paillier_batch_encrypt_t(mpz_t* res, const PLAIN_TYPE& plaintext, size_
 template <typename PLAIN_TYPE>
 void opt_paillier_batch_decrypt_t(PLAIN_TYPE& res, const mpz_t* ciphertext, size_t size,
                                   const opt_public_key_t* pub, const opt_private_key_t* pri,
-                                  int32_t n_threads = 10, int radix = 10, int precision = 8,
-                                  const bool is_crt = true) {
+                                  int32_t n_threads = omp_get_num_procs(), int precision = 8,
+                                  int radix = 10, const bool is_crt = true) {
   xgboost::common::ParallelFor(size, n_threads, [&](int i) {
     opt_paillier_decrypt_t(res[i], ciphertext[i], pub, pri, precision, radix, is_crt);
   });
@@ -452,4 +456,54 @@ class EncryptedType {
 template <class T>
 opt_public_key_t* EncryptedType<T>::pub = nullptr;
 //====================================EncryptedType end=================================
+
+template <typename T>
+void opt_paillier_encrypt(xgboost::detail::GradientPairInternal<EncryptedType<T>>& res,
+                          const xgboost::detail::GradientPairInternal<T>& plaintext,
+                          const opt_public_key_t* pub, const opt_private_key_t* pri = nullptr,
+                          int precision = 8, int radix = 10, const bool is_fb = true) {
+  mpz_t t1, t2;
+  mpz_inits(t1, t2, nullptr);
+  opt_paillier_encrypt_t(t1, plaintext.GetGrad(), pub, pri, precision, radix, is_fb);
+  res.GetGrad().SetData(t1);
+  opt_paillier_encrypt_t(t2, plaintext.GetHess(), pub, pri, precision, radix, is_fb);
+  res.GetHess().SetData(t2);
+  mpz_clears(t1, t2, nullptr);
+}
+
+template <typename T>
+void opt_paillier_decrypt(xgboost::detail::GradientPairInternal<T>& res,
+                          const xgboost::detail::GradientPairInternal<EncryptedType<T>>& ciphertext,
+                          const opt_public_key_t* pub, const opt_private_key_t* pri,
+                          int precision = 8, int radix = 10, const bool is_crt = true) {
+  float t1, t2;
+  opt_paillier_decrypt_t(t1, ciphertext.GetGrad().data_, pub, pri, precision, radix, is_crt);
+  opt_paillier_decrypt_t(t2, ciphertext.GetHess().data_, pub, pri, precision, radix, is_crt);
+  res.Add(t1, t2);
+}
+
+template <typename T>
+void opt_paillier_batch_encrypt(
+    std::vector<xgboost::detail::GradientPairInternal<EncryptedType<T>>>& res,
+    const std::vector<xgboost::detail::GradientPairInternal<T>>& plaintexts,
+    const opt_public_key_t* pub, const opt_private_key_t* pri = nullptr,
+    int32_t n_threads = omp_get_num_procs(), int precision = 8, int radix = 10,
+    const bool is_fb = true) {
+  xgboost::common::ParallelFor(plaintexts.size(), n_threads, [&](int i) {
+    opt_paillier_encrypt(res[i], plaintexts[i], pub, pri, precision, radix, is_fb);
+  });
+}
+
+template <typename T>
+void opt_paillier_batch_decrypt(
+    std::vector<xgboost::detail::GradientPairInternal<T>>& res,
+    const std::vector<xgboost::detail::GradientPairInternal<EncryptedType<T>>>& ciphertexts,
+    const opt_public_key_t* pub, const opt_private_key_t* pri,
+    int32_t n_threads = omp_get_num_procs(), int precision = 8, int radix = 10,
+    const bool is_crt = true) {
+  xgboost::common::ParallelFor(ciphertexts.size(), n_threads, [&](int i) {
+    opt_paillier_decrypt(res[i], ciphertexts[i], pub, pri, precision, radix, is_crt);
+  });
+}
+
 #endif  // DEMO_OPT_PAILLIER_H
