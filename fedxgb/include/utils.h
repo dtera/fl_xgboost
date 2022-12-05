@@ -4,8 +4,10 @@
 
 #ifndef DEMO_UTILS_H
 #define DEMO_UTILS_H
+
 #include <gmp.h>
 
+#include <cassert>
 #include <chrono>
 #include <cstdint>
 #include <functional>
