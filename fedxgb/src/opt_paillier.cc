@@ -412,7 +412,6 @@ void opt_paillier_freepubkey(opt_public_key_t* pub) {
   fbpowmod_end_extend(pub->fb_mod_P_sqaured);
   fbpowmod_end_extend(pub->fb_mod_Q_sqaured);
   free(pub);
-  pub = nullptr;
 }
 
 void opt_paillier_freeprikey(opt_private_key_t* pri) {
@@ -436,7 +435,6 @@ void opt_paillier_freeprikey(opt_private_key_t* pri) {
   mpz_clear(pri->Q_mul_double_p_inverse);
   mpz_clear(pri->P_mul_double_q_inverse);
   free(pri);
-  pri = nullptr;
 }
 
 //====================================datapack begin====================================

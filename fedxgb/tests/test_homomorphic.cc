@@ -51,7 +51,7 @@ void for_out(std::function<void(int)> fn, size_t n = len) {
   //  delete[] res;
 }
 
-TEST(demo, test) {
+TEST(homomorphic, test) {
   cout << "is_same: " << is_same<unsigned int, uint32_t>() << endl;
   float a = 123;
   cout << "to_string: " << to_string(a).c_str() << endl;
@@ -64,9 +64,10 @@ TEST(demo, test) {
   cout << "mpz_temp._mp_size: " << mpz_temp->_mp_size << endl;
   cout << "ft: " << mpf_get_d(ft) << endl;
   cout << "pow: " << pow(10, 8) << endl;
+  cout << "std::is_standard_layout<T>: " << is_standard_layout<EncryptedType<float>>::value << endl;
 }
 
-TEST(demo, helib) {
+TEST(homomorphic, helib) {
   cout << "=========Homomorphic encryption Begin=======" << endl;
   helib::Context context =
       helib::ContextBuilder<helib::CKKS>().m(16 * 1024).bits(119).precision(20).c(2).build();
@@ -121,7 +122,7 @@ TEST(demo, helib) {
   cout << "=========Homomorphic encryption End=========" << endl;
 }
 
-TEST(demo, paillier) {
+TEST(homomorphic, paillier) {
   for (int i = 0; i < 1; ++i) {
     PublicKey pk;
     PrivateKey sk;
@@ -156,59 +157,7 @@ TEST(demo, paillier) {
   }
 }
 
-TEST(demo, EncryptedType) {
-  TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
-  EncryptedType<float>::pub = pub;
-
-  mpz_t mpz_t1, mpz_t2;
-  mpz_inits(mpz_t1, mpz_t2, nullptr);
-  opt_paillier_encrypt_t(mpz_t1, 13.3, pub);
-  opt_paillier_encrypt_t(mpz_t2, 15.6, pub);
-  cout << "==============================================" << endl;
-  EncryptedType et1(mpz_t1);
-  EncryptedType et2(mpz_t2);
-  opt_paillier_decrypt(et1.data_, et1.data_, pub, pri);
-  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
-  cout << "et1: " << et1 << endl;
-  cout << "et2: " << et2 << endl;
-  et1.SetData(mpz_t1);
-  et2.SetData(mpz_t2);
-  cout << "==============================================" << endl;
-  auto et = et1 + et2;
-  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
-  cout << "et1 + et2: " << et << endl;
-  et2 += et1;
-  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
-  cout << "et2 += et1: " << et2 << endl;
-  et2.SetData(mpz_t2);
-  cout << "==============================================" << endl;
-  et = et1 - et2;
-  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
-  cout << "et1 - et2: " << et << endl;
-  et1 -= et2;
-  opt_paillier_decrypt(et1.data_, et1.data_, pub, pri);
-  cout << "et1 -= et2: " << et1 << endl;
-  et1.SetData(mpz_t1);
-  cout << "==============================================" << endl;
-  et = et2 * 2;
-  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
-  cout << "et2 * 2: " << et << endl;
-  et2 *= 2;
-  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
-  cout << "et2 *= 2: " << et2 << endl;
-  et2.SetData(mpz_t2);
-  cout << "==============================================" << endl;
-  et = et2 / 2;
-  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
-  cout << "et2 / 2: " << et << endl;
-  et2 /= 2;
-  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
-  cout << "et2 /= 2: " << et2 << endl;
-
-  mpz_clears(mpz_t1, mpz_t2, nullptr);
-}
-
-TEST(demo, opt_paillier) {
+TEST(homomorphic, opt_paillier) {
   TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
 
   for_out([&](int i) {
@@ -222,7 +171,7 @@ TEST(demo, opt_paillier) {
     plains_d[i] = 1.0 * ue / 1000;
   });
 
-  opt_paillier_batch_encrypt(mpz_ciphers, plains, len, pub);
+  opt_paillier_batch_encrypt(mpz_ciphers, plains, len, pub, pri);
   opt_paillier_batch_decrypt(res, mpz_ciphers, len, pub, pri);
 
   for_out([&](int i) {
@@ -279,7 +228,7 @@ TEST(demo, opt_paillier) {
   opt_paillier_freeprikey(pri);
 }
 
-TEST(demo, opt_paillier_data_pack) {
+TEST(homomorphic, opt_paillier_data_pack) {
   TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
 
   CrtMod *crtmod;
@@ -333,7 +282,7 @@ TEST(demo, opt_paillier_data_pack) {
   }
 }
 
-TEST(demo, opt_paillier_op) {
+TEST(homomorphic, opt_paillier_op) {
   TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
 
   mpz_t plain_test1;
@@ -373,4 +322,56 @@ TEST(demo, opt_paillier_op) {
   mpz_clears(decrypt_test, cipher_test1, cipher_test2, plain_test1, plain_test2, nullptr);
   opt_paillier_freepubkey(pub);
   opt_paillier_freeprikey(pri);
+}
+
+TEST(homomorphic, EncryptedType) {
+  TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
+  EncryptedType<float>::pub = pub;
+
+  mpz_t mpz_t1, mpz_t2;
+  mpz_inits(mpz_t1, mpz_t2, nullptr);
+  opt_paillier_encrypt_t(mpz_t1, 13.3, pub);
+  opt_paillier_encrypt_t(mpz_t2, 15.6, pub);
+  cout << "==============================================" << endl;
+  EncryptedType et1(mpz_t1);
+  EncryptedType et2(mpz_t2);
+  opt_paillier_decrypt(et1.data_, et1.data_, pub, pri);
+  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
+  cout << "et1: " << et1 << endl;
+  cout << "et2: " << et2 << endl;
+  et1.SetData(mpz_t1);
+  et2.SetData(mpz_t2);
+  cout << "==============================================" << endl;
+  auto et = et1 + et2;
+  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
+  cout << "et1 + et2: " << et << endl;
+  et2 += et1;
+  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
+  cout << "et2 += et1: " << et2 << endl;
+  et2.SetData(mpz_t2);
+  cout << "==============================================" << endl;
+  et = et1 - et2;
+  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
+  cout << "et1 - et2: " << et << endl;
+  et1 -= et2;
+  opt_paillier_decrypt(et1.data_, et1.data_, pub, pri);
+  cout << "et1 -= et2: " << et1 << endl;
+  et1.SetData(mpz_t1);
+  cout << "==============================================" << endl;
+  et = et2 * 2;
+  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
+  cout << "et2 * 2: " << et << endl;
+  et2 *= 2;
+  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
+  cout << "et2 *= 2: " << et2 << endl;
+  et2.SetData(mpz_t2);
+  cout << "==============================================" << endl;
+  et = et2 / 2;
+  opt_paillier_decrypt(et.data_, et.data_, pub, pri);
+  cout << "et2 / 2: " << et << endl;
+  et2 /= 2;
+  opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
+  cout << "et2 /= 2: " << et2 << endl;
+
+  mpz_clears(mpz_t1, mpz_t2, nullptr);
 }
