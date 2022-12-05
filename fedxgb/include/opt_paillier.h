@@ -1,8 +1,8 @@
 //
 // Created by HqZhao on 2022/11/15.
 //
-#ifndef DEMO_OPT_PAILLIER_H
-#define DEMO_OPT_PAILLIER_H
+#ifndef OPT_PAILLIER_H
+#define OPT_PAILLIER_H
 
 #include <math.h>
 
@@ -506,4 +506,4 @@ void opt_paillier_batch_decrypt(
   });
 }
 
-#endif  // DEMO_OPT_PAILLIER_H
+#endif  // OPT_PAILLIER_H
