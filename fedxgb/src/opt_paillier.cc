@@ -2,7 +2,7 @@
 // Created by HqZhao on 2022/11/15.
 //
 
-#include "../include/opt_paillier.h"
+#include "opt_paillier.h"
 
 #include <chrono>
 #include <cstdlib>
@@ -35,8 +35,7 @@ void opt_paillier_mod_n_squared_crt(mpz_t& res, const mpz_t& base, const mpz_t& 
   mpz_clears(cq, cp, temp_base, nullptr);
 }
 
-void opt_paillier_mod_n_squared_crt_fb(mpz_t& res, const mpz_t& exp, const opt_public_key_t* pub,
-                                       const opt_private_key_t* pri) {
+void opt_paillier_mod_n_squared_crt_fb(mpz_t& res, const mpz_t& exp, const opt_public_key_t* pub) {
   /* temp variable */
   mpz_t cp, cq;
   mpz_inits(cq, cp, nullptr);
@@ -48,7 +47,7 @@ void opt_paillier_mod_n_squared_crt_fb(mpz_t& res, const mpz_t& exp, const opt_p
 
   /* CRT to calculate base^exp mod n^2 */
   mpz_sub(cq, cq, cp);
-  mpz_addmul(cp, cq, pri->P_squared_mul_P_squared_inverse);
+  mpz_addmul(cp, cq, pub->P_squared_mul_P_squared_inverse);
   mpz_mod(res, cp, pub->n_squared);
 
   mpz_clears(cq, cp, nullptr);
@@ -73,6 +72,7 @@ void opt_paillier_keygen(opt_public_key_t** pub, opt_private_key_t** pri, uint32
   mpz_init((*pub)->n);
   mpz_init((*pub)->n_squared);
   mpz_init((*pub)->half_n);
+  mpz_init((*pub)->P_squared_mul_P_squared_inverse);
 
   mpz_init((*pri)->alpha);
   mpz_init((*pri)->beta);
@@ -187,6 +187,8 @@ void opt_paillier_keygen(opt_public_key_t** pub, opt_private_key_t** pri, uint32
   mpz_invert((*pri)->P_squared_mul_P_squared_inverse, (*pri)->P_squared, (*pri)->Q_squared);
   mpz_mul((*pri)->P_squared_mul_P_squared_inverse, (*pri)->P_squared_mul_P_squared_inverse,
           (*pri)->P_squared);
+  // set pub
+  mpz_set((*pub)->P_squared_mul_P_squared_inverse, (*pri)->P_squared_mul_P_squared_inverse);
 
   // double_alpha^-1 mod n
   mpz_invert((*pri)->double_alpha_inverse, (*pri)->double_alpha, (*pub)->n);
@@ -256,15 +258,15 @@ void opt_paillier_encrypt(mpz_t& res, const mpz_t& plaintext, const opt_public_k
   // mpz_res = (1+m*n)
   mpz_add_ui(res, res, 1);
 
-  if (pri == nullptr) {
-    // r = hs^r mod n^2
-    mpz_powm(r, pub->h_s, r, pub->n_squared);
+  if (pri != nullptr) {
+    // r=hs^r mod n^2 => hs = hs mod p^2,q^2, r = r mod phi(n^2)
+    opt_paillier_mod_n_squared_crt(r, pub->h_s, r, pub, pri);
   } else {
     if (is_fb) {
-      opt_paillier_mod_n_squared_crt_fb(r, r, pub, pri);
+      opt_paillier_mod_n_squared_crt_fb(r, r, pub);
     } else {
-      // r=hs^r mod n^2 => hs = hs mod p^2,q^2, r = r mod phi(n^2)
-      opt_paillier_mod_n_squared_crt(r, pub->h_s, r, pub, pri);
+      // r = hs^r mod n^2
+      mpz_powm(r, pub->h_s, r, pub->n_squared);
     }
   }
 
@@ -322,7 +324,7 @@ void opt_paillier_decrypt(mpz_t& res, const mpz_t& ciphertext, const opt_public_
 void opt_paillier_batch_encrypt(mpz_t* res, const mpz_t* plaintext, size_t size,
                                 const opt_public_key_t* pub, const opt_private_key_t* pri,
                                 int32_t n_threads, const bool is_fb) {
-  xgboost::common::ParallelFor(size, n_threads, [&](int i) {
+  ParallelFor(size, n_threads, [&](int i) {
     opt_paillier_encrypt(res[i], plaintext[i], pub, pri, is_fb);  //
   });
 }
@@ -330,9 +332,8 @@ void opt_paillier_batch_encrypt(mpz_t* res, const mpz_t* plaintext, size_t size,
 void opt_paillier_batch_decrypt(mpz_t* res, const mpz_t* ciphertext, size_t size,
                                 const opt_public_key_t* pub, const opt_private_key_t* pri,
                                 int32_t n_threads, const bool is_crt) {
-  xgboost::common::ParallelFor(size, n_threads, [&](int i) {
-    opt_paillier_decrypt(res[i], ciphertext[i], pub, pri, is_crt);
-  });
+  ParallelFor(size, n_threads,
+              [&](int i) { opt_paillier_decrypt(res[i], ciphertext[i], pub, pri, is_crt); });
 }
 
 void opt_paillier_encrypt(mpz_t& res, const char* plaintext, const opt_public_key_t* pub,
@@ -356,7 +357,7 @@ void opt_paillier_decrypt(char*& res, const mpz_t& ciphertext, const opt_public_
 void opt_paillier_batch_encrypt(mpz_t* res, char** plaintext, size_t size,
                                 const opt_public_key_t* pub, const opt_private_key_t* pri,
                                 int32_t n_threads, int radix, const bool is_fb) {
-  xgboost::common::ParallelFor(size, n_threads, [&](int i) {
+  ParallelFor(size, n_threads, [&](int i) {
     opt_paillier_encrypt(res[i], plaintext[i], pub, pri, radix, is_fb);  //
   });
 }
@@ -364,9 +365,8 @@ void opt_paillier_batch_encrypt(mpz_t* res, char** plaintext, size_t size,
 void opt_paillier_batch_decrypt(char** res, const mpz_t* ciphertext, size_t size,
                                 const opt_public_key_t* pub, const opt_private_key_t* pri,
                                 int32_t n_threads, int radix, const bool is_crt) {
-  xgboost::common::ParallelFor(size, n_threads, [&](int i) {
-    opt_paillier_decrypt(res[i], ciphertext[i], pub, pri, radix, is_crt);
-  });
+  ParallelFor(size, n_threads,
+              [&](int i) { opt_paillier_decrypt(res[i], ciphertext[i], pub, pri, radix, is_crt); });
 }
 
 void opt_paillier_add(mpz_t& res, const mpz_t& op1, const mpz_t& op2, const opt_public_key_t* pub) {
@@ -390,7 +390,7 @@ void opt_paillier_batch_add(mpz_t& res, const mpz_t* ops, const size_t size,
   opt_paillier_add(res, ops[0], ops[1], pub);
   if (size > 2) {
     std::mutex g_mutex;
-    xgboost::common::ParallelFor(size - 2, n_threads, [&](int i) {
+    ParallelFor(size - 2, n_threads, [&](int i) {
       int j = i + 2;
       g_mutex.lock();
       opt_paillier_add(res, res, ops[j], pub);
@@ -409,6 +409,7 @@ void opt_paillier_freepubkey(opt_public_key_t* pub) {
   mpz_clear(pub->n);
   mpz_clear(pub->n_squared);
   mpz_clear(pub->half_n);
+  mpz_clear(pub->P_squared_mul_P_squared_inverse);
   fbpowmod_end_extend(pub->fb_mod_P_sqaured);
   fbpowmod_end_extend(pub->fb_mod_Q_sqaured);
   free(pub);

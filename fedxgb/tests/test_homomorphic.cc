@@ -14,7 +14,7 @@
 #include "paillier.h"
 
 using namespace std;
-using namespace fl::he;
+using namespace angel::fl;
 
 uint32_t len = 100;
 mpz_t *mpz_plains = new mpz_t[len];
@@ -126,7 +126,7 @@ TEST(homomorphic, paillier) {
   for (int i = 0; i < 1; ++i) {
     PublicKey pk;
     PrivateKey sk;
-    TIME_STAT(generatePaillierKeys(&pk, &sk, bitLength); PaillierBatchEncryptor bpk(pk, 1, 1);
+    TIME_STAT(generatePaillierKeys1(&pk, &sk, bitLength); BatchPaillierPublicKey bpk(pk, 1, 1);
               , KeyGen)
 
     for_out([&](int i) {
@@ -171,7 +171,7 @@ TEST(homomorphic, opt_paillier) {
     plains_d[i] = 1.0 * ue / 1000;
   });
 
-  opt_paillier_batch_encrypt(mpz_ciphers, plains, len, pub, pri);
+  opt_paillier_batch_encrypt(mpz_ciphers, plains, len, pub);
   opt_paillier_batch_decrypt(res, mpz_ciphers, len, pub, pri);
 
   for_out([&](int i) {

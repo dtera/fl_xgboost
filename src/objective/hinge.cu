@@ -28,7 +28,8 @@ class HingeObj : public ObjFunction {
   ObjInfo Task() const override { return ObjInfo::kRegression; }
 
   void GetGradient(const HostDeviceVector<bst_float> &preds, const MetaInfo &info, int /*iter*/,
-                   HostDeviceVector<GradientPair> *out_gpair) override {
+                   HostDeviceVector<GradientPair> *out_gpair,
+                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair) override {
     CHECK_NE(info.labels.Size(), 0U) << "label set cannot be empty";
     CHECK_EQ(preds.Size(), info.labels.Size())
         << "labels are not correctly provided"

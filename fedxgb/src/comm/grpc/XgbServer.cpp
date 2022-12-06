@@ -179,6 +179,8 @@ Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* reques
   mpz_t2_mpz_type(response->mutable_half_n(), pub_->half_n);
   mpz_t2_mpz_type(response->mutable_n_squared(), pub_->n_squared);
   mpz_t2_mpz_type(response->mutable_h_s(), pub_->h_s);
+  mpz_t2_mpz_type(response->mutable_p_squared_mul_p_squared_inverse(),
+                  pub_->P_squared_mul_P_squared_inverse);
   auto fb_mod_p_sqaured = response->mutable_fb_mod_p_sqaured();
   mpz_t2_mpz_type(fb_mod_p_sqaured->mutable_m_mod(), pub_->fb_mod_P_sqaured.m_mod);
   for (int i = 0; i <= pub_->fb_mod_P_sqaured.m_t; ++i) {

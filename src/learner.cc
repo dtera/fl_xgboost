@@ -1263,9 +1263,8 @@ class LearnerIO : public LearnerConfiguration {
 class LearnerImpl : public LearnerIO {
  public:
   explicit LearnerImpl(std::vector<std::shared_ptr<DMatrix>> cache) : LearnerIO{cache} {
-    encrypted_gpair_.resize(cache[0]->Info().num_row_);
-    DEBUG << "encrypted_gpair_.size(): " << encrypted_gpair_.size() << endl;
-    cout << "omp_get_num_procs: " << omp_get_num_procs() << endl;
+    //encrypted_gpair_.resize(cache[0]->Info().num_row_);
+    //DEBUG << "encrypted_gpair_.size(): " << encrypted_gpair_.size() << endl;
   }
   ~LearnerImpl() override {
     auto local_map = LearnerAPIThreadLocalStore::Get();
@@ -1356,16 +1355,23 @@ class LearnerImpl : public LearnerIO {
 
     if (fparam_.fl_role == FedratedRole::Guest) {
       monitor_.Start("GetGradient");
-      obj_->GetGradient(predt.predictions, train->Info(), iter, &gpair_);
+      obj_->GetGradient(predt.predictions, train->Info(), iter, &gpair_, &encrypted_gpair_);
       monitor_.Stop("GetGradient");
       TrainingObserver::Instance().Observe(gpair_, "Gradients");
-    }
 
-    monitor_.Start("GetEncryptedGradient");
-    TIME_STAT(opt_paillier_batch_encrypt(encrypted_gpair_, gpair_.HostVector(), pub_, pri_),
-              GetEncryptedGradient)
-    monitor_.Stop("GetEncryptedGradient");
-    TrainingObserver::Instance().Observe(gpair_, "EncryptedGradients");
+      /*monitor_.Start("EncryptedGradient");
+      TIME_STAT(opt_paillier_batch_encrypt(encrypted_gpair_, gpair_.HostVector(), pub_, pri_),
+                GetEncryptedGradient)
+      monitor_.Stop("EncryptedGradient");*/
+
+      monitor_.Start("SendEncryptedGradient");
+      //server_->SendGradPairs();
+      monitor_.Stop("SendEncryptedGradient");
+
+    } else {
+
+    }
+    TrainingObserver::Instance().Observe(encrypted_gpair_, "EncryptedGradients");
 
     gbm_->DoBoost(train.get(), &gpair_, &predt, obj_.get());
     monitor_.Stop("UpdateOneIter");
@@ -1554,7 +1560,7 @@ class LearnerImpl : public LearnerIO {
   // gradient pairs
   HostDeviceVector<GradientPair> gpair_;
   // encrypted gradient pairs
-  vector<EncryptedGradientPair> encrypted_gpair_;
+  HostDeviceVector<EncryptedGradientPair> encrypted_gpair_;
   /*! \brief Temporary storage to prediction.  Useful for storing data transformed by
    *  objective function */
   PredictionContainer output_predictions_;

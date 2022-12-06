@@ -24,7 +24,6 @@
 
 #include "comm/grpc/XgbServer.h"
 #include "comm/grpc/XgbClient.h"
-#include "opt_paillier.h"
 
 namespace xgboost {
 
@@ -33,11 +32,6 @@ class GradientBooster;
 class ObjFunction;
 class DMatrix;
 class Json;
-
-/*! \brief encrypted gradient statistics pair usually needed in gradient boosting */
-using EncryptedGradientPair = detail::GradientPairInternal<EncryptedType<float>>;
-/*! \brief High precision encrypted gradient statistics pair usually needed in gradient boosting */
-using EncryptedGradientPairPrecise = detail::GradientPairInternal<EncryptedType<double>>;
 
 enum class PredictionType : std::uint8_t {  // NOLINT
   kValue = 0,

@@ -10,15 +10,15 @@
 #include <dmlc/registry.h>
 #include <xgboost/base.h>
 #include <xgboost/data.h>
-#include <xgboost/model.h>
 #include <xgboost/generic_parameters.h>
 #include <xgboost/host_device_vector.h>
+#include <xgboost/model.h>
 #include <xgboost/task.h>
 
-#include <vector>
-#include <utility>
-#include <string>
 #include <functional>
+#include <string>
+#include <utility>
+#include <vector>
 
 namespace xgboost {
 
@@ -47,10 +47,9 @@ class ObjFunction : public Configurable {
    * \param iteration current iteration number.
    * \param out_gpair output of get gradient, saves gradient and second order gradient in
    */
-  virtual void GetGradient(const HostDeviceVector<bst_float>& preds,
-                           const MetaInfo& info,
-                           int iteration,
-                           HostDeviceVector<GradientPair>* out_gpair) = 0;
+  virtual void GetGradient(const HostDeviceVector<bst_float>& preds, const MetaInfo& info,
+                           int iteration, HostDeviceVector<GradientPair>* out_gpair,
+                           HostDeviceVector<EncryptedGradientPair>* encrypted_gpair) = 0;
 
   /*! \return the default evaluation metric for the objective */
   virtual const char* DefaultEvalMetric() const = 0;
@@ -66,7 +65,7 @@ class ObjFunction : public Configurable {
    *  usually it redirect to PredTransform
    * \param io_preds prediction values, saves to this vector as well
    */
-  virtual void EvalTransform(HostDeviceVector<bst_float> *io_preds) {
+  virtual void EvalTransform(HostDeviceVector<bst_float>* io_preds) {
     this->PredTransform(io_preds);
   }
   /*!
@@ -75,9 +74,7 @@ class ObjFunction : public Configurable {
    * used by gradient boosting
    * \return transformed value
    */
-  virtual bst_float ProbToMargin(bst_float base_score) const {
-    return base_score;
-  }
+  virtual bst_float ProbToMargin(bst_float base_score) const { return base_score; }
   /**
    * \brief Make initialize estimation of prediction.
    *
@@ -130,9 +127,7 @@ class ObjFunction : public Configurable {
  * \brief Registry entry for objective factory functions.
  */
 struct ObjFunctionReg
-    : public dmlc::FunctionRegEntryBase<ObjFunctionReg,
-                                        std::function<ObjFunction* ()> > {
-};
+    : public dmlc::FunctionRegEntryBase<ObjFunctionReg, std::function<ObjFunction*()> > {};
 
 /*!
  * \brief Macro to register objective function.
@@ -146,9 +141,9 @@ struct ObjFunctionReg
  *   });
  * \endcode
  */
-#define XGBOOST_REGISTER_OBJECTIVE(UniqueId, Name)                      \
-  static DMLC_ATTRIBUTE_UNUSED ::xgboost::ObjFunctionReg &              \
-  __make_ ## ObjFunctionReg ## _ ## UniqueId ## __ =                    \
-      ::dmlc::Registry< ::xgboost::ObjFunctionReg>::Get()->__REGISTER__(Name)
+#define XGBOOST_REGISTER_OBJECTIVE(UniqueId, Name)        \
+  static DMLC_ATTRIBUTE_UNUSED ::xgboost::ObjFunctionReg& \
+      __make_##ObjFunctionReg##_##UniqueId##__ =          \
+          ::dmlc::Registry< ::xgboost::ObjFunctionReg>::Get()->__REGISTER__(Name)
 }  // namespace xgboost
 #endif  // XGBOOST_OBJECTIVE_H_

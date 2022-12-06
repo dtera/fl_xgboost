@@ -125,6 +125,8 @@ void XgbServiceClient::GetPubKey(opt_public_key_t** pub) {
     mpz_type2_mpz_t((*pub)->half_n, response.half_n());
     mpz_type2_mpz_t((*pub)->n_squared, response.n_squared());
     mpz_type2_mpz_t((*pub)->h_s, response.h_s());
+    mpz_type2_mpz_t((*pub)->P_squared_mul_P_squared_inverse,
+                    response.p_squared_mul_p_squared_inverse());
     auto mod_p_sqaured = response.fb_mod_p_sqaured();
     mpz_type2_mpz_t((*pub)->fb_mod_P_sqaured.m_mod, mod_p_sqaured.m_mod());
     (*pub)->fb_mod_P_sqaured.m_table_G = new mpz_t[mod_p_sqaured.m_t() + 1];

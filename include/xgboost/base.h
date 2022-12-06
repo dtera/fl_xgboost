@@ -8,11 +8,15 @@
 
 #include <dmlc/base.h>
 #include <dmlc/omp.h>
+#include <gmp.h>
+
 #include <cmath>
 #include <iostream>
-#include <vector>
 #include <string>
 #include <utility>
+#include <vector>
+
+#include "opt_paillier.h"
 
 /*!
  * \brief string flag for R library, to leave hooks when needed.
@@ -58,8 +62,7 @@
     !defined(__CUDACC__) && !defined(__sun) && !defined(sun)
 #include <parallel/algorithm>
 #define XGBOOST_PARALLEL_SORT(X, Y, Z) __gnu_parallel::sort((X), (Y), (Z))
-#define XGBOOST_PARALLEL_STABLE_SORT(X, Y, Z) \
-  __gnu_parallel::stable_sort((X), (Y), (Z))
+#define XGBOOST_PARALLEL_STABLE_SORT(X, Y, Z) __gnu_parallel::stable_sort((X), (Y), (Z))
 #elif defined(_MSC_VER) && (!__INTEL_COMPILER)
 #include <ppl.h>
 #define XGBOOST_PARALLEL_SORT(X, Y, Z) concurrency::parallel_sort((X), (Y), (Z))
@@ -70,7 +73,7 @@
 #endif  // GLIBC VERSION
 
 #if defined(__GNUC__)
-#define XGBOOST_EXPECT(cond, ret)  __builtin_expect((cond), (ret))
+#define XGBOOST_EXPECT(cond, ret) __builtin_expect((cond), (ret))
 #else
 #define XGBOOST_EXPECT(cond, ret) (cond)
 #endif  // defined(__GNUC__)
@@ -78,7 +81,7 @@
 /*!
  * \brief Tag function as usable by device
  */
-#if defined (__CUDA__) || defined(__NVCC__)
+#if defined(__CUDA__) || defined(__NVCC__)
 #define XGBOOST_DEVICE __host__ __device__
 #else
 #define XGBOOST_DEVICE
@@ -97,8 +100,8 @@
 /* default logic for software pre-fetching */
 #if (defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_AMD64))) || defined(__INTEL_COMPILER)
 // Enable _mm_prefetch for Intel compiler and MSVC+x86
-  #define XGBOOST_MM_PREFETCH_PRESENT
-  #define XGBOOST_BUILTIN_PREFETCH_PRESENT
+#define XGBOOST_MM_PREFETCH_PRESENT
+#define XGBOOST_BUILTIN_PREFETCH_PRESENT
 #elif defined(__GNUC__)
 // Enable __builtin_prefetch for GCC
 #define XGBOOST_BUILTIN_PREFETCH_PRESENT
@@ -106,13 +109,114 @@
 
 #endif  // !defined(XGBOOST_MM_PREFETCH_PRESENT) && !defined()
 
+//====================================EncryptedType begin===============================
+template <class T = float>
+class EncryptedType {
+ public:
+  // encrypted data
+  mpz_t data_;
+  uint32_t mul_cnt_{0};
+  static opt_public_key_t* pub;
+
+  XGBOOST_DEVICE EncryptedType() { mpz_init(data_); }
+
+  XGBOOST_DEVICE EncryptedType(const mpz_t& data) : EncryptedType() { SetData(data); }
+
+  XGBOOST_DEVICE EncryptedType(const EncryptedType& g) : EncryptedType() { SetData(g.data_); }
+
+  XGBOOST_DEVICE void SetData(const mpz_t& data) {
+    mpz_set(data_, data);
+    mul_cnt_ = 0;
+  }
+
+  XGBOOST_DEVICE EncryptedType& operator+=(const EncryptedType& et) {
+    opt_paillier_add(data_, data_, et.data_, pub);
+    return *this;
+  }
+
+  XGBOOST_DEVICE EncryptedType operator+(const EncryptedType& et) const {
+    EncryptedType g;
+    opt_paillier_add(g.data_, data_, et.data_, pub);
+    return g;
+  }
+
+  XGBOOST_DEVICE EncryptedType& operator-=(const EncryptedType& et) {
+    opt_paillier_sub(data_, data_, et.data_, pub);
+    return *this;
+  }
+
+  XGBOOST_DEVICE EncryptedType operator-(const EncryptedType& et) const {
+    EncryptedType g;
+    opt_paillier_sub(g.data_, data_, et.data_, pub);
+    return g;
+  }
+
+  XGBOOST_DEVICE EncryptedType& operator*=(float multiplier) {
+    opt_paillier_constant_mul_t(data_, data_, multiplier, pub);
+    mul_cnt_++;
+    return *this;
+  }
+
+  XGBOOST_DEVICE EncryptedType operator*(float multiplier) const {
+    EncryptedType g;
+    opt_paillier_constant_mul_t(g.data_, data_, multiplier, pub);
+    g.mul_cnt_++;
+    return g;
+  }
+
+  XGBOOST_DEVICE EncryptedType& operator/=(float divisor) {
+    opt_paillier_constant_mul_t(data_, data_, 1 / divisor, pub);
+    mul_cnt_++;
+    return *this;
+  }
+
+  XGBOOST_DEVICE EncryptedType operator/(float divisor) const {
+    EncryptedType g;
+    opt_paillier_constant_mul_t(g.data_, data_, 1 / divisor, pub);
+    g.mul_cnt_++;
+    return g;
+  }
+
+  XGBOOST_DEVICE bool operator==(const EncryptedType& et) const {
+    return mpz_cmp(this->data_, et.data_) == 0;
+  }
+
+  XGBOOST_DEVICE explicit EncryptedType(int value) {
+    mpz_t temp;
+    mpz_init(temp);
+    opt_paillier_set_plaintext_t(temp, value, pub);
+    *this = EncryptedType(temp);
+  }
+
+  friend std::ostream& operator<<(std::ostream& os, const EncryptedType& g) {
+    if (std::is_same<T, char>() || std::is_same<T, short>() || std::is_same<T, int>() ||
+        std::is_same<T, uint8_t>() || std::is_same<T, uint16_t>() || std::is_same<T, uint32_t>() ||
+        std::is_same<T, int64_t>() || std::is_same<T, uint64_t>() || std::is_same<T, double>() ||
+        std::is_same<T, float>()) {
+      T o;
+      opt_paillier_get_plaintext_t(o, g.data_, pub, 8 * (g.mul_cnt_ + 1));
+      os << o;
+    } else {
+      char* o;
+      opt_paillier_get_plaintext(o, g.data_, pub);
+      os << o;
+    }
+
+    return os;
+  }
+};
+
+template <class T>
+opt_public_key_t* EncryptedType<T>::pub = nullptr;
+//====================================EncryptedType end=================================
+
 /*! \brief namespace of xgboost*/
 namespace xgboost {
 
 /*! \brief unsigned integer type used for feature index. */
 using bst_uint = uint32_t;  // NOLINT
 /*! \brief integer type. */
-using bst_int = int32_t;    // NOLINT
+using bst_int = int32_t;  // NOLINT
 /*! \brief unsigned long integers */
 using bst_ulong = uint64_t;  // NOLINT
 /*! \brief float type, used for storing statistics */
@@ -129,11 +233,11 @@ using bst_bin_t = int32_t;  // NOLINT
  * representation of DMatrix might not be portable across platform.  Booster model should
  * be portable as parameters are floating points.
  */
-using bst_row_t = std::size_t;   // NOLINT
+using bst_row_t = std::size_t;  // NOLINT
 /*! \brief Type for tree node index. */
-using bst_node_t = int32_t;      // NOLINT
+using bst_node_t = int32_t;  // NOLINT
 /*! \brief Type for ranking group index. */
-using bst_group_t = uint32_t;    // NOLINT
+using bst_group_t = uint32_t;  // NOLINT
 
 namespace detail {
 /*! \brief Implementation of gradient statistics pair. Template specialisation
@@ -157,7 +261,8 @@ class GradientPairInternal {
     hess_ += hess;
   }
 
-  inline static void Reduce(GradientPairInternal<T>& a, const GradientPairInternal<T>& b) { // NOLINT(*)
+  inline static void Reduce(GradientPairInternal<T>& a,
+                            const GradientPairInternal<T>& b) {  // NOLINT(*)
     a += b;
   }
 
@@ -169,12 +274,12 @@ class GradientPairInternal {
   }
 
   // Copy constructor if of same value type, marked as default to be trivially_copyable
-  GradientPairInternal(const GradientPairInternal<T> &g) = default;
+  GradientPairInternal(const GradientPairInternal<T>& g) = default;
 
   // Copy constructor if different value type - use getters and setters to
   // perform conversion
   template <typename T2>
-  XGBOOST_DEVICE explicit GradientPairInternal(const GradientPairInternal<T2> &g) {
+  XGBOOST_DEVICE explicit GradientPairInternal(const GradientPairInternal<T2>& g) {
     SetGrad(g.GetGrad());
     SetHess(g.GetHess());
   }
@@ -182,37 +287,33 @@ class GradientPairInternal {
   XGBOOST_DEVICE T GetGrad() const { return grad_; }
   XGBOOST_DEVICE T GetHess() const { return hess_; }
 
-  XGBOOST_DEVICE GradientPairInternal<T> &operator+=(
-      const GradientPairInternal<T> &rhs) {
+  XGBOOST_DEVICE GradientPairInternal<T>& operator+=(const GradientPairInternal<T>& rhs) {
     grad_ += rhs.grad_;
     hess_ += rhs.hess_;
     return *this;
   }
 
-  XGBOOST_DEVICE GradientPairInternal<T> operator+(
-      const GradientPairInternal<T> &rhs) const {
+  XGBOOST_DEVICE GradientPairInternal<T> operator+(const GradientPairInternal<T>& rhs) const {
     GradientPairInternal<T> g;
     g.grad_ = grad_ + rhs.grad_;
     g.hess_ = hess_ + rhs.hess_;
     return g;
   }
 
-  XGBOOST_DEVICE GradientPairInternal<T> &operator-=(
-      const GradientPairInternal<T> &rhs) {
+  XGBOOST_DEVICE GradientPairInternal<T>& operator-=(const GradientPairInternal<T>& rhs) {
     grad_ -= rhs.grad_;
     hess_ -= rhs.hess_;
     return *this;
   }
 
-  XGBOOST_DEVICE GradientPairInternal<T> operator-(
-      const GradientPairInternal<T> &rhs) const {
+  XGBOOST_DEVICE GradientPairInternal<T> operator-(const GradientPairInternal<T>& rhs) const {
     GradientPairInternal<T> g;
     g.grad_ = grad_ - rhs.grad_;
     g.hess_ = hess_ - rhs.hess_;
     return g;
   }
 
-  XGBOOST_DEVICE GradientPairInternal<T> &operator*=(float multiplier) {
+  XGBOOST_DEVICE GradientPairInternal<T>& operator*=(float multiplier) {
     grad_ *= multiplier;
     hess_ *= multiplier;
     return *this;
@@ -225,7 +326,7 @@ class GradientPairInternal {
     return g;
   }
 
-  XGBOOST_DEVICE GradientPairInternal<T> &operator/=(float divisor) {
+  XGBOOST_DEVICE GradientPairInternal<T>& operator/=(float divisor) {
     grad_ /= divisor;
     hess_ /= divisor;
     return *this;
@@ -238,17 +339,15 @@ class GradientPairInternal {
     return g;
   }
 
-  XGBOOST_DEVICE bool operator==(const GradientPairInternal<T> &rhs) const {
+  XGBOOST_DEVICE bool operator==(const GradientPairInternal<T>& rhs) const {
     return grad_ == rhs.grad_ && hess_ == rhs.hess_;
   }
 
   XGBOOST_DEVICE explicit GradientPairInternal(int value) {
-    *this = GradientPairInternal<T>(static_cast<float>(value),
-                                    static_cast<float>(value));
+    *this = GradientPairInternal<T>(static_cast<float>(value), static_cast<float>(value));
   }
 
-  friend std::ostream &operator<<(std::ostream &os,
-                                  const GradientPairInternal<T> &g) {
+  friend std::ostream& operator<<(std::ostream& os, const GradientPairInternal<T>& g) {
     os << g.GetGrad() << "/" << g.GetHess();
     return os;
   }
@@ -259,6 +358,11 @@ class GradientPairInternal {
 using GradientPair = detail::GradientPairInternal<float>;
 /*! \brief High precision gradient statistics pair */
 using GradientPairPrecise = detail::GradientPairInternal<double>;
+
+/*! \brief encrypted gradient statistics pair usually needed in gradient boosting */
+using EncryptedGradientPair = detail::GradientPairInternal<EncryptedType<float>>;
+/*! \brief High precision encrypted gradient statistics pair usually needed in gradient boosting */
+using EncryptedGradientPairPrecise = detail::GradientPairInternal<EncryptedType<double>>;
 
 /*! \brief Fixed point representation for high precision gradient pair. Has a different interface so
  * we don't accidentally use it in gain calculations.*/
@@ -274,48 +378,47 @@ class GradientPairInt64 {
   GradientPairInt64() = default;
 
   // Copy constructor if of same value type, marked as default to be trivially_copyable
-  GradientPairInt64(const GradientPairInt64 &g) = default;
+  GradientPairInt64(const GradientPairInt64& g) = default;
 
   XGBOOST_DEVICE T GetQuantisedGrad() const { return grad_; }
   XGBOOST_DEVICE T GetQuantisedHess() const { return hess_; }
 
-  XGBOOST_DEVICE GradientPairInt64 &operator+=(const GradientPairInt64 &rhs) {
+  XGBOOST_DEVICE GradientPairInt64& operator+=(const GradientPairInt64& rhs) {
     grad_ += rhs.grad_;
     hess_ += rhs.hess_;
     return *this;
   }
 
-  XGBOOST_DEVICE GradientPairInt64 operator+(const GradientPairInt64 &rhs) const {
+  XGBOOST_DEVICE GradientPairInt64 operator+(const GradientPairInt64& rhs) const {
     GradientPairInt64 g;
     g.grad_ = grad_ + rhs.grad_;
     g.hess_ = hess_ + rhs.hess_;
     return g;
   }
 
-  XGBOOST_DEVICE GradientPairInt64 &operator-=(const GradientPairInt64 &rhs) {
+  XGBOOST_DEVICE GradientPairInt64& operator-=(const GradientPairInt64& rhs) {
     grad_ -= rhs.grad_;
     hess_ -= rhs.hess_;
     return *this;
   }
 
-  XGBOOST_DEVICE GradientPairInt64 operator-(const GradientPairInt64 &rhs) const {
+  XGBOOST_DEVICE GradientPairInt64 operator-(const GradientPairInt64& rhs) const {
     GradientPairInt64 g;
     g.grad_ = grad_ - rhs.grad_;
     g.hess_ = hess_ - rhs.hess_;
     return g;
   }
 
-  XGBOOST_DEVICE bool operator==(const GradientPairInt64 &rhs) const {
+  XGBOOST_DEVICE bool operator==(const GradientPairInt64& rhs) const {
     return grad_ == rhs.grad_ && hess_ == rhs.hess_;
   }
-  friend std::ostream &operator<<(std::ostream &os,
-                                  const GradientPairInt64 &g) {
+  friend std::ostream& operator<<(std::ostream& os, const GradientPairInt64& g) {
     os << g.GetQuantisedGrad() << "/" << g.GetQuantisedHess();
     return os;
   }
 };
 
-using Args = std::vector<std::pair<std::string, std::string> >;
+using Args = std::vector<std::pair<std::string, std::string>>;
 
 /*! \brief small eps gap for minimum split decision. */
 constexpr bst_float kRtEps = 1e-6f;
@@ -338,5 +441,54 @@ using XGBoostVersionT = int32_t;
 #endif  // __GNUC__ == 4 && __GNUC_MINOR__ < 8
 #endif  // DMLC_USE_CXX11 && defined(__GNUC__) && !defined(__clang_version__)
 }  // namespace xgboost
+
+template <typename T>
+void opt_paillier_encrypt(xgboost::detail::GradientPairInternal<EncryptedType<T>>& res,
+                          const xgboost::detail::GradientPairInternal<T>& plaintext,
+                          const opt_public_key_t* pub, const opt_private_key_t* pri = nullptr,
+                          int precision = 8, int radix = 10, const bool is_fb = true) {
+  mpz_t t1, t2;
+  mpz_inits(t1, t2, nullptr);
+  opt_paillier_encrypt_t(t1, plaintext.GetGrad(), pub, pri, precision, radix, is_fb);
+  res.GetGrad().SetData(t1);
+  opt_paillier_encrypt_t(t2, plaintext.GetHess(), pub, pri, precision, radix, is_fb);
+  res.GetHess().SetData(t2);
+  mpz_clears(t1, t2, nullptr);
+}
+
+template <typename T>
+void opt_paillier_decrypt(xgboost::detail::GradientPairInternal<T>& res,
+                          const xgboost::detail::GradientPairInternal<EncryptedType<T>>& ciphertext,
+                          const opt_public_key_t* pub, const opt_private_key_t* pri,
+                          int precision = 8, int radix = 10, const bool is_crt = true) {
+  float t1, t2;
+  opt_paillier_decrypt_t(t1, ciphertext.GetGrad().data_, pub, pri, precision, radix, is_crt);
+  opt_paillier_decrypt_t(t2, ciphertext.GetHess().data_, pub, pri, precision, radix, is_crt);
+  res.Add(t1, t2);
+}
+
+template <typename T>
+void opt_paillier_batch_encrypt(
+    std::vector<xgboost::detail::GradientPairInternal<EncryptedType<T>>>& res,
+    const std::vector<xgboost::detail::GradientPairInternal<T>>& plaintexts,
+    const opt_public_key_t* pub, const opt_private_key_t* pri = nullptr,
+    int32_t n_threads = omp_get_num_procs(), int precision = 8, int radix = 10,
+    const bool is_fb = true) {
+  ParallelFor(plaintexts.size(), n_threads, [&](int i) {
+    opt_paillier_encrypt(res[i], plaintexts[i], pub, pri, precision, radix, is_fb);
+  });
+}
+
+template <typename T>
+void opt_paillier_batch_decrypt(
+    std::vector<xgboost::detail::GradientPairInternal<T>>& res,
+    const std::vector<xgboost::detail::GradientPairInternal<EncryptedType<T>>>& ciphertexts,
+    const opt_public_key_t* pub, const opt_private_key_t* pri,
+    int32_t n_threads = omp_get_num_procs(), int precision = 8, int radix = 10,
+    const bool is_crt = true) {
+  ParallelFor(ciphertexts.size(), n_threads, [&](int i) {
+    opt_paillier_decrypt(res[i], ciphertexts[i], pub, pri, precision, radix, is_crt);
+  });
+}
 
 #endif  // XGBOOST_BASE_H_

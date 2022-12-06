@@ -1,20 +1,13 @@
-// Copyright 2020 Tencent Inc.
-
-#ifndef FL_RUNTIME_CORE_NATIVE_LIB_INCLUDE_PAILLIER_H_
-#define FL_RUNTIME_CORE_NATIVE_LIB_INCLUDE_PAILLIER_H_
+#ifndef PAILLIER_H_
+#define PAILLIER_H_
 
 #include <gmp.h>
 #include <stdint.h>
 
 #include <vector>
 
-#include "common/threading_utils.h"
-
-using namespace std;
-using namespace xgboost::common;
-
+namespace angel {
 namespace fl {
-namespace he {
 
 /**
  * Structure of PrivateKey of Paillier
@@ -27,8 +20,8 @@ struct PrivateKey {
   mpz_t p_inverse;
   mpz_t hp;
   mpz_t hq;
-  mpz_t p_minus_one;
-  mpz_t q_minus_one;
+  mpz_t alpha_p;
+  mpz_t alpha_q;
   mpz_t alpha;
   int scheme;
 };
@@ -117,13 +110,20 @@ void crt(mpz_t output, mpz_t mp, mpz_t mq, const PrivateKey &sk);
 void crt(mpz_t output, mpz_t a, mpz_t p, mpz_t b, mpz_t q);
 
 /**
+ * generate paillier private/public keys with scheme1
+ * @param pk, the pointer to PublicKey
+ * @param sk, the pointer to PrivateKey
+ * @param bitLength, the number of bits for ``n``
+ */
+void generatePaillierKeys1(PublicKey *pk, PrivateKey *sk, int bitLength);
+
+/**
  * generate paillier private/public keys with scheme3
  * @param pk, the pointer to PublicKey
  * @param sk, the pointer to PrivateKey
  * @param bitLength, the number of bits for ``n``
- * @param schema, the schema of key
  */
-void generatePaillierKeys(PublicKey *pk, PrivateKey *sk, int bitLength, int schema = 1);
+void generatePaillierKeys3(PublicKey *pk, PrivateKey *sk, int bitLength);
 
 /**
  * Decrypting a batch of ciphertexts with paillier scheme3
@@ -132,24 +132,19 @@ void generatePaillierKeys(PublicKey *pk, PrivateKey *sk, int bitLength, int sche
  * @param size, the number of ciphertexts needed to be decrypted
  * @param sk, the PrivateKey of paillier3
  */
-void batchDecrypt(mpz_t *plains, mpz_t *ciphers, size_t size, const PrivateKey &sk,
-                  int32_t n_threads = 10);
-
-void paillierAdd(mpz_t &res, const mpz_t &op1, const mpz_t &op2, const PublicKey *pk);
-
-void paillierConstantMul(mpz_t &res, const mpz_t &op1, const mpz_t &op2, const PublicKey *pk);
+void batchDecrypt(mpz_t *plains, mpz_t *ciphers, size_t size, const PrivateKey &sk);
 
 /**
- * A batch version of Paillier3 Encryptor. When encrypting, we use a pre-computed noises
+ * A batch version of Paillier3 PublicKey. When encrypting, we use a pre-computed noises
  * and pre-computed powers of ``g`` to accelerate the speed of encrypting.
  */
-class PaillierBatchEncryptor {
+class BatchPaillierPublicKey {
  public:
-  PaillierBatchEncryptor() = default;
+  BatchPaillierPublicKey() = default;
 
-  PaillierBatchEncryptor(PublicKey pk, int n_pre_noise, int n_noise);
+  BatchPaillierPublicKey(PublicKey pk, int n_pre_noise, int n_noise);
 
-  ~PaillierBatchEncryptor();
+  ~BatchPaillierPublicKey();
 
   /**
    * encrypt a batch of plaintexts
@@ -163,6 +158,12 @@ class PaillierBatchEncryptor {
    * @return a const reference of publicKey
    */
   const PublicKey &getPublicKey();
+
+  /**
+   * generate a noise using pre-computed noises
+   * @param noise, the mpz_t value to hold the noise
+   */
+  void generateRandomNoise(mpz_t noise);
 
  private:
   /**
@@ -185,12 +186,6 @@ class PaillierBatchEncryptor {
    */
   void initialize3();
 
-  /**
-   * generate a noise using pre-computed noises
-   * @param noise, the mpz_t value to hold the noise
-   */
-  void generateRandomNoise(mpz_t noise);
-
   /* PublicKey of paillier3 */
   PublicKey pk;
   /* array to hold pre-computed noises */
@@ -201,7 +196,7 @@ class PaillierBatchEncryptor {
   size_t n_noise;
 };
 
-}  // namespace he
 }  // namespace fl
+}  // namespace angel
 
-#endif  // FL_RUNTIME_CORE_NATIVE_LIB_INCLUDE_PAILLIER_H_
+#endif  // PAILLIER_H_
