@@ -11,7 +11,7 @@ tree_method = hist
 eval_metric = auc
 dsplit = col
 
-num_round = 4
+num_round = 3
 save_period = 0
 data = "../../data/a9a.guest.train?format=libsvm"
 eval[test] = "../../data/a9a.guest.test?format=libsvm"
