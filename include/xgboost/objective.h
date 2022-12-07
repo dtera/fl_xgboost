@@ -49,7 +49,9 @@ class ObjFunction : public Configurable {
    */
   virtual void GetGradient(const HostDeviceVector<bst_float>& preds, const MetaInfo& info,
                            int iteration, HostDeviceVector<GradientPair>* out_gpair,
-                           HostDeviceVector<EncryptedGradientPair>* encrypted_gpair) = 0;
+                           HostDeviceVector<EncryptedGradientPair>* encrypted_gpair =
+                               new HostDeviceVector<EncryptedGradientPair>(),
+                           opt_public_key_t* pub = nullptr) = 0;
 
   /*! \return the default evaluation metric for the objective */
   virtual const char* DefaultEvalMetric() const = 0;

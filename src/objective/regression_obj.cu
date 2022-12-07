@@ -89,7 +89,8 @@ class RegLossObj : public ObjFunction {
   void GetGradient(const HostDeviceVector<bst_float>& preds,
                    const MetaInfo &info, int,
                    HostDeviceVector<GradientPair>* out_gpair,
-                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair) override {
+                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair,
+                   opt_public_key_t* pub) override {
     CheckRegInputs(info, preds);
     size_t const ndata = preds.Size();
     out_gpair->Resize(ndata);
@@ -112,7 +113,7 @@ class RegLossObj : public ObjFunction {
     auto const n_targets = std::max(info.labels.Shape(1), static_cast<size_t>(1));
 
     common::Transform<>::Init(
-        [block_size, ndata, n_targets] XGBOOST_DEVICE(
+        [block_size, ndata, n_targets, pub] XGBOOST_DEVICE(
             size_t data_block_idx, common::Span<float> _additional_input,
             common::Span<GradientPair> _out_gpair,
             common::Span<EncryptedGradientPair> _encrypted_gpair,
@@ -142,8 +143,10 @@ class RegLossObj : public ObjFunction {
             }
             out_gpair_ptr[idx] = GradientPair(Loss::FirstOrderGradient(p, label) * w,
                                               Loss::SecondOrderGradient(p, label) * w);
-            // TODO: encrypt grad pair
-            //opt_paillier_encrypt(encrypted_gpair_ptr[idx], out_gpair_ptr[idx], pub_, pri_);
+            if (pub != nullptr) {
+              // encrypt grad pair
+              opt_paillier_encrypt(encrypted_gpair_ptr[idx], out_gpair_ptr[idx], pub);
+            }
           }
         },
         common::Range{0, static_cast<int64_t>(n_data_blocks)}, nthreads, device)
@@ -233,7 +236,8 @@ class PseudoHuberRegression : public ObjFunction {
 
   void GetGradient(HostDeviceVector<bst_float> const& preds, const MetaInfo& info, int /*iter*/,
                    HostDeviceVector<GradientPair>* out_gpair,
-                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair) override {
+                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair,
+                   opt_public_key_t* pub) override {
     CheckRegInputs(info, preds);
     auto slope = param_.huber_slope;
     CHECK_NE(slope, 0.0) << "slope for pseudo huber cannot be 0.";
@@ -309,7 +313,8 @@ class PoissonRegression : public ObjFunction {
   void GetGradient(const HostDeviceVector<bst_float>& preds,
                    const MetaInfo &info, int,
                    HostDeviceVector<GradientPair> *out_gpair,
-                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair) override {
+                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair,
+                   opt_public_key_t* pub) override {
     CHECK_NE(info.labels.Size(), 0U) << "label set cannot be empty";
     CHECK_EQ(preds.Size(), info.labels.Size()) << "labels are not correctly provided";
     size_t const ndata = preds.Size();
@@ -401,7 +406,8 @@ class CoxRegression : public ObjFunction {
   void GetGradient(const HostDeviceVector<bst_float>& preds,
                    const MetaInfo &info, int,
                    HostDeviceVector<GradientPair> *out_gpair,
-                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair) override {
+                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair,
+                   opt_public_key_t* pub) override {
     CHECK_NE(info.labels.Size(), 0U) << "label set cannot be empty";
     CHECK_EQ(preds.Size(), info.labels.Size()) << "labels are not correctly provided";
     const auto& preds_h = preds.HostVector();
@@ -499,7 +505,8 @@ class GammaRegression : public ObjFunction {
   void GetGradient(const HostDeviceVector<bst_float> &preds,
                    const MetaInfo &info, int,
                    HostDeviceVector<GradientPair> *out_gpair,
-                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair) override {
+                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair,
+                   opt_public_key_t* pub) override {
     CHECK_NE(info.labels.Size(), 0U) << "label set cannot be empty";
     CHECK_EQ(preds.Size(), info.labels.Size()) << "labels are not correctly provided";
     const size_t ndata = preds.Size();
@@ -598,7 +605,8 @@ class TweedieRegression : public ObjFunction {
   void GetGradient(const HostDeviceVector<bst_float>& preds,
                    const MetaInfo &info, int,
                    HostDeviceVector<GradientPair> *out_gpair,
-                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair) override {
+                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair,
+                   opt_public_key_t* pub) override {
     CHECK_NE(info.labels.Size(), 0U) << "label set cannot be empty";
     CHECK_EQ(preds.Size(), info.labels.Size()) << "labels are not correctly provided";
     const size_t ndata = preds.Size();
@@ -692,7 +700,8 @@ class MeanAbsoluteError : public ObjFunction {
 
   void GetGradient(HostDeviceVector<bst_float> const& preds, const MetaInfo& info, int /*iter*/,
                    HostDeviceVector<GradientPair>* out_gpair,
-                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair) override {
+                   HostDeviceVector<EncryptedGradientPair>* encrypted_gpair,
+                   opt_public_key_t* pub) override {
     CheckRegInputs(info, preds);
     auto labels = info.labels.View(ctx_->gpu_id);
 

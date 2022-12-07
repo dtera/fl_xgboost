@@ -1355,19 +1355,13 @@ class LearnerImpl : public LearnerIO {
 
     if (fparam_.fl_role == FedratedRole::Guest) {
       monitor_.Start("GetGradient");
-      obj_->GetGradient(predt.predictions, train->Info(), iter, &gpair_, &encrypted_gpair_);
+      obj_->GetGradient(predt.predictions, train->Info(), iter, &gpair_, &encrypted_gpair_, pub_);
       monitor_.Stop("GetGradient");
       TrainingObserver::Instance().Observe(gpair_, "Gradients");
-
-      /*monitor_.Start("EncryptedGradient");
-      TIME_STAT(opt_paillier_batch_encrypt(encrypted_gpair_, gpair_.HostVector(), pub_, pri_),
-                GetEncryptedGradient)
-      monitor_.Stop("EncryptedGradient");*/
 
       monitor_.Start("SendEncryptedGradient");
       //server_->SendGradPairs();
       monitor_.Stop("SendEncryptedGradient");
-
     } else {
 
     }
