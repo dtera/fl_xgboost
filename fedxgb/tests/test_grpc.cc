@@ -36,6 +36,7 @@ TEST(grpc, xgb_server) {
   XgbServiceServer server;
   cout << "XgbServiceServer Running..." << endl;
   TIME_STAT(opt_paillier_keygen(&pub_, &pri_, bitLength_), KeyGen)
+  EncryptedType<>::pub = pub_;
   repeat(
       [&](int i) {
         mpz_init(mpz_ciphers_[i]);
@@ -53,16 +54,14 @@ TEST(grpc, xgb_server) {
         encrypted_splits_[i].encrypted_grad_pair_sum.grad->_mp_alloc = mpz_ciphers_[i]->_mp_alloc;
         encrypted_splits_[i].encrypted_grad_pair_sum.grad->_mp_size = mpz_ciphers_[i]->_mp_size;
         encrypted_splits_[i].encrypted_grad_pair_sum.grad->_mp_d = mpz_ciphers_[i]->_mp_d;
-        encrypted_grad_pairs[i].GetGrad().SetData(mpz_ciphers_[i]);
-        encrypted_grad_pairs[i].GetHess().SetData(mpz_ciphers_[i]);
+        encrypted_grad_pairs[i].Add(EncryptedType(mpz_ciphers_[i]), EncryptedType(mpz_ciphers_[i]));
       },
       len_);
   server.SendGradPairs(1, encrypted_grad_pairs);
   server.SendSplits(1, encrypted_splits_, len_);
   server.SendPubKey(pub_);
   cout << *pub_ << endl;
-  EncryptedType<>::pub = pub_;
-  //sleep(30000);
+  // sleep(30000);
 
   XgbServiceClient client;
   for (int i = 1; i < 2; ++i) {

@@ -232,8 +232,8 @@ Status XgbServiceServer::GetEncryptedGradPairs(ServerContext* context,
                                                GradPairsResponse* response) {
   // GetEncryptedData(grad_pair, mpz_t, { mpz_t2_mpz_type(encrypted_grad_pair, encrypted_grad_pairs[i]); });
   GetEncryptedData(grad_pair, vector<xgboost::EncryptedGradientPair>, {
-    mpz_t2_mpz_type(encrypted_grad_pair->mutable_grad(), grad_pairs[i].GetGrad().data_);
-    mpz_t2_mpz_type(encrypted_grad_pair->mutable_hess(), grad_pairs[i].GetHess().data_);
+    mpz_t2_mpz_type(encrypted_grad_pair->mutable_grad(), grad_pairs[i].GetGrad());
+    mpz_t2_mpz_type(encrypted_grad_pair->mutable_hess(), grad_pairs[i].GetHess());
   });
 }
 
