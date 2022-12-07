@@ -74,8 +74,11 @@ class XgbServiceClient {
 
   void GetPubKey(opt_public_key_t **pub);
 
-  void GetEncriptedGradPairs(const uint32_t &version, mpz_t *encriptedGradPairs);
+  void GetEncryptedGradPairs(const uint32_t &version, mpz_t *encryptedGradPairs);
 
-  void GetEncriptedSplits(const uint32_t &version, XgbEncriptedSplit *encriptedSplits);
+  void GetEncryptedGradPairs(const uint32_t &version,
+                             vector<xgboost::EncryptedGradientPair> &encryptedGradPairs);
+
+  void GetEncryptedSplits(const uint32_t &version, XgbEncryptedSplit *encryptedSplits);
 };
 //=================================XgbServiceClient End===================================

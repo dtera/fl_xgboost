@@ -19,13 +19,13 @@ void XgbServiceAsyncServer::Start() {
 
   grad_stream_.reset(
       new ServerAsyncReaderWriter<GradPairsResponse, GradPairsRequest>(&grad_context_));
-  service_.RequestGetEncriptedGradPairs_(&grad_context_, grad_stream_.get(), grad_cq_.get(),
+  service_.RequestGetEncryptedGradPairs_(&grad_context_, grad_stream_.get(), grad_cq_.get(),
                                          grad_cq_.get(),
                                          reinterpret_cast<void*>(XgbCommType::GRAD_CONNECT));
 
   splits_stream_.reset(
       new ServerAsyncReaderWriter<SplitsResponse, SplitsRequest>(&splits_context_));
-  service_.RequestGetEncriptedSplits_(&splits_context_, splits_stream_.get(), splits_cq_.get(),
+  service_.RequestGetEncryptedSplits_(&splits_context_, splits_stream_.get(), splits_cq_.get(),
                                       splits_cq_.get(),
                                       reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
 
@@ -162,12 +162,18 @@ void XgbServiceServer::Shutdown() {
 void XgbServiceServer::SendPubKey(opt_public_key_t* pub) { pub_ = pub; }
 
 void XgbServiceServer::SendGradPairs(const uint32_t version, mpz_t* grad_pairs, size_t size) {
-  grad_pairs_.insert({version, {size, grad_pairs}});
+  // grad_pairs_.insert({version, {size, encrypted_grad_pairs}});
 }
 
-void XgbServiceServer::SendSplits(const uint32_t version, XgbEncriptedSplit* splits, size_t size) {
+void XgbServiceServer::SendGradPairs(const uint32_t version,
+                                     const vector<xgboost::EncryptedGradientPair>& grad_pairs) {
+  grad_pairs_.insert({version, {grad_pairs.size(), grad_pairs}});
+}
+
+void XgbServiceServer::SendSplits(const uint32_t version, XgbEncryptedSplit* splits, size_t size) {
   splits_.insert({version, {size, splits}});
 }
+
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
                                    PubKeyResponse* response) {
   do { /* do nothing, waiting for data prepared. */
@@ -203,7 +209,7 @@ Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* reques
   return Status::OK;
 }
 
-#define GetEncriptedData(type, DATATYPE, process_stats)                                  \
+#define GetEncryptedData(type, DATATYPE, process_stats)                                  \
   do { /* do nothing, waiting for data prepared. */                                      \
   } while (!type##s_.count(request->version()));                                         \
   if (type##s_.count(request->version() - 1)) { /* remove the last version if exists. */ \
@@ -212,27 +218,34 @@ Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* reques
   response->set_version(request->version());                                             \
   DEBUG << "response.version: " << response->version() << endl;                          \
   size_t size;                                                                           \
-  DATATYPE* type##s;                                                                     \
+  DATATYPE type##s;                                                                      \
   tie(size, type##s) = type##s_[request->version()];                                     \
-  auto encripted_##type##s = response->mutable_encripted_##type##s();                    \
+  auto encrypted_##type##s = response->mutable_encrypted_##type##s();                    \
   for (int i = 0; i < size; ++i) {                                                       \
-    auto encripted_##type = encripted_##type##s->Add();                                  \
+    auto encrypted_##type = encrypted_##type##s->Add();                                  \
     process_stats                                                                        \
   }                                                                                      \
   return Status::OK;
 
-Status XgbServiceServer::GetEncriptedGradPairs(ServerContext* context,
+Status XgbServiceServer::GetEncryptedGradPairs(ServerContext* context,
                                                const GradPairsRequest* request,
                                                GradPairsResponse* response) {
-  GetEncriptedData(grad_pair, mpz_t, { mpz_t2_mpz_type(encripted_grad_pair, grad_pairs[i]); });
+  // GetEncryptedData(grad_pair, mpz_t, { mpz_t2_mpz_type(encrypted_grad_pair, encrypted_grad_pairs[i]); });
+  GetEncryptedData(grad_pair, vector<xgboost::EncryptedGradientPair>, {
+    mpz_t2_mpz_type(encrypted_grad_pair->mutable_grad(), grad_pairs[i].GetGrad().data_);
+    mpz_t2_mpz_type(encrypted_grad_pair->mutable_hess(), grad_pairs[i].GetHess().data_);
+  });
 }
 
-Status XgbServiceServer::GetEncriptedSplits(ServerContext* context, const SplitsRequest* request,
+Status XgbServiceServer::GetEncryptedSplits(ServerContext* context, const SplitsRequest* request,
                                             SplitsResponse* response) {
-  GetEncriptedData(split, XgbEncriptedSplit, {
-    encripted_split->set_mask_id(splits[i].mask_id);
-    auto encripted_grad_pair_sum = encripted_split->mutable_encripted_grad_pair_sum();
-    mpz_t2_mpz_type(encripted_grad_pair_sum, splits[i].encripted_grad_pair_sum);
+  GetEncryptedData(split, XgbEncryptedSplit*, {
+    encrypted_split->set_mask_id(splits[i].mask_id);
+    auto encrypted_grad_pair_sum = encrypted_split->mutable_encrypted_grad_pair_sum();
+    mpz_t2_mpz_type(encrypted_grad_pair_sum->mutable_grad(),
+                    splits[i].encrypted_grad_pair_sum.grad);
+    mpz_t2_mpz_type(encrypted_grad_pair_sum->mutable_hess(),
+                    splits[i].encrypted_grad_pair_sum.hess);
   });
 }
 

@@ -18,9 +18,12 @@ mpz_t *mpz_ciphers_ = new mpz_t[len_];
 mpz_t *mpz_res_ = new mpz_t[len_];
 float *plains_f_ = new float[len_];
 float *res_f_ = new float[len_];
-mpz_t *res_encripted_grad_pairs_ = new mpz_t[len_];
-XgbEncriptedSplit *encripted_splits_ = new XgbEncriptedSplit[len_];
-XgbEncriptedSplit *res_encripted_splits_ = new XgbEncriptedSplit[len_];
+mpz_t *res_encrypted_grad_pairs_ = new mpz_t[len_];
+XgbEncryptedSplit *encrypted_splits_ = new XgbEncryptedSplit[len_];
+XgbEncryptedSplit *res_encrypted_splits_ = new XgbEncryptedSplit[len_];
+vector<xgboost::EncryptedGradientPair> encrypted_grad_pairs;
+vector<xgboost::EncryptedGradientPair> res_encrypted_grad_pairs;
+vector<xgboost::GradientPair> res_grad_pairs;
 
 uniform_int_distribution<long long> u_(-100000, 100000);
 default_random_engine e_;
@@ -38,45 +41,50 @@ TEST(grpc, xgb_server) {
         mpz_init(mpz_ciphers_[i]);
         auto t = u_(e_);
         plains_f_[i] = 1.0 * t / 1000;
-        encripted_splits_[i].mask_id = to_string(t);
+        encrypted_splits_[i].mask_id = to_string(t);
       },
       len_);
 
-  opt_paillier_batch_encrypt_t(mpz_ciphers_, plains_f_, len_, pub_, pri_);
+  opt_paillier_batch_encrypt_t(mpz_ciphers_, plains_f_, len_, pub_);
+  encrypted_grad_pairs.resize(len_);
+  res_grad_pairs.resize(len_);
   repeat(
       [&](int i) {
-        encripted_splits_[i].encripted_grad_pair_sum->_mp_alloc = mpz_ciphers_[i]->_mp_alloc;
-        encripted_splits_[i].encripted_grad_pair_sum->_mp_size = mpz_ciphers_[i]->_mp_size;
-        encripted_splits_[i].encripted_grad_pair_sum->_mp_d = mpz_ciphers_[i]->_mp_d;
+        encrypted_splits_[i].encrypted_grad_pair_sum.grad->_mp_alloc = mpz_ciphers_[i]->_mp_alloc;
+        encrypted_splits_[i].encrypted_grad_pair_sum.grad->_mp_size = mpz_ciphers_[i]->_mp_size;
+        encrypted_splits_[i].encrypted_grad_pair_sum.grad->_mp_d = mpz_ciphers_[i]->_mp_d;
+        encrypted_grad_pairs[i].GetGrad().SetData(mpz_ciphers_[i]);
+        encrypted_grad_pairs[i].GetHess().SetData(mpz_ciphers_[i]);
       },
       len_);
-  server.SendGradPairs(1, mpz_ciphers_, len_);
-  server.SendSplits(1, encripted_splits_, len_);
+  server.SendGradPairs(1, encrypted_grad_pairs);
+  server.SendSplits(1, encrypted_splits_, len_);
   server.SendPubKey(pub_);
   cout << *pub_ << endl;
-  sleep(30000);
+  EncryptedType<>::pub = pub_;
+  //sleep(30000);
 
-  /*XgbServiceClient client;
+  XgbServiceClient client;
   for (int i = 1; i < 2; ++i) {
-    client.GetEncriptedGradPairs(i, res_encripted_grad_pairs_);
-    client.GetEncriptedSplits(i, res_encripted_splits_);
-    opt_paillier_batch_decrypt_t(res_f_, res_encripted_grad_pairs_, len_, pub_, pri_);
+    client.GetEncryptedGradPairs(i, res_encrypted_grad_pairs);
+    client.GetEncryptedSplits(i, res_encrypted_splits_);
+    opt_paillier_batch_decrypt(res_grad_pairs, encrypted_grad_pairs, pub_, pri_);
     for (int j = 0; j < len_; ++j) {
       char *c1, *c2, *c3, *c4;
       opt_paillier_get_plaintext(c1, mpz_ciphers_[j], pub_);
-      opt_paillier_get_plaintext(c2, res_encripted_grad_pairs_[j], pub_);
+      opt_paillier_get_plaintext(c2, res_encrypted_grad_pairs[j].GetGrad().data_, pub_);
       cout << "\nmpz_ciphers_[" << j << "]: " << c1 << endl;
-      cout << "res_encripted_grad_pairs_[" << j << "]: " << c2 << endl;
+      cout << "res_grad_pairs_[" << j << "]: " << c2 << endl;
       cout << "plains_f_[" << j << "]: " << plains_f_[j] << endl;
-      cout << "res_f_[" << j << "]: " << res_f_[j] << endl;
+      cout << "res_f_[" << j << "]: " << res_grad_pairs[j] << endl;
       assert(abs(plains_f_[j] - res_f_[j]) < 0.000001);
       cout << "==========================================================" << endl;
-      opt_paillier_get_plaintext(c3, encripted_splits_[j].encripted_grad_pair_sum, pub_);
-      opt_paillier_get_plaintext(c4, res_encripted_splits_[j].encripted_grad_pair_sum, pub_);
-      cout << "encripted_splits_[" << j << "]: " << c3 << endl;
-      cout << "res_encripted_splits_[" << j << "]: " << c4 << endl;
+      opt_paillier_get_plaintext(c3, encrypted_splits_[j].encrypted_grad_pair_sum.grad, pub_);
+      opt_paillier_get_plaintext(c4, res_encrypted_splits_[j].encrypted_grad_pair_sum.grad, pub_);
+      cout << "encrypted_splits_[" << j << "]: " << c3 << endl;
+      cout << "res_encrypted_splits_[" << j << "]: " << c4 << endl;
     }
-  }*/
+  }
   server.Shutdown();
 }
 

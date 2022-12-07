@@ -14,7 +14,6 @@
 #include <thread>
 
 #include "common.h"
-#include "opt_paillier.h"
 #include "xgbcomm.grpc.pb.h"
 
 using grpc::Server;
@@ -78,8 +77,9 @@ class XgbServiceServer final : public XgbService::Service {
   string server_address_;
   unique_ptr<thread> xgb_thread_;
   unique_ptr<Server> server_;
-  unordered_map<uint32_t, pair<size_t, mpz_t *>> grad_pairs_;
-  unordered_map<uint32_t, pair<size_t, XgbEncriptedSplit *>> splits_;
+  // unordered_map<uint32_t, pair<size_t, mpz_t *>> grad_pairs_;
+  unordered_map<uint32_t, pair<size_t, const vector<xgboost::EncryptedGradientPair>>> grad_pairs_;
+  unordered_map<uint32_t, pair<size_t, XgbEncryptedSplit *>> splits_;
   opt_public_key_t *pub_;
 
  public:
@@ -93,15 +93,18 @@ class XgbServiceServer final : public XgbService::Service {
 
   void SendGradPairs(const uint32_t version, mpz_t *grad_pairs, size_t size);
 
-  void SendSplits(const uint32_t version, XgbEncriptedSplit *splits, size_t size);
+  void SendGradPairs(const uint32_t version,
+                     const vector<xgboost::EncryptedGradientPair> &grad_pairs);
+
+  void SendSplits(const uint32_t version, XgbEncryptedSplit *splits, size_t size);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;
 
-  Status GetEncriptedGradPairs(ServerContext *context, const GradPairsRequest *request,
+  Status GetEncryptedGradPairs(ServerContext *context, const GradPairsRequest *request,
                                GradPairsResponse *response) override;
 
-  Status GetEncriptedSplits(ServerContext *context, const SplitsRequest *request,
+  Status GetEncryptedSplits(ServerContext *context, const SplitsRequest *request,
                             SplitsResponse *response) override;
 };
 //=================================XgbServiceServer End===================================

@@ -8,11 +8,11 @@ option objc_class_prefix = "XGB";
 package xgbcomm;
 
 service XgbService {
-  rpc GetEncriptedGradPairs_ (stream GradPairsRequest) returns (stream GradPairsResponse) {}
-  rpc GetEncriptedSplits_ (stream SplitsRequest) returns (stream SplitsResponse) {}
+  rpc GetEncryptedGradPairs_ (stream GradPairsRequest) returns (stream GradPairsResponse) {}
+  rpc GetEncryptedSplits_ (stream SplitsRequest) returns (stream SplitsResponse) {}
   rpc GetPubKey (Request) returns (PubKeyResponse) {}
-  rpc GetEncriptedGradPairs (GradPairsRequest) returns (GradPairsResponse) {}
-  rpc GetEncriptedSplits (SplitsRequest) returns (SplitsResponse) {}
+  rpc GetEncryptedGradPairs (GradPairsRequest) returns (GradPairsResponse) {}
+  rpc GetEncryptedSplits (SplitsRequest) returns (SplitsResponse) {}
 }
 
 message Request {}
@@ -36,7 +36,7 @@ message GradPairsRequest {
 
 message GradPairsResponse {
   uint32 version = 1;
-  repeated MpzType encripted_grad_pairs = 2;
+  repeated GradPair encrypted_grad_pairs = 2;
 }
 
 message SplitsRequest {
@@ -45,12 +45,12 @@ message SplitsRequest {
 
 message SplitsResponse {
   uint32 version = 1;
-  repeated EncriptedSplit encripted_splits = 2;
+  repeated EncryptedSplit encrypted_splits = 2;
 }
 
-message EncriptedSplit {
+message EncryptedSplit {
   string mask_id = 1;
-  MpzType encripted_grad_pair_sum = 2;
+  GradPair encrypted_grad_pair_sum = 2;
 }
 
 message MpzType {
@@ -61,6 +61,11 @@ message MpzType {
   int32 _mp_size = 2;
   /* Pointer to the limbs.  */
   repeated uint64 _mp_d = 3;
+}
+
+message GradPair {
+  MpzType grad = 1;
+  MpzType hess = 2;
 }
 
 message FBInstance {

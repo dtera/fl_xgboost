@@ -9,9 +9,9 @@ XgbServiceAsyncClient::XgbServiceAsyncClient(const uint32_t port, const string& 
           grpc::CreateChannel(host + ":" + to_string(port), grpc::InsecureChannelCredentials()))) {
   grad_thread_.reset(new thread(bind(&XgbServiceAsyncClient::GradThread, this)));
   splits_thread_.reset(new thread(bind(&XgbServiceAsyncClient::SplitsThread, this)));
-  grad_stream_ = stub_->AsyncGetEncriptedGradPairs_(
+  grad_stream_ = stub_->AsyncGetEncryptedGradPairs_(
       &grad_context_, &grad_cq_, reinterpret_cast<void*>(XgbCommType::GRAD_CONNECT));
-  splits_stream_ = stub_->AsyncGetEncriptedSplits_(
+  splits_stream_ = stub_->AsyncGetEncryptedSplits_(
       &splits_context_, &splits_cq_, reinterpret_cast<void*>(XgbCommType::SPLITS_CONNECT));
   this_thread::sleep_for(chrono::microseconds(520));
 }
@@ -148,30 +148,47 @@ void XgbServiceClient::GetPubKey(opt_public_key_t** pub) {
   });
 }
 
-void XgbServiceClient::GetEncriptedGradPairs(const uint32_t& version, mpz_t* encriptedGradPairs) {
-  RpcRequest(GradPairsRequest, GetEncriptedGradPairs, GradPairsResponse,
+void XgbServiceClient::GetEncryptedGradPairs(const uint32_t& version, mpz_t* encryptedGradPairs) {
+  RpcRequest(GradPairsRequest, GetEncryptedGradPairs, GradPairsResponse,
              request.set_version(version), {
-               auto egps = response.encripted_grad_pairs();
-               // encriptedGradPairs = new mpz_t[egps.size()];
+               auto egps = response.encrypted_grad_pairs();
+               // encryptedGradPairs = new mpz_t[egps.size()];
                xgboost::common::ParallelFor(egps.size(), n_threads_, [&](int i) {
-                 mpz_type2_mpz_t(encriptedGradPairs[i], egps[i]);
+                 mpz_type2_mpz_t(encryptedGradPairs[2 * i], egps[i].grad());
+                 mpz_type2_mpz_t(encryptedGradPairs[2 * i + 1], egps[i].hess());
                });
              });
   DEBUG << "response.version: " << response.version() << endl;
-  DEBUG << "gradPairs[0]._mp_alloc: " << encriptedGradPairs[0]->_mp_alloc << endl;
-  DEBUG << "gradPairs[0]._mp_size: " << encriptedGradPairs[0]->_mp_size << endl;
-  DEBUG << "gradPairs[0]._mp_d: " << *encriptedGradPairs[0]->_mp_d << endl;
+  DEBUG << "gradPairs[0]._mp_alloc: " << encryptedGradPairs[0]->_mp_alloc << endl;
+  DEBUG << "gradPairs[0]._mp_size: " << encryptedGradPairs[0]->_mp_size << endl;
+  DEBUG << "gradPairs[0]._mp_d: " << *encryptedGradPairs[0]->_mp_d << endl;
 }
 
-void XgbServiceClient::GetEncriptedSplits(const uint32_t& version,
-                                          XgbEncriptedSplit* encriptedSplits) {
-  RpcRequest(SplitsRequest, GetEncriptedSplits, SplitsResponse, request.set_version(version), {
-    auto ess = response.encripted_splits();
-    // encriptedSplits = make_shared<XgbEncriptedSplit*>(new XgbEncriptedSplit[ess.size()]);
+void XgbServiceClient::GetEncryptedGradPairs(
+    const uint32_t& version, vector<xgboost::EncryptedGradientPair>& encryptedGradPairs) {
+  RpcRequest(GradPairsRequest, GetEncryptedGradPairs, GradPairsResponse,
+             request.set_version(version), {
+               auto egps = response.encrypted_grad_pairs();
+               xgboost::common::ParallelFor(egps.size(), n_threads_, [&](int i) {
+                 EncryptedType grad, hess;
+                 mpz_type2_mpz_t(grad, egps[i].grad());
+                 mpz_type2_mpz_t(hess, egps[i].hess());
+                 encryptedGradPairs[i].Add(grad, hess);
+               });
+             });
+}
+
+void XgbServiceClient::GetEncryptedSplits(const uint32_t& version,
+                                          XgbEncryptedSplit* encryptedSplits) {
+  RpcRequest(SplitsRequest, GetEncryptedSplits, SplitsResponse, request.set_version(version), {
+    auto ess = response.encrypted_splits();
+    // encryptedSplits = make_shared<XgbEncryptedSplit*>(new XgbEncryptedSplit[ess.size()]);
     xgboost::common::ParallelFor(ess.size(), n_threads_, [&](int i) {
-      encriptedSplits[i].mask_id = ess[i].mask_id();
-      auto t = ess[i].encripted_grad_pair_sum();
-      mpz_type2_mpz_t(encriptedSplits[i].encripted_grad_pair_sum, t);
+      encryptedSplits[i].mask_id = ess[i].mask_id();
+      auto t = ess[i].encrypted_grad_pair_sum();
+      // mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum, t);
+      mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum.grad, t.grad());
+      mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum.hess, t.hess());
     });
   });
 }

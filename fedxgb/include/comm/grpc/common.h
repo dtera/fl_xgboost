@@ -7,6 +7,7 @@
 #include <gmp.h>
 
 #include "xgbcomm.grpc.pb.h"
+#include "xgboost/base.h"
 #include "xgboost/logging.h"
 
 #define DEBUG LOG(DEBUG)  // std::cout
@@ -26,14 +27,41 @@ enum class XgbCommType {
   FINISH = 8
 };
 
-struct XgbEncriptedSplit {
+struct GradPair {
+  mpz_t grad;
+  mpz_t hess;
+};
+
+struct XgbEncryptedSplit {
   std::string mask_id;
-  mpz_t encripted_grad_pair_sum;
+  struct GradPair encrypted_grad_pair_sum;
 };
 
 void mpz_t2_mpz_type(MpzType *mt, const mpz_t &m_t);
 
 void mpz_type2_mpz_t(mpz_t &m_t, const MpzType &mt);
+
+template <typename T>
+void mpz_t2_mpz_type(MpzType *mt, const EncryptedType<T> &m_t) {
+  mt->set__mp_alloc(m_t.data_->_mp_alloc);
+  mt->set__mp_size(m_t.data_->_mp_size);
+  auto mp = m_t.data_->_mp_d;
+  for (int j = 0; j < m_t.data_->_mp_size; ++j) {
+    auto t = mt->mutable__mp_d()->Add();
+    *t = mp[j];
+  }
+}
+
+template <typename T>
+void mpz_type2_mpz_t(EncryptedType<T> &m_t, const MpzType &mt) {
+  m_t.data_->_mp_alloc = mt._mp_alloc();
+  m_t.data_->_mp_size = mt._mp_size();
+  m_t.data_->_mp_d = new mp_limb_t[mt._mp_d().size()];
+  for (int j = 0; j < mt._mp_d().size(); ++j) {
+    m_t.data_->_mp_d[j] = mt._mp_d()[j];
+  }
+}
+
 
 #define MAX_MESSAGE_LENGTH 10 * 1024 * 1024 * 1024l
 
