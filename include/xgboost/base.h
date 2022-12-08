@@ -121,7 +121,7 @@ class EncryptedType {
   XGBOOST_DEVICE EncryptedType() {
     mpz_init(data_);
     mpz_set_ui(data_, 0);
-    opt_paillier_encrypt(data_, data_, pub);
+    //opt_paillier_encrypt(data_, data_, pub);
   }
 
   XGBOOST_DEVICE EncryptedType(const mpz_t& data) {
@@ -129,7 +129,7 @@ class EncryptedType {
     SetData(data);
   }
 
-  XGBOOST_DEVICE EncryptedType(const EncryptedType& g) : EncryptedType() {
+  XGBOOST_DEVICE EncryptedType(const EncryptedType& g) {
     mpz_init(data_);
     SetData(g.data_);
   }
@@ -461,9 +461,9 @@ void opt_paillier_encrypt(xgboost::detail::GradientPairInternal<EncryptedType<T>
   mpz_t t1, t2;
   mpz_inits(t1, t2, nullptr);
   opt_paillier_encrypt_t(t1, plaintext.GetGrad(), pub, pri, precision, radix, is_fb);
-  res.GetGrad().SetData(t1);
+  res.SetGrad(EncryptedType<T>(t1));
   opt_paillier_encrypt_t(t2, plaintext.GetHess(), pub, pri, precision, radix, is_fb);
-  res.GetHess().SetData(t2);
+  res.SetHess(EncryptedType<T>(t2));
   mpz_clears(t1, t2, nullptr);
 }
 
@@ -472,10 +472,11 @@ void opt_paillier_decrypt(xgboost::detail::GradientPairInternal<T>& res,
                           const xgboost::detail::GradientPairInternal<EncryptedType<T>>& ciphertext,
                           const opt_public_key_t* pub, const opt_private_key_t* pri,
                           int precision = 8, int radix = 10, const bool is_crt = true) {
-  float t1, t2;
+  T t1, t2;
   opt_paillier_decrypt_t(t1, ciphertext.GetGrad().data_, pub, pri, precision, radix, is_crt);
   opt_paillier_decrypt_t(t2, ciphertext.GetHess().data_, pub, pri, precision, radix, is_crt);
-  res.Add(t1, t2);
+  res.SetGrad(t1);
+  res.SetHess(t2);
 }
 
 template <typename T>

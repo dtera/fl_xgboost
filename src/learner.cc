@@ -556,6 +556,8 @@ class LearnerConfiguration : public Learner {
         client_->GetPubKey(&pub_);
         cout << "** RPC client connect server success! " << endl;
       }
+      EncryptedType<>::pub = pub_;
+      EncryptedType<double>::pub = pub_;
     }
 
     this->need_configuration_ = false;
@@ -1263,8 +1265,8 @@ class LearnerIO : public LearnerConfiguration {
 class LearnerImpl : public LearnerIO {
  public:
   explicit LearnerImpl(std::vector<std::shared_ptr<DMatrix>> cache) : LearnerIO{cache} {
-    //encrypted_gpair_.resize(cache[0]->Info().num_row_);
-    //DEBUG << "encrypted_gpair_.size(): " << encrypted_gpair_.size() << endl;
+    encrypted_gpair_.Resize(cache[0]->Info().num_row_);
+    DEBUG << "encrypted_gpair_.size(): " << encrypted_gpair_.Size() << endl;
   }
   ~LearnerImpl() override {
     auto local_map = LearnerAPIThreadLocalStore::Get();
@@ -1360,9 +1362,12 @@ class LearnerImpl : public LearnerIO {
       TrainingObserver::Instance().Observe(gpair_, "Gradients");
 
       monitor_.Start("SendEncryptedGradient");
-      //server_->SendGradPairs();
+      server_->SendGradPairs(predt.version, encrypted_gpair_.HostVector());
       monitor_.Stop("SendEncryptedGradient");
+      // For checking the encrypted gradient pairs
+      //opt_paillier_batch_decrypt(gpair_.HostVector(), encrypted_gpair_.HostVector(), pub_, pri_);
     } else {
+      client_->GetEncryptedGradPairs(predt.version, encrypted_gpair_.HostVector());
 
     }
     TrainingObserver::Instance().Observe(encrypted_gpair_, "EncryptedGradients");

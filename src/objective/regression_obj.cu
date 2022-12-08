@@ -146,6 +146,9 @@ class RegLossObj : public ObjFunction {
             if (pub != nullptr) {
               // encrypt grad pair
               opt_paillier_encrypt(encrypted_gpair_ptr[idx], out_gpair_ptr[idx], pub);
+              // For checking the encrypted gradient pairs
+              /*out_gpair_ptr[idx].SetGrad(0);
+              out_gpair_ptr[idx].SetHess(0);*/
             }
           }
         },
