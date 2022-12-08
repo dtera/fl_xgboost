@@ -173,7 +173,8 @@ void XgbServiceClient::GetEncryptedGradPairs(
                  EncryptedType grad, hess;
                  mpz_type2_mpz_t(grad, egps[i].grad());
                  mpz_type2_mpz_t(hess, egps[i].hess());
-                 encryptedGradPairs[i].Add(grad, hess);
+                 encryptedGradPairs[i].SetGrad(grad);
+                 encryptedGradPairs[i].SetHess(hess);
                });
              });
 }

@@ -118,11 +118,21 @@ class EncryptedType {
   uint32_t mul_cnt_{0};
   static opt_public_key_t* pub;
 
-  XGBOOST_DEVICE EncryptedType() { mpz_init(data_); }
+  XGBOOST_DEVICE EncryptedType() {
+    mpz_init(data_);
+    mpz_set_ui(data_, 0);
+    opt_paillier_encrypt(data_, data_, pub);
+  }
 
-  XGBOOST_DEVICE EncryptedType(const mpz_t& data) : EncryptedType() { SetData(data); }
+  XGBOOST_DEVICE EncryptedType(const mpz_t& data) {
+    mpz_init(data_);
+    SetData(data);
+  }
 
-  XGBOOST_DEVICE EncryptedType(const EncryptedType& g) : EncryptedType() { SetData(g.data_); }
+  XGBOOST_DEVICE EncryptedType(const EncryptedType& g) : EncryptedType() {
+    mpz_init(data_);
+    SetData(g.data_);
+  }
 
   XGBOOST_DEVICE void SetData(const mpz_t& data) {
     mpz_set(data_, data);
@@ -250,11 +260,12 @@ class GradientPairInternal {
   /*! \brief second order gradient statistics */
   T hess_;
 
-  XGBOOST_DEVICE void SetGrad(T g) { grad_ = g; }
-  XGBOOST_DEVICE void SetHess(T h) { hess_ = h; }
-
  public:
   using ValueT = T;
+
+  XGBOOST_DEVICE inline void SetGrad(T g) { grad_ = g; }
+
+  XGBOOST_DEVICE inline void SetHess(T h) { hess_ = h; }
 
   inline void Add(const ValueT& grad, const ValueT& hess) {
     grad_ += grad;

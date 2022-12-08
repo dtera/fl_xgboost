@@ -12,7 +12,7 @@
 
 using namespace std;
 
-uint32_t len_ = 10000;
+uint32_t len_ = 1000;
 
 mpz_t *mpz_ciphers_ = new mpz_t[len_];
 mpz_t *mpz_res_ = new mpz_t[len_];
@@ -48,13 +48,14 @@ TEST(grpc, xgb_server) {
 
   opt_paillier_batch_encrypt_t(mpz_ciphers_, plains_f_, len_, pub_);
   encrypted_grad_pairs.resize(len_);
+  res_encrypted_grad_pairs.resize(len_);
   res_grad_pairs.resize(len_);
   repeat(
       [&](int i) {
-        encrypted_splits_[i].encrypted_grad_pair_sum.grad->_mp_alloc = mpz_ciphers_[i]->_mp_alloc;
-        encrypted_splits_[i].encrypted_grad_pair_sum.grad->_mp_size = mpz_ciphers_[i]->_mp_size;
-        encrypted_splits_[i].encrypted_grad_pair_sum.grad->_mp_d = mpz_ciphers_[i]->_mp_d;
+        mpz_set(encrypted_splits_[i].encrypted_grad_pair_sum.grad, mpz_ciphers_[i]);
         encrypted_grad_pairs[i].Add(EncryptedType(mpz_ciphers_[i]), EncryptedType(mpz_ciphers_[i]));
+        encrypted_grad_pairs[i].SetGrad(EncryptedType(mpz_ciphers_[i]));
+        encrypted_grad_pairs[i].SetHess(EncryptedType(mpz_ciphers_[i]));
       },
       len_);
   server.SendGradPairs(1, encrypted_grad_pairs);
@@ -67,7 +68,7 @@ TEST(grpc, xgb_server) {
   for (int i = 1; i < 2; ++i) {
     client.GetEncryptedGradPairs(i, res_encrypted_grad_pairs);
     client.GetEncryptedSplits(i, res_encrypted_splits_);
-    opt_paillier_batch_decrypt(res_grad_pairs, encrypted_grad_pairs, pub_, pri_);
+    opt_paillier_batch_decrypt(res_grad_pairs, res_encrypted_grad_pairs, pub_, pri_);
     for (int j = 0; j < len_; ++j) {
       char *c1, *c2, *c3, *c4;
       opt_paillier_get_plaintext(c1, mpz_ciphers_[j], pub_);
@@ -76,7 +77,7 @@ TEST(grpc, xgb_server) {
       cout << "res_grad_pairs_[" << j << "]: " << c2 << endl;
       cout << "plains_f_[" << j << "]: " << plains_f_[j] << endl;
       cout << "res_f_[" << j << "]: " << res_grad_pairs[j] << endl;
-      assert(abs(plains_f_[j] - res_f_[j]) < 0.000001);
+      assert(abs(plains_f_[j] - res_grad_pairs[j].GetGrad()) < 0.000001);
       cout << "==========================================================" << endl;
       opt_paillier_get_plaintext(c3, encrypted_splits_[j].encrypted_grad_pair_sum.grad, pub_);
       opt_paillier_get_plaintext(c4, res_encrypted_splits_[j].encrypted_grad_pair_sum.grad, pub_);
