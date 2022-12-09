@@ -121,7 +121,7 @@ class EncryptedType {
   XGBOOST_DEVICE EncryptedType() {
     mpz_init(data_);
     mpz_set_ui(data_, 0);
-    //opt_paillier_encrypt(data_, data_, pub);
+    // opt_paillier_encrypt(data_, data_, pub);
   }
 
   XGBOOST_DEVICE EncryptedType(const mpz_t& data) {
@@ -364,6 +364,9 @@ class GradientPairInternal {
   }
 };
 }  // namespace detail
+
+template <typename T>
+using GradientPairT = detail::GradientPairInternal<T>;
 
 /*! \brief gradient statistics pair usually needed in gradient boosting */
 using GradientPair = detail::GradientPairInternal<float>;

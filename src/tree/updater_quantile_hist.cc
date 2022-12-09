@@ -14,8 +14,8 @@
 
 #include "common_row_partitioner.h"
 #include "constraints.h"
-#include "hist/histogram.h"
 #include "hist/evaluate_splits.h"
+#include "hist/histogram.h"
 #include "param.h"
 #include "xgboost/logging.h"
 #include "xgboost/tree_updater.h"
@@ -25,13 +25,12 @@ namespace tree {
 
 DMLC_REGISTRY_FILE_TAG(updater_quantile_hist);
 
-void QuantileHistMaker::Configure(const Args &args) {
-  param_.UpdateAllowUnknown(args);
-}
+void QuantileHistMaker::Configure(const Args &args) { param_.UpdateAllowUnknown(args); }
 
-void QuantileHistMaker::Update(HostDeviceVector<GradientPair> *gpair, DMatrix *dmat,
-                               common::Span<HostDeviceVector<bst_node_t>> out_position,
-                               const std::vector<RegTree *> &trees) {
+template <typename T>
+inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair, DMatrix *dmat,
+                                       common::Span<HostDeviceVector<bst_node_t>> out_position,
+                                       const std::vector<RegTree *> &trees) {
   // rescale learning rate according to size of trees
   float lr = param_.learning_rate;
   param_.learning_rate = lr / trees.size();
@@ -52,6 +51,12 @@ void QuantileHistMaker::Update(HostDeviceVector<GradientPair> *gpair, DMatrix *d
   param_.learning_rate = lr;
 }
 
+void QuantileHistMaker::Update(HostDeviceVector<GradientPair> *gpair, DMatrix *dmat,
+                               common::Span<HostDeviceVector<bst_node_t>> out_position,
+                               const std::vector<RegTree *> &trees) {
+  UpdateT(gpair, dmat, out_position, trees);
+}
+
 bool QuantileHistMaker::UpdatePredictionCache(const DMatrix *data,
                                               linalg::VectorView<float> out_preds) {
   if (pimpl_) {
@@ -61,8 +66,9 @@ bool QuantileHistMaker::UpdatePredictionCache(const DMatrix *data,
   }
 }
 
-CPUExpandEntry QuantileHistMaker::Builder::InitRoot(
-    DMatrix *p_fmat, RegTree *p_tree, const std::vector<GradientPair> &gpair_h) {
+template <typename T>
+CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_tree,
+                                                    const std::vector<GradientPairT<T>> &gpair_h) {
   CPUExpandEntry node(RegTree::kRoot, p_tree->GetDepth(0), 0.0f);
 
   size_t page_id = 0;
@@ -120,9 +126,10 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(
   return node;
 }
 
+template <typename T>
 void QuantileHistMaker::Builder::BuildHistogram(DMatrix *p_fmat, RegTree *p_tree,
                                                 std::vector<CPUExpandEntry> const &valid_candidates,
-                                                std::vector<GradientPair> const &gpair) {
+                                                std::vector<GradientPairT<T>> const &gpair) {
   std::vector<CPUExpandEntry> nodes_to_build(valid_candidates.size());
   std::vector<CPUExpandEntry> nodes_to_sub(valid_candidates.size());
 
@@ -152,8 +159,9 @@ void QuantileHistMaker::Builder::BuildHistogram(DMatrix *p_fmat, RegTree *p_tree
   }
 }
 
+template <typename T>
 void QuantileHistMaker::Builder::LeafPartition(RegTree const &tree,
-                                               common::Span<GradientPair const> gpair,
+                                               common::Span<GradientPairT<T> const> gpair,
                                                std::vector<bst_node_t> *p_out_position) {
   monitor_->Start(__func__);
   if (!task_.UpdateTreeLeaf()) {
@@ -165,8 +173,9 @@ void QuantileHistMaker::Builder::LeafPartition(RegTree const &tree,
   monitor_->Stop(__func__);
 }
 
+template <typename T>
 void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
-                                            const std::vector<GradientPair> &gpair_h,
+                                            const std::vector<GradientPairT<T>> &gpair_h,
                                             HostDeviceVector<bst_node_t> *p_out_position) {
   monitor_->Start(__func__);
 
@@ -181,7 +190,7 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
     // candidaates that can be applied.
     std::vector<CPUExpandEntry> applied;
     int32_t depth = expand_set.front().depth + 1;
-    for (auto const& candidate : expand_set) {
+    for (auto const &candidate : expand_set) {
       evaluator_->ApplyTreeSplit(candidate, p_tree);
       applied.push_back(candidate);
       if (driver.IsChildValid(candidate)) {
@@ -220,16 +229,18 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
   }
 
   auto &h_out_position = p_out_position->HostVector();
-  this->LeafPartition(tree, gpair_h, &h_out_position);
+  // TODO
+  // this->LeafPartition(tree, gpair_h, &h_out_position);
   monitor_->Stop(__func__);
 }
 
-void QuantileHistMaker::Builder::UpdateTree(HostDeviceVector<GradientPair> *gpair, DMatrix *p_fmat,
-                                            RegTree *p_tree,
+template <typename T>
+void QuantileHistMaker::Builder::UpdateTree(HostDeviceVector<GradientPairT<T>> *gpair,
+                                            DMatrix *p_fmat, RegTree *p_tree,
                                             HostDeviceVector<bst_node_t> *p_out_position) {
   monitor_->Start(__func__);
 
-  std::vector<GradientPair> *gpair_ptr = &(gpair->HostVector());
+  std::vector<GradientPairT<T>> *gpair_ptr = &(gpair->HostVector());
   // in case 'num_parallel_trees != 1' no posibility to change initial gpair
   if (GetNumberOfTrees() != 1) {
     gpair_local_.resize(gpair_ptr->size());
@@ -257,18 +268,19 @@ bool QuantileHistMaker::Builder::UpdatePredictionCache(DMatrix const *data,
   return true;
 }
 
+template <typename T>
 void QuantileHistMaker::Builder::InitSampling(const DMatrix &fmat,
-                                              std::vector<GradientPair> *gpair) {
+                                              std::vector<GradientPairT<T>> *gpair) {
   monitor_->Start(__func__);
   const auto &info = fmat.Info();
-  auto& rnd = common::GlobalRandom();
-  std::vector<GradientPair>& gpair_ref = *gpair;
+  auto &rnd = common::GlobalRandom();
+  std::vector<GradientPairT<T>> &gpair_ref = *gpair;
 
 #if XGBOOST_CUSTOMIZE_GLOBAL_PRNG
   std::bernoulli_distribution coin_flip(param_.subsample);
   for (size_t i = 0; i < info.num_row_; ++i) {
     if (!(gpair_ref[i].GetHess() >= 0.0f && coin_flip(rnd)) || gpair_ref[i].GetGrad() == 0.0f) {
-      gpair_ref[i] = GradientPair(0);
+      gpair_ref[i] = GradientPairT<T>(0);
     }
   }
 #else
@@ -279,15 +291,17 @@ void QuantileHistMaker::Builder::InitSampling(const DMatrix &fmat,
   std::bernoulli_distribution coin_flip(param_.subsample);
 
   dmlc::OMPException exc;
-  #pragma omp parallel num_threads(n_threads)
+#pragma omp parallel num_threads(n_threads)
   {
     exc.Run([&]() {
       const size_t tid = omp_get_thread_num();
       const size_t ibegin = tid * discard_size;
       const size_t iend = (tid == (n_threads - 1)) ? info.num_row_ : ibegin + discard_size;
-      RandomReplace::MakeIf([&](size_t i, RandomReplace::EngineT& eng) {
-        return !(gpair_ref[i].GetHess() >= 0.0f && coin_flip(eng));
-      }, GradientPair(0), initial_seed, ibegin, iend, &gpair_ref);
+      RandomReplace::MakeIf(
+          [&](size_t i, RandomReplace::EngineT &eng) {
+            return !(gpair_ref[i].GetHess() >= 0.0f && coin_flip(eng));
+          },
+          GradientPairT<T>(0), initial_seed, ibegin, iend, &gpair_ref);
     });
   }
   exc.Rethrow();
@@ -296,10 +310,11 @@ void QuantileHistMaker::Builder::InitSampling(const DMatrix &fmat,
 }
 size_t QuantileHistMaker::Builder::GetNumberOfTrees() { return n_trees_; }
 
+template <typename T>
 void QuantileHistMaker::Builder::InitData(DMatrix *fmat, const RegTree &tree,
-                                          std::vector<GradientPair> *gpair) {
+                                          std::vector<GradientPairT<T>> *gpair) {
   monitor_->Start(__func__);
-  const auto& info = fmat->Info();
+  const auto &info = fmat->Info();
 
   {
     size_t page_id{0};

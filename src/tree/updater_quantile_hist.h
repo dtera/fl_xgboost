@@ -16,24 +16,22 @@
 #include <utility>
 #include <vector>
 
+#include "../common/column_matrix.h"
+#include "../common/hist_util.h"
+#include "../common/partition_builder.h"
+#include "../common/random.h"
+#include "../common/row_set.h"
+#include "../common/timer.h"
+#include "./driver.h"
+#include "./param.h"
+#include "common_row_partitioner.h"
+#include "constraints.h"
+#include "hist/evaluate_splits.h"
+#include "hist/expand_entry.h"
+#include "hist/histogram.h"
 #include "xgboost/base.h"
 #include "xgboost/data.h"
 #include "xgboost/json.h"
-
-#include "hist/evaluate_splits.h"
-#include "hist/histogram.h"
-#include "hist/expand_entry.h"
-
-#include "common_row_partitioner.h"
-#include "constraints.h"
-#include "./param.h"
-#include "./driver.h"
-#include "../common/random.h"
-#include "../common/timer.h"
-#include "../common/hist_util.h"
-#include "../common/row_set.h"
-#include "../common/partition_builder.h"
-#include "../common/column_matrix.h"
 
 namespace xgboost {
 struct RandomReplace {
@@ -47,8 +45,8 @@ struct RandomReplace {
   /*
     Right-to-left binary method: https://en.wikipedia.org/wiki/Modular_exponentiation
   */
-  static uint64_t SimpleSkip(uint64_t exponent, uint64_t initial_seed,
-                             uint64_t base, uint64_t mod) {
+  static uint64_t SimpleSkip(uint64_t exponent, uint64_t initial_seed, uint64_t base,
+                             uint64_t mod) {
     CHECK_LE(exponent, mod);
     uint64_t result = 1;
     while (exponent > 0) {
@@ -62,10 +60,10 @@ struct RandomReplace {
     return (result * initial_seed) % mod;
   }
 
-  template<typename Condition, typename ContainerData>
+  template <typename Condition, typename ContainerData>
   static void MakeIf(Condition condition, const typename ContainerData::value_type replace_value,
-                     const uint64_t initial_seed, const size_t ibegin,
-                     const size_t iend, ContainerData* gpair) {
+                     const uint64_t initial_seed, const size_t ibegin, const size_t iend,
+                     ContainerData* gpair) {
     ContainerData& gpair_ref = *gpair;
     const uint64_t displaced_seed = SimpleSkip(ibegin, initial_seed, kBase, kMod);
     EngineT eng(displaced_seed);
@@ -83,18 +81,22 @@ inline BatchParam HistBatch(TrainParam const& param) {
 }
 
 /*! \brief construct a tree using quantized feature values */
-class QuantileHistMaker: public TreeUpdater {
+class QuantileHistMaker : public TreeUpdater {
  public:
   explicit QuantileHistMaker(GenericParameter const* ctx, ObjInfo task)
       : TreeUpdater(ctx), task_{task} {}
   void Configure(const Args& args) override;
 
+  template <typename T>
+  inline void UpdateT(HostDeviceVector<GradientPairT<T>>* gpair, DMatrix* dmat,
+                      common::Span<HostDeviceVector<bst_node_t>> out_position,
+                      const std::vector<RegTree*>& trees);
+
   void Update(HostDeviceVector<GradientPair>* gpair, DMatrix* dmat,
               common::Span<HostDeviceVector<bst_node_t>> out_position,
               const std::vector<RegTree*>& trees) override;
 
-  bool UpdatePredictionCache(const DMatrix *data,
-                             linalg::VectorView<float> out_preds) override;
+  bool UpdatePredictionCache(const DMatrix* data, linalg::VectorView<float> out_preds) override;
 
   void LoadConfig(Json const& in) override {
     auto const& config = get<Object const>(in);
@@ -105,9 +107,7 @@ class QuantileHistMaker: public TreeUpdater {
     out["train_param"] = ToJson(param_);
   }
 
-  char const* Name() const override {
-    return "grow_quantile_histmaker";
-  }
+  char const* Name() const override { return "grow_quantile_histmaker"; }
 
   bool HasNodePosition() const override { return true; }
 
@@ -131,30 +131,37 @@ class QuantileHistMaker: public TreeUpdater {
       monitor_->Init("Quantile::Builder");
     }
     // update one tree, growing
-    void UpdateTree(HostDeviceVector<GradientPair>* gpair, DMatrix* p_fmat, RegTree* p_tree,
+    template <typename T>
+    void UpdateTree(HostDeviceVector<GradientPairT<T>>* gpair, DMatrix* p_fmat, RegTree* p_tree,
                     HostDeviceVector<bst_node_t>* p_out_position);
 
     bool UpdatePredictionCache(DMatrix const* data, linalg::VectorView<float> out_preds) const;
 
    private:
     // initialize temp data structure
-    void InitData(DMatrix* fmat, const RegTree& tree, std::vector<GradientPair>* gpair);
+    template <typename T>
+    void InitData(DMatrix* fmat, const RegTree& tree, std::vector<GradientPairT<T>>* gpair);
 
     size_t GetNumberOfTrees();
 
-    void InitSampling(const DMatrix& fmat, std::vector<GradientPair>* gpair);
+    template <typename T>
+    void InitSampling(const DMatrix& fmat, std::vector<GradientPairT<T>>* gpair);
 
+    template <typename T>
     CPUExpandEntry InitRoot(DMatrix* p_fmat, RegTree* p_tree,
-                            const std::vector<GradientPair>& gpair_h);
+                            const std::vector<GradientPairT<T>>& gpair_h);
 
+    template <typename T>
     void BuildHistogram(DMatrix* p_fmat, RegTree* p_tree,
                         std::vector<CPUExpandEntry> const& valid_candidates,
-                        std::vector<GradientPair> const& gpair);
+                        std::vector<GradientPairT<T>> const& gpair);
 
-    void LeafPartition(RegTree const& tree, common::Span<GradientPair const> gpair,
+    template <typename T>
+    void LeafPartition(RegTree const& tree, common::Span<GradientPairT<T> const> gpair,
                        std::vector<bst_node_t>* p_out_position);
 
-    void ExpandTree(DMatrix* p_fmat, RegTree* p_tree, const std::vector<GradientPair>& gpair_h,
+    template <typename T>
+    void ExpandTree(DMatrix* p_fmat, RegTree* p_tree, const std::vector<GradientPairT<T>>& gpair_h,
                     HostDeviceVector<bst_node_t>* p_out_position);
 
    private:

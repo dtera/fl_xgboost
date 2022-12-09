@@ -8,19 +8,19 @@
 #ifndef XGBOOST_GBM_H_
 #define XGBOOST_GBM_H_
 
-#include <dmlc/registry.h>
 #include <dmlc/any.h>
+#include <dmlc/registry.h>
 #include <xgboost/base.h>
 #include <xgboost/data.h>
 #include <xgboost/host_device_vector.h>
 #include <xgboost/model.h>
 
-#include <vector>
-#include <utility>
-#include <string>
 #include <functional>
-#include <unordered_map>
 #include <memory>
+#include <string>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 namespace xgboost {
 
@@ -91,6 +91,16 @@ class GradientBooster : public Model, public Configurable {
                        PredictionCacheEntry*, ObjFunction const* obj) = 0;
 
   /*!
+   * \brief perform update to the model(boosting)
+   * \param p_fmat feature matrix that provide access to features
+   * \param in_gpair address of the encrypted gradient pair statistics of the data
+   * \param prediction The output prediction cache entry that needs to be updated.
+   * the booster may change content of gpair
+   */
+  virtual void DoBoost(DMatrix* p_fmat, HostDeviceVector<EncryptedGradientPair>* in_gpair,
+                       PredictionCacheEntry*, ObjFunction const* obj) = 0;
+
+  /*!
    * \brief generate predictions for given feature matrix
    * \param dmat feature matrix
    * \param out_preds output vector to hold the predictions
@@ -99,11 +109,8 @@ class GradientBooster : public Model, public Configurable {
    * \param layer_begin Beginning of boosted tree layer used for prediction.
    * \param layer_end   End of booster layer. 0 means do not limit trees.
    */
-  virtual void PredictBatch(DMatrix* dmat,
-                            PredictionCacheEntry* out_preds,
-                            bool training,
-                            unsigned layer_begin,
-                            unsigned layer_end) = 0;
+  virtual void PredictBatch(DMatrix* dmat, PredictionCacheEntry* out_preds, bool training,
+                            unsigned layer_begin, unsigned layer_end) = 0;
 
   /*!
    * \brief Inplace prediction.
@@ -131,8 +138,7 @@ class GradientBooster : public Model, public Configurable {
    * \param layer_end   End of booster layer. 0 means do not limit trees.
    * \sa Predict
    */
-  virtual void PredictInstance(const SparsePage::Inst& inst,
-                               std::vector<bst_float>* out_preds,
+  virtual void PredictInstance(const SparsePage::Inst& inst, std::vector<bst_float>* out_preds,
                                unsigned layer_begin, unsigned layer_end) = 0;
   /*!
    * \brief predict the leaf index of each tree, the output will be nsample * ntree vector
@@ -142,8 +148,7 @@ class GradientBooster : public Model, public Configurable {
    * \param layer_begin Beginning of boosted tree layer used for prediction.
    * \param layer_end   End of booster layer. 0 means do not limit trees.
    */
-  virtual void PredictLeaf(DMatrix *dmat,
-                           HostDeviceVector<bst_float> *out_preds,
+  virtual void PredictLeaf(DMatrix* dmat, HostDeviceVector<bst_float>* out_preds,
                            unsigned layer_begin, unsigned layer_end) = 0;
 
   /*!
@@ -157,15 +162,15 @@ class GradientBooster : public Model, public Configurable {
    * \param condition condition on the condition_feature (0=no, -1=cond off, 1=cond on).
    * \param condition_feature feature to condition on (i.e. fix) during calculations
    */
-  virtual void PredictContribution(DMatrix* dmat,
-                                   HostDeviceVector<bst_float>* out_contribs,
+  virtual void PredictContribution(DMatrix* dmat, HostDeviceVector<bst_float>* out_contribs,
                                    unsigned layer_begin, unsigned layer_end,
                                    bool approximate = false, int condition = 0,
                                    unsigned condition_feature = 0) = 0;
 
-  virtual void PredictInteractionContributions(
-      DMatrix *dmat, HostDeviceVector<bst_float> *out_contribs,
-      unsigned layer_begin, unsigned layer_end, bool approximate) = 0;
+  virtual void PredictInteractionContributions(DMatrix* dmat,
+                                               HostDeviceVector<bst_float>* out_contribs,
+                                               unsigned layer_begin, unsigned layer_end,
+                                               bool approximate) = 0;
 
   /*!
    * \brief dump the model in the requested format
@@ -174,12 +179,10 @@ class GradientBooster : public Model, public Configurable {
    * \param format the format to dump the model in
    * \return a vector of dump for boosters.
    */
-  virtual std::vector<std::string> DumpModel(const FeatureMap& fmap,
-                                             bool with_stats,
+  virtual std::vector<std::string> DumpModel(const FeatureMap& fmap, bool with_stats,
                                              std::string format) const = 0;
 
-  virtual void FeatureScore(std::string const& importance_type,
-                            common::Span<int32_t const> trees,
+  virtual void FeatureScore(std::string const& importance_type, common::Span<int32_t const> trees,
                             std::vector<bst_feature_t>* features,
                             std::vector<float>* scores) const = 0;
   /*!
@@ -193,10 +196,8 @@ class GradientBooster : public Model, public Configurable {
    * \param learner_model_param pointer to global model parameters
    * \return The created booster.
    */
-  static GradientBooster* Create(
-      const std::string& name,
-      GenericParameter const* generic_param,
-      LearnerModelParam const* learner_model_param);
+  static GradientBooster* Create(const std::string& name, GenericParameter const* generic_param,
+                                 LearnerModelParam const* learner_model_param);
 };
 
 /*!
@@ -220,10 +221,10 @@ struct GradientBoosterReg
  *   });
  * \endcode
  */
-#define XGBOOST_REGISTER_GBM(UniqueId, Name)                            \
-  static DMLC_ATTRIBUTE_UNUSED ::xgboost::GradientBoosterReg &          \
-  __make_ ## GradientBoosterReg ## _ ## UniqueId ## __ =                \
-      ::dmlc::Registry< ::xgboost::GradientBoosterReg>::Get()->__REGISTER__(Name)
+#define XGBOOST_REGISTER_GBM(UniqueId, Name)                  \
+  static DMLC_ATTRIBUTE_UNUSED ::xgboost::GradientBoosterReg& \
+      __make_##GradientBoosterReg##_##UniqueId##__ =          \
+          ::dmlc::Registry< ::xgboost::GradientBoosterReg>::Get()->__REGISTER__(Name)
 
 }  // namespace xgboost
 #endif  // XGBOOST_GBM_H_

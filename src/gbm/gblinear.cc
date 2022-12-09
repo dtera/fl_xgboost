@@ -150,6 +150,21 @@ class GBLinear : public GradientBooster {
     monitor_.Stop("DoBoost");
   }
 
+  void DoBoost(DMatrix* p_fmat, HostDeviceVector<EncryptedGradientPair>* in_gpair,
+               PredictionCacheEntry*, ObjFunction const*) override {
+    monitor_.Start("DoBoost");
+
+    model_.LazyInitModel();
+    this->LazySumWeights(p_fmat);
+
+    if (!this->CheckConvergence()) {
+      // TODO update for gbliner
+      //updater_->Update(in_gpair, p_fmat, &model_, sum_instance_weight_);
+    }
+    model_.num_boosted_rounds++;
+    monitor_.Stop("DoBoost");
+  }
+
   void PredictBatch(DMatrix* p_fmat, PredictionCacheEntry* predts, bool /*training*/,
                     uint32_t layer_begin, uint32_t) override {
     monitor_.Start("PredictBatch");
