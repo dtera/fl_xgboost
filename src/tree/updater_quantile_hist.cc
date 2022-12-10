@@ -159,9 +159,8 @@ void QuantileHistMaker::Builder::BuildHistogram(DMatrix *p_fmat, RegTree *p_tree
   }
 }
 
-template <typename T>
 void QuantileHistMaker::Builder::LeafPartition(RegTree const &tree,
-                                               common::Span<GradientPairT<T> const> gpair,
+                                               common::Span<GradientPair const> gpair,
                                                std::vector<bst_node_t> *p_out_position) {
   monitor_->Start(__func__);
   if (!task_.UpdateTreeLeaf()) {
@@ -169,6 +168,20 @@ void QuantileHistMaker::Builder::LeafPartition(RegTree const &tree,
   }
   for (auto const &part : partitioner_) {
     part.LeafPartition(ctx_, tree, gpair, p_out_position);
+  }
+  monitor_->Stop(__func__);
+}
+
+void QuantileHistMaker::Builder::LeafPartition(RegTree const &tree,
+                                               common::Span<EncryptedGradientPair const> gpair,
+                                               std::vector<bst_node_t> *p_out_position) {
+  monitor_->Start(__func__);
+  if (!task_.UpdateTreeLeaf()) {
+    return;
+  }
+  for (auto const &part : partitioner_) {
+    // TODO
+    // part.LeafPartition(ctx_, tree, gpair, p_out_position);
   }
   monitor_->Stop(__func__);
 }
@@ -229,8 +242,7 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
   }
 
   auto &h_out_position = p_out_position->HostVector();
-  // TODO
-  // this->LeafPartition(tree, gpair_h, &h_out_position);
+  this->LeafPartition(tree, gpair_h, &h_out_position);
   monitor_->Stop(__func__);
 }
 

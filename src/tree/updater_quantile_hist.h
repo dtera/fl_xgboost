@@ -156,8 +156,10 @@ class QuantileHistMaker : public TreeUpdater {
                         std::vector<CPUExpandEntry> const& valid_candidates,
                         std::vector<GradientPairT<T>> const& gpair);
 
-    template <typename T>
-    void LeafPartition(RegTree const& tree, common::Span<GradientPairT<T> const> gpair,
+    void LeafPartition(RegTree const& tree, common::Span<GradientPair const> gpair,
+                       std::vector<bst_node_t>* p_out_position);
+
+    void LeafPartition(RegTree const& tree, common::Span<EncryptedGradientPair const> gpair,
                        std::vector<bst_node_t>* p_out_position);
 
     template <typename T>
