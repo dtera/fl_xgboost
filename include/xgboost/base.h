@@ -118,23 +118,31 @@ class EncryptedType {
   uint32_t mul_cnt_{0};
   static opt_public_key_t* pub;
 
-  XGBOOST_DEVICE EncryptedType() {
-    mpz_init(data_);
-    mpz_set_ui(data_, 0);
-    // opt_paillier_encrypt(data_, data_, pub);
-  }
+  XGBOOST_DEVICE EncryptedType() : EncryptedType(0) {}
 
   XGBOOST_DEVICE EncryptedType(const mpz_t& data) {
     mpz_init(data_);
-    SetData(data);
+    SetCipherData(data);
   }
 
   XGBOOST_DEVICE EncryptedType(const EncryptedType& g) {
     mpz_init(data_);
-    SetData(g.data_);
+    SetCipherData(g.data_);
   }
 
-  XGBOOST_DEVICE void SetData(const mpz_t& data) {
+  template <class PLAIN_TYPE>
+  XGBOOST_DEVICE explicit EncryptedType(PLAIN_TYPE value) {
+    mpz_init(data_);
+    opt_paillier_encrypt_t(data_, value, pub);
+  }
+
+  template <class PLAIN_TYPE>
+  XGBOOST_DEVICE void SetData(PLAIN_TYPE value) {
+    opt_paillier_encrypt_t(data_, value, pub);
+    mul_cnt_ = 0;
+  }
+
+  XGBOOST_DEVICE void SetCipherData(const mpz_t& data) {
     mpz_set(data_, data);
     mul_cnt_ = 0;
   }
@@ -189,13 +197,6 @@ class EncryptedType {
 
   XGBOOST_DEVICE bool operator==(const EncryptedType& et) const {
     return mpz_cmp(this->data_, et.data_) == 0;
-  }
-
-  XGBOOST_DEVICE explicit EncryptedType(int value) {
-    mpz_t temp;
-    mpz_init(temp);
-    opt_paillier_set_plaintext_t(temp, value, pub);
-    *this = EncryptedType(temp);
   }
 
   friend std::ostream& operator<<(std::ostream& os, const EncryptedType& g) {

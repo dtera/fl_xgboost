@@ -328,19 +328,20 @@ TEST(homomorphic, EncryptedType) {
   TIME_STAT(opt_paillier_keygen(&pub, &pri, bitLength), KeyGen)
   EncryptedType<float>::pub = pub;
 
+  float f1 = 13.3, f2 = 15.6;
   mpz_t mpz_t1, mpz_t2;
   mpz_inits(mpz_t1, mpz_t2, nullptr);
-  opt_paillier_encrypt_t(mpz_t1, 13.3, pub);
-  opt_paillier_encrypt_t(mpz_t2, 15.6, pub);
+  opt_paillier_encrypt_t(mpz_t1, f1, pub);
+  opt_paillier_encrypt_t(mpz_t2, f2, pub);
   cout << "==============================================" << endl;
-  EncryptedType et1(mpz_t1);
-  EncryptedType et2(mpz_t2);
+  EncryptedType et1(13.3);
+  EncryptedType et2(15.6);
   opt_paillier_decrypt(et1.data_, et1.data_, pub, pri);
   opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
   cout << "et1: " << et1 << endl;
   cout << "et2: " << et2 << endl;
-  et1.SetData(mpz_t1);
-  et2.SetData(mpz_t2);
+  et1.SetCipherData(mpz_t1);
+  et2.SetCipherData(mpz_t2);
   cout << "==============================================" << endl;
   auto et = et1 + et2;
   opt_paillier_decrypt(et.data_, et.data_, pub, pri);
@@ -348,7 +349,7 @@ TEST(homomorphic, EncryptedType) {
   et2 += et1;
   opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
   cout << "et2 += et1: " << et2 << endl;
-  et2.SetData(mpz_t2);
+  et2.SetData(f2);
   cout << "==============================================" << endl;
   et = et1 - et2;
   opt_paillier_decrypt(et.data_, et.data_, pub, pri);
@@ -356,7 +357,7 @@ TEST(homomorphic, EncryptedType) {
   et1 -= et2;
   opt_paillier_decrypt(et1.data_, et1.data_, pub, pri);
   cout << "et1 -= et2: " << et1 << endl;
-  et1.SetData(mpz_t1);
+  et1.SetData(f1);
   cout << "==============================================" << endl;
   et = et2 * 2;
   opt_paillier_decrypt(et.data_, et.data_, pub, pri);
@@ -364,7 +365,7 @@ TEST(homomorphic, EncryptedType) {
   et2 *= 2;
   opt_paillier_decrypt(et2.data_, et2.data_, pub, pri);
   cout << "et2 *= 2: " << et2 << endl;
-  et2.SetData(mpz_t2);
+  et2.SetData(f2);
   cout << "==============================================" << endl;
   et = et2 / 2;
   opt_paillier_decrypt(et.data_, et.data_, pub, pri);
