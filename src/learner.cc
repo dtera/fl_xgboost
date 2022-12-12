@@ -1264,10 +1264,7 @@ class LearnerIO : public LearnerConfiguration {
  */
 class LearnerImpl : public LearnerIO {
  public:
-  explicit LearnerImpl(std::vector<std::shared_ptr<DMatrix>> cache) : LearnerIO{cache} {
-    encrypted_gpair_.Resize(cache[0]->Info().num_row_);
-    DEBUG << "encrypted_gpair_.size(): " << encrypted_gpair_.Size() << endl;
-  }
+  explicit LearnerImpl(std::vector<std::shared_ptr<DMatrix>> cache) : LearnerIO{cache} {}
   ~LearnerImpl() override {
     auto local_map = LearnerAPIThreadLocalStore::Get();
     if (local_map->find(this) != local_map->cend()) {
@@ -1338,6 +1335,10 @@ class LearnerImpl : public LearnerIO {
     monitor_.Start("UpdateOneIter");
     TrainingObserver::Instance().Update(iter);
     this->Configure();
+    if (encrypted_gpair_.Empty()) {
+      encrypted_gpair_.Resize(train->Info().num_row_);
+      DEBUG << "encrypted_gpair_.size(): " << encrypted_gpair_.Size() << endl;
+    }
     this->InitBaseScore(train.get());
 
     if (ctx_.seed_per_iteration) {
@@ -1365,10 +1366,9 @@ class LearnerImpl : public LearnerIO {
       server_->SendGradPairs(predt.version, encrypted_gpair_.HostVector());
       monitor_.Stop("SendEncryptedGradient");
       // For checking the encrypted gradient pairs
-      //opt_paillier_batch_decrypt(gpair_.HostVector(), encrypted_gpair_.HostVector(), pub_, pri_);
+      // opt_paillier_batch_decrypt(gpair_.HostVector(), encrypted_gpair_.HostVector(), pub_, pri_);
     } else {
       client_->GetEncryptedGradPairs(predt.version, encrypted_gpair_.HostVector());
-
     }
     TrainingObserver::Instance().Observe(encrypted_gpair_, "EncryptedGradients");
 

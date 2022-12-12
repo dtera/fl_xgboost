@@ -133,13 +133,17 @@ class EncryptedType {
   template <class PLAIN_TYPE>
   XGBOOST_DEVICE explicit EncryptedType(PLAIN_TYPE value) {
     mpz_init(data_);
-    opt_paillier_encrypt_t(data_, value, pub);
+    if (pub != nullptr) {
+      opt_paillier_encrypt_t(data_, value, pub);
+    }
   }
 
   template <class PLAIN_TYPE>
   XGBOOST_DEVICE void SetData(PLAIN_TYPE value) {
-    opt_paillier_encrypt_t(data_, value, pub);
-    mul_cnt_ = 0;
+    if (pub != nullptr) {
+      opt_paillier_encrypt_t(data_, value, pub);
+      mul_cnt_ = 0;
+    }
   }
 
   XGBOOST_DEVICE void SetCipherData(const mpz_t& data) {
