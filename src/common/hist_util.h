@@ -9,20 +9,21 @@
 
 #include <xgboost/data.h>
 #include <xgboost/generic_parameters.h>
-#include <limits>
-#include <vector>
+
 #include <algorithm>
+#include <limits>
+#include <map>
 #include <memory>
 #include <utility>
-#include <map>
+#include <vector>
 
+#include "algorithm.h"  // SegmentId
 #include "categorical.h"
 #include "common.h"
 #include "quantile.h"
 #include "row_set.h"
 #include "threading_utils.h"
 #include "timer.h"
-#include "algorithm.h"  // SegmentId
 
 namespace xgboost {
 class GHistIndexMatrix;
@@ -88,9 +89,9 @@ class HistogramCuts {
     return cut_ptrs_.ConstHostVector().at(feature + 1) - cut_ptrs_.ConstHostVector()[feature];
   }
 
-  std::vector<uint32_t> const& Ptrs()      const { return cut_ptrs_.ConstHostVector();   }
-  std::vector<float>    const& Values()    const { return cut_values_.ConstHostVector(); }
-  std::vector<float>    const& MinValues() const { return min_vals_.ConstHostVector();   }
+  std::vector<uint32_t> const& Ptrs() const { return cut_ptrs_.ConstHostVector(); }
+  std::vector<float> const& Values() const { return cut_values_.ConstHostVector(); }
+  std::vector<float> const& MinValues() const { return min_vals_.ConstHostVector(); }
 
   bool HasCategorical() const { return has_categorical_; }
   float MaxCategory() const { return max_cat_; }
@@ -261,9 +262,7 @@ struct Index {
               binTypeSize == kUint32BinsTypeSize);
     }
   }
-  BinTypeSize GetBinTypeSize() const {
-    return binTypeSize_;
-  }
+  BinTypeSize GetBinTypeSize() const { return binTypeSize_; }
   template <typename T>
   T const* data() const {  // NOLINT
     return reinterpret_cast<T const*>(data_.data());
@@ -276,9 +275,7 @@ struct Index {
   size_t OffsetSize() const { return bin_offset_.size(); }
   size_t Size() const { return data_.size() / (binTypeSize_); }
 
-  void Resize(const size_t n_bytes) {
-    data_.resize(n_bytes);
-  }
+  void Resize(const size_t n_bytes) { data_.resize(n_bytes); }
   // set the offset used in compression, cut_ptrs is the CSC indptr in HistogramCuts
   void SetBinOffset(std::vector<uint32_t> const& cut_ptrs) {
     bin_offset_.resize(cut_ptrs.size() - 1);  // resize to number of features.
@@ -315,7 +312,7 @@ struct Index {
   // HistogramCuts without the last entry.) Used for bin compression.
   std::vector<uint32_t> bin_offset_;
 
-  BinTypeSize binTypeSize_ {kUint8BinsTypeSize};
+  BinTypeSize binTypeSize_{kUint8BinsTypeSize};
   Func func_;
 };
 
@@ -383,7 +380,7 @@ class HistCollection {
     CHECK_NE(id, kMax);
     GradientPairPrecise* ptr = nullptr;
     if (contiguous_allocation_) {
-      ptr = const_cast<GradientPairPrecise*>(data_[0].data() + nbins_*id);
+      ptr = const_cast<GradientPairPrecise*>(data_[0].data() + nbins_ * id);
     } else {
       ptr = const_cast<GradientPairPrecise*>(data_[id].data());
     }
@@ -430,7 +427,7 @@ class HistCollection {
   }
   // allocate common buffer contiguously for all nodes, need for single Allreduce call
   void AllocateAllData() {
-    const size_t new_size = nbins_*data_.size();
+    const size_t new_size = nbins_ * data_.size();
     contiguous_allocation_ = true;
     if (data_[0].size() != new_size) {
       data_[0].resize(new_size);
@@ -477,7 +474,7 @@ class ParallelGHistBuilder {
 
     CHECK_EQ(nodes, targeted_hists.size());
 
-    nodes_    = nodes;
+    nodes_ = nodes;
     nthreads_ = nthreads;
 
     MatchThreadsToNodes(space);
@@ -542,11 +539,11 @@ class ParallelGHistBuilder {
 
     for (size_t tid = 0; tid < nthreads_; ++tid) {
       size_t begin = chunck_size * tid;
-      size_t end   = std::min(begin + chunck_size, space_size);
+      size_t end = std::min(begin + chunck_size, space_size);
 
       if (begin < space_size) {
         size_t nid_begin = space.GetFirstDimension(begin);
-        size_t nid_end   = space.GetFirstDimension(end-1);
+        size_t nid_end = space.GetFirstDimension(end - 1);
 
         for (size_t nid = nid_begin; nid <= nid_end; ++nid) {
           // true - means thread 'tid' will work to compute partial hist for node 'nid'
@@ -619,8 +616,8 @@ class ParallelGHistBuilder {
   /*! \brief Contains histograms for final results  */
   std::vector<GHistRow> targeted_hists_;
   /*!
-   * \brief map pair {tid, nid} to index of allocated histogram from hist_buffer_ and targeted_hists_,
-   * -1 is reserved for targeted_hists_
+   * \brief map pair {tid, nid} to index of allocated histogram from hist_buffer_ and
+   * targeted_hists_, -1 is reserved for targeted_hists_
    */
   std::map<std::pair<size_t, size_t>, int> tid_nid_to_hist_;
 };
@@ -631,20 +628,18 @@ class ParallelGHistBuilder {
 class GHistBuilder {
  public:
   GHistBuilder() = default;
-  explicit GHistBuilder(uint32_t nbins): nbins_{nbins} {}
+  explicit GHistBuilder(uint32_t nbins) : nbins_{nbins} {}
 
   // construct a histogram via histogram aggregation
-  template <bool any_missing>
-  void BuildHist(const std::vector<GradientPair>& gpair, const RowSetCollection::Elem row_indices,
-                 const GHistIndexMatrix& gmat, GHistRow hist,
-                 bool force_read_by_column = false) const;
-  uint32_t GetNumBins() const {
-      return nbins_;
-  }
+  template <bool any_missing, typename T = float>
+  void BuildHist(const std::vector<GradientPairT<T>>& gpair,
+                 const RowSetCollection::Elem row_indices, const GHistIndexMatrix& gmat,
+                 GHistRow hist, bool force_read_by_column = false) const;
+  uint32_t GetNumBins() const { return nbins_; }
 
  private:
   /*! \brief number of all bins over all features */
-  uint32_t nbins_ { 0 };
+  uint32_t nbins_{0};
 };
 }  // namespace common
 }  // namespace xgboost

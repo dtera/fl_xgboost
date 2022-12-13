@@ -76,9 +76,9 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
   for (auto const &gidx : p_fmat->GetBatches<GHistIndexMatrix>(HistBatch(param_))) {
     std::vector<CPUExpandEntry> nodes_to_build{node};
     std::vector<CPUExpandEntry> nodes_to_sub;
-    this->histogram_builder_->BuildHist(page_id, space, gidx, p_tree,
-                                        partitioner_.at(page_id).Partitions(), nodes_to_build,
-                                        nodes_to_sub, gpair_h);
+    this->histogram_builder_->BuildHist<T>(page_id, space, gidx, p_tree,
+                                           partitioner_.at(page_id).Partitions(), nodes_to_build,
+                                           nodes_to_sub, gpair_h);
     ++page_id;
   }
 
