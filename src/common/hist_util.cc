@@ -188,16 +188,7 @@ class GHistBuildingManager {
   }
 };
 
-template <typename T = float>
-void *GetHistType(GHistRow &hist) {
-  if (is_same<float, T>()) {
-    return reinterpret_cast<double *>(hist.data());
-  } else {
-    return reinterpret_cast<EncryptedType<double> *>(hist.data());
-  }
-}
-
-template <bool do_prefetch, class BuildingManager, typename T = float>
+template <bool do_prefetch, class BuildingManager, typename T = float, typename H = double>
 void RowsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
                              const RowSetCollection::Elem row_indices, const GHistIndexMatrix &gmat,
                              GHistRow hist) {
@@ -207,7 +198,7 @@ void RowsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
 
   const size_t size = row_indices.Size();
   const size_t *rid = row_indices.begin;
-  auto const *pgh = reinterpret_cast<const float *>(gpair.data());
+  auto const *pgh = reinterpret_cast<const T *>(gpair.data());
   const BinIdxType *gradient_index = gmat.index.data<BinIdxType>();
 
   auto const &row_ptr = gmat.row_ptr.data();
@@ -220,7 +211,7 @@ void RowsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
 
   const size_t n_features =
       get_row_ptr(row_indices.begin[0] + 1) - get_row_ptr(row_indices.begin[0]);
-  auto hist_data = GetHistType<T>(hist);
+  auto hist_data = reinterpret_cast<H *>(hist.data());
   const uint32_t two{2};  // Each element from 'gpair' and 'hist' contains
                           // 2 FP values: gradient and hessian.
                           // So we need to multiply each row-index/bin-index by 2
@@ -250,12 +241,12 @@ void RowsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
     const BinIdxType *gr_index_local = gradient_index + icol_start;
 
     // The trick with pgh_t buffer helps the compiler to generate faster binary.
-    const float pgh_t[] = {pgh[idx_gh], pgh[idx_gh + 1]};
+    const T pgh_t[] = {pgh[idx_gh], pgh[idx_gh + 1]};
     for (size_t j = 0; j < row_size; ++j) {
       const uint32_t idx_bin =
           two * (static_cast<uint32_t>(gr_index_local[j]) + (kAnyMissing ? 0 : offsets[j]));
       if (is_same<float, T>()) {
-        double *hist_local = reinterpret_cast<double *>(hist_data) + idx_bin;
+        H *hist_local = hist_data + idx_bin;
         *(hist_local) += pgh_t[0];
         *(hist_local + 1) += pgh_t[1];
       }
@@ -312,7 +303,7 @@ void ColsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
   }
 }
 
-template <class BuildingManager, typename T = float>
+template <class BuildingManager, typename T = float, typename H = double>
 void BuildHistDispatch(const std::vector<GradientPairT<T>> &gpair,
                        const RowSetCollection::Elem row_indices, const GHistIndexMatrix &gmat,
                        GHistRow hist) {
@@ -327,19 +318,19 @@ void BuildHistDispatch(const std::vector<GradientPairT<T>> &gpair,
 
     if (contiguousBlock) {
       // contiguous memory access, built-in HW prefetching is enough
-      RowsWiseBuildHistKernel<false, BuildingManager, T>(gpair, row_indices, gmat, hist);
+      RowsWiseBuildHistKernel<false, BuildingManager, T, H>(gpair, row_indices, gmat, hist);
     } else {
       const RowSetCollection::Elem span1(row_indices.begin, row_indices.end - no_prefetch_size);
       const RowSetCollection::Elem span2(row_indices.end - no_prefetch_size, row_indices.end);
 
-      RowsWiseBuildHistKernel<true, BuildingManager, T>(gpair, span1, gmat, hist);
+      RowsWiseBuildHistKernel<true, BuildingManager, T, H>(gpair, span1, gmat, hist);
       // no prefetching to avoid loading extra memory
-      RowsWiseBuildHistKernel<false, BuildingManager, T>(gpair, span2, gmat, hist);
+      RowsWiseBuildHistKernel<false, BuildingManager, T, H>(gpair, span2, gmat, hist);
     }
   }
 }
 
-template <bool any_missing, typename T>
+template <bool any_missing, typename T, typename H>
 void GHistBuilder::BuildHist(const std::vector<GradientPairT<T>> &gpair,
                              const RowSetCollection::Elem row_indices, const GHistIndexMatrix &gmat,
                              GHistRow hist, bool force_read_by_column) const {
@@ -355,25 +346,25 @@ void GHistBuilder::BuildHist(const std::vector<GradientPairT<T>> &gpair,
   GHistBuildingManager<any_missing>::DispatchAndExecute(
       {first_page, read_by_column || force_read_by_column, bin_type_size}, [&](auto t) {
         using BuildingManager = decltype(t);
-        BuildHistDispatch<BuildingManager, T>(gpair, row_indices, gmat, hist);
+        BuildHistDispatch<BuildingManager, T, H>(gpair, row_indices, gmat, hist);
       });
 }
 
-template void GHistBuilder::BuildHist<true, float>(const std::vector<GradientPair> &gpair,
-                                                   const RowSetCollection::Elem row_indices,
-                                                   const GHistIndexMatrix &gmat, GHistRow hist,
-                                                   bool force_read_by_column) const;
+template void GHistBuilder::BuildHist<true, float, double>(const std::vector<GradientPair> &gpair,
+                                                           const RowSetCollection::Elem row_indices,
+                                                           const GHistIndexMatrix &gmat,
+                                                           GHistRow hist,
+                                                           bool force_read_by_column) const;
 
-template void GHistBuilder::BuildHist<true, EncryptedType<float>>(
+template void GHistBuilder::BuildHist<true, EncryptedType<float>, EncryptedType<double>>(
     const std::vector<EncryptedGradientPair> &gpair, const RowSetCollection::Elem row_indices,
     const GHistIndexMatrix &gmat, GHistRow hist, bool force_read_by_column) const;
 
-template void GHistBuilder::BuildHist<false, float>(const std::vector<GradientPair> &gpair,
-                                                    const RowSetCollection::Elem row_indices,
-                                                    const GHistIndexMatrix &gmat, GHistRow hist,
-                                                    bool force_read_by_column) const;
+template void GHistBuilder::BuildHist<false, float, double>(
+    const std::vector<GradientPair> &gpair, const RowSetCollection::Elem row_indices,
+    const GHistIndexMatrix &gmat, GHistRow hist, bool force_read_by_column) const;
 
-template void GHistBuilder::BuildHist<false, EncryptedType<float>>(
+template void GHistBuilder::BuildHist<false, EncryptedType<float>, EncryptedType<double>>(
     const std::vector<EncryptedGradientPair> &gpair, const RowSetCollection::Elem row_indices,
     const GHistIndexMatrix &gmat, GHistRow hist, bool force_read_by_column) const;
 }  // namespace common

@@ -631,7 +631,7 @@ class GHistBuilder {
   explicit GHistBuilder(uint32_t nbins) : nbins_{nbins} {}
 
   // construct a histogram via histogram aggregation
-  template <bool any_missing, typename T = float>
+  template <bool any_missing, typename T = float, typename H = double>
   void BuildHist(const std::vector<GradientPairT<T>>& gpair,
                  const RowSetCollection::Elem row_indices, const GHistIndexMatrix& gmat,
                  GHistRow hist, bool force_read_by_column = false) const;

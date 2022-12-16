@@ -151,23 +151,45 @@ class EncryptedType {
     mul_cnt_ = 0;
   }
 
-  XGBOOST_DEVICE EncryptedType& operator+=(const EncryptedType& et) {
+  XGBOOST_DEVICE EncryptedType& operator+=(const EncryptedType<float>& et) {
     opt_paillier_add(data_, data_, et.data_, pub);
     return *this;
   }
 
-  XGBOOST_DEVICE EncryptedType operator+(const EncryptedType& et) const {
+  XGBOOST_DEVICE EncryptedType& operator+=(const EncryptedType<double>& et) {
+    opt_paillier_add(data_, data_, et.data_, pub);
+    return *this;
+  }
+
+  XGBOOST_DEVICE EncryptedType operator+(const EncryptedType<float>& et) const {
     EncryptedType g;
     opt_paillier_add(g.data_, data_, et.data_, pub);
     return g;
   }
 
-  XGBOOST_DEVICE EncryptedType& operator-=(const EncryptedType& et) {
+  XGBOOST_DEVICE EncryptedType operator+(const EncryptedType<double>& et) const {
+    EncryptedType g;
+    opt_paillier_add(g.data_, data_, et.data_, pub);
+    return g;
+  }
+
+  XGBOOST_DEVICE EncryptedType& operator-=(const EncryptedType<float>& et) {
     opt_paillier_sub(data_, data_, et.data_, pub);
     return *this;
   }
 
-  XGBOOST_DEVICE EncryptedType operator-(const EncryptedType& et) const {
+  XGBOOST_DEVICE EncryptedType& operator-=(const EncryptedType<double>& et) {
+    opt_paillier_sub(data_, data_, et.data_, pub);
+    return *this;
+  }
+
+  XGBOOST_DEVICE EncryptedType operator-(const EncryptedType<float>& et) const {
+    EncryptedType g;
+    opt_paillier_sub(g.data_, data_, et.data_, pub);
+    return g;
+  }
+
+  XGBOOST_DEVICE EncryptedType operator-(const EncryptedType<double>& et) const {
     EncryptedType g;
     opt_paillier_sub(g.data_, data_, et.data_, pub);
     return g;
