@@ -245,16 +245,14 @@ void RowsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
     for (size_t j = 0; j < row_size; ++j) {
       const uint32_t idx_bin =
           two * (static_cast<uint32_t>(gr_index_local[j]) + (kAnyMissing ? 0 : offsets[j]));
-      if (is_same<float, T>()) {
-        H *hist_local = hist_data + idx_bin;
-        *(hist_local) += pgh_t[0];
-        *(hist_local + 1) += pgh_t[1];
-      }
+      H *hist_local = hist_data + idx_bin;
+      *(hist_local) += pgh_t[0];
+      *(hist_local + 1) += pgh_t[1];
     }
   }
 }
 
-template <class BuildingManager, typename T = float>
+template <class BuildingManager, typename T = float, typename H = double>
 void ColsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
                              const RowSetCollection::Elem row_indices, const GHistIndexMatrix &gmat,
                              GHistRow hist) {
@@ -276,7 +274,7 @@ void ColsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
 
   const size_t n_features = gmat.cut.Ptrs().size() - 1;
   const size_t n_columns = n_features;
-  auto hist_data = reinterpret_cast<T *>(hist.data());
+  auto hist_data = reinterpret_cast<H *>(hist.data());
   const uint32_t two{2};  // Each element from 'gpair' and 'hist' contains
                           // 2 FP values: gradient and hessian.
                           // So we need to multiply each row-index/bin-index by 2
@@ -308,7 +306,7 @@ void BuildHistDispatch(const std::vector<GradientPairT<T>> &gpair,
                        const RowSetCollection::Elem row_indices, const GHistIndexMatrix &gmat,
                        GHistRow hist) {
   if (BuildingManager::kReadByColumn) {
-    ColsWiseBuildHistKernel<BuildingManager, T>(gpair, row_indices, gmat, hist);
+    ColsWiseBuildHistKernel<BuildingManager, T, H>(gpair, row_indices, gmat, hist);
   } else {
     const size_t nrows = row_indices.Size();
     const size_t no_prefetch_size = Prefetch::NoPrefetchSize(nrows);
