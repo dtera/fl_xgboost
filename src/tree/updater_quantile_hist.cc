@@ -66,9 +66,9 @@ bool QuantileHistMaker::UpdatePredictionCache(const DMatrix *data,
   }
 }
 
-template <typename T>
-CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_tree,
-                                                    const std::vector<GradientPairT<T>> &gpair_h) {
+template <typename T, typename H>
+CPUExpandEntry QuantileHistMaker::Builder::InitRoot(
+    DMatrix *p_fmat, RegTree *p_tree, const std::vector<GradientPairT<T>> &gpair_h) {
   CPUExpandEntry node(RegTree::kRoot, p_tree->GetDepth(0), 0.0f);
 
   size_t page_id = 0;
@@ -76,14 +76,14 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
   for (auto const &gidx : p_fmat->GetBatches<GHistIndexMatrix>(HistBatch(param_))) {
     std::vector<CPUExpandEntry> nodes_to_build{node};
     std::vector<CPUExpandEntry> nodes_to_sub;
-    this->histogram_builder_->BuildHist<T>(page_id, space, gidx, p_tree,
-                                           partitioner_.at(page_id).Partitions(), nodes_to_build,
-                                           nodes_to_sub, gpair_h);
+    this->histogram_builder_->template BuildHist<T, H>(page_id, space, gidx, p_tree,
+                                                       partitioner_.at(page_id).Partitions(),
+                                                       nodes_to_build, nodes_to_sub, gpair_h);
     ++page_id;
   }
 
   {
-    GradientPairPrecise grad_stat;
+    GradientPairT<H> grad_stat;
     if (p_fmat->IsDense()) {
       /**
        * Specialized code for dense data: For dense data (with no missing value), the sum
@@ -97,7 +97,7 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
       auto hist = this->histogram_builder_->Histogram()[RegTree::kRoot];
       auto begin = hist.data();
       for (uint32_t i = ibegin; i < iend; ++i) {
-        GradientPairPrecise const &et = begin[i];
+        GradientPairT<H> const &et = begin[i];
         grad_stat.Add(et.GetGrad(), et.GetHess());
       }
     } else {
@@ -127,9 +127,9 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
 }
 
 template <typename T>
-void QuantileHistMaker::Builder::BuildHistogram(DMatrix *p_fmat, RegTree *p_tree,
-                                                std::vector<CPUExpandEntry> const &valid_candidates,
-                                                std::vector<GradientPairT<T>> const &gpair) {
+void QuantileHistMaker::Builder::BuildHistogram(
+    DMatrix *p_fmat, RegTree *p_tree, std::vector<CPUExpandEntry> const &valid_candidates,
+    std::vector<GradientPairT<T>> const &gpair) {
   std::vector<CPUExpandEntry> nodes_to_build(valid_candidates.size());
   std::vector<CPUExpandEntry> nodes_to_sub(valid_candidates.size());
 
@@ -193,7 +193,11 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
   monitor_->Start(__func__);
 
   Driver<CPUExpandEntry> driver(param_);
-  driver.Push(this->InitRoot(p_fmat, p_tree, gpair_h));
+  if (is_same<float, T>()) {
+    driver.Push(this->InitRoot<T, double>(p_fmat, p_tree, gpair_h));
+  } else {
+    //driver.Push(this->InitRoot<T, EncryptedType<double>>(p_fmat, p_tree, gpair_h));
+  }
   auto const &tree = *p_tree;
   auto expand_set = driver.Pop();
 

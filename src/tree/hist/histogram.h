@@ -16,14 +16,14 @@
 
 namespace xgboost {
 namespace tree {
-template <typename ExpandEntry>
+template <typename ExpandEntry, typename HistT = double>
 class HistogramBuilder {
   /*! \brief culmulative histogram of gradients. */
-  common::HistCollection hist_;
+  common::HistCollection<HistT> hist_;
   /*! \brief culmulative local parent histogram of gradients. */
-  common::HistCollection hist_local_worker_;
+  common::HistCollection<HistT> hist_local_worker_;
   common::GHistBuilder builder_;
-  common::ParallelGHistBuilder buffer_;
+  common::ParallelGHistBuilder<HistT> buffer_;
   BatchParam param_;
   int32_t n_threads_{-1};
   size_t n_batches_{0};
@@ -64,7 +64,7 @@ class HistogramBuilder {
     const size_t n_nodes = nodes_for_explicit_hist_build.size();
     CHECK_GT(n_nodes, 0);
 
-    std::vector<common::GHistRow> target_hists(n_nodes);
+    std::vector<common::GHistRow<H>> target_hists(n_nodes);
     for (size_t i = 0; i < n_nodes; ++i) {
       const int32_t nid = nodes_for_explicit_hist_build[i].nid;
       target_hists[i] = hist_[nid];
@@ -225,7 +225,7 @@ class HistogramBuilder {
 
  public:
   /* Getters for tests. */
-  common::HistCollection const &Histogram() { return hist_; }
+  common::HistCollection<HistT> const &Histogram() { return hist_; }
   auto &Buffer() { return buffer_; }
 
  private:

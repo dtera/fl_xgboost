@@ -87,7 +87,7 @@ class QuantileHistMaker : public TreeUpdater {
       : TreeUpdater(ctx), task_{task} {}
   void Configure(const Args& args) override;
 
-  template <typename T>
+  template <typename T = float>
   inline void UpdateT(HostDeviceVector<GradientPairT<T>>* gpair, DMatrix* dmat,
                       common::Span<HostDeviceVector<bst_node_t>> out_position,
                       const std::vector<RegTree*>& trees);
@@ -131,7 +131,7 @@ class QuantileHistMaker : public TreeUpdater {
       monitor_->Init("Quantile::Builder");
     }
     // update one tree, growing
-    template <typename T>
+    template <typename T = float>
     void UpdateTree(HostDeviceVector<GradientPairT<T>>* gpair, DMatrix* p_fmat, RegTree* p_tree,
                     HostDeviceVector<bst_node_t>* p_out_position);
 
@@ -139,19 +139,19 @@ class QuantileHistMaker : public TreeUpdater {
 
    private:
     // initialize temp data structure
-    template <typename T>
+    template <typename T = float>
     void InitData(DMatrix* fmat, const RegTree& tree, std::vector<GradientPairT<T>>* gpair);
 
     size_t GetNumberOfTrees();
 
-    template <typename T>
+    template <typename T = float>
     void InitSampling(const DMatrix& fmat, std::vector<GradientPairT<T>>* gpair);
 
-    template <typename T>
+    template <typename T = float, typename H = double>
     CPUExpandEntry InitRoot(DMatrix* p_fmat, RegTree* p_tree,
                             const std::vector<GradientPairT<T>>& gpair_h);
 
-    template <typename T>
+    template <typename T = float>
     void BuildHistogram(DMatrix* p_fmat, RegTree* p_tree,
                         std::vector<CPUExpandEntry> const& valid_candidates,
                         std::vector<GradientPairT<T>> const& gpair);
@@ -162,7 +162,7 @@ class QuantileHistMaker : public TreeUpdater {
     void LeafPartition(RegTree const& tree, common::Span<EncryptedGradientPair const> gpair,
                        std::vector<bst_node_t>* p_out_position);
 
-    template <typename T>
+    template <typename T = float>
     void ExpandTree(DMatrix* p_fmat, RegTree* p_tree, const std::vector<GradientPairT<T>>& gpair_h,
                     HostDeviceVector<bst_node_t>* p_out_position);
 

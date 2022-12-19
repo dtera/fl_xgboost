@@ -345,44 +345,50 @@ bst_bin_t XGBOOST_HOST_DEV_INLINE BinarySearchBin(size_t begin, size_t end,
   return -1;
 }
 
-using GHistRow = Span<xgboost::GradientPairPrecise>;
+template <typename H = double>
+using GHistRow = Span<xgboost::GradientPairT<H>>;
 
 /*!
  * \brief fill a histogram by zeros
  */
-void InitilizeHistByZeroes(GHistRow hist, size_t begin, size_t end);
+template <typename H = double>
+void InitilizeHistByZeroes(GHistRow<H> hist, size_t begin, size_t end);
 
 /*!
  * \brief Increment hist as dst += add in range [begin, end)
  */
-void IncrementHist(GHistRow dst, const GHistRow add, size_t begin, size_t end);
+template <typename H = double>
+void IncrementHist(GHistRow<H> dst, const GHistRow<H> add, size_t begin, size_t end);
 
 /*!
  * \brief Copy hist from src to dst in range [begin, end)
  */
-void CopyHist(GHistRow dst, const GHistRow src, size_t begin, size_t end);
+template <typename H = double>
+void CopyHist(GHistRow<H> dst, const GHistRow<H> src, size_t begin, size_t end);
 
 /*!
  * \brief Compute Subtraction: dst = src1 - src2 in range [begin, end)
  */
-void SubtractionHist(GHistRow dst, const GHistRow src1, const GHistRow src2, size_t begin,
+template <typename H = double>
+void SubtractionHist(GHistRow<H> dst, const GHistRow<H> src1, const GHistRow<H> src2, size_t begin,
                      size_t end);
 
 /*!
  * \brief histogram of gradient statistics for multiple nodes
  */
+template <class H = double>
 class HistCollection {
  public:
   // access histogram for i-th node
-  GHistRow operator[](bst_uint nid) const {
+  GHistRow<H> operator[](bst_uint nid) const {
     constexpr uint32_t kMax = std::numeric_limits<uint32_t>::max();
     const size_t id = row_ptr_.at(nid);
     CHECK_NE(id, kMax);
-    GradientPairPrecise* ptr = nullptr;
+    GradientPairT<H>* ptr = nullptr;
     if (contiguous_allocation_) {
-      ptr = const_cast<GradientPairPrecise*>(data_[0].data() + nbins_ * id);
+      ptr = const_cast<GradientPairT<H>*>(data_[0].data() + nbins_ * id);
     } else {
-      ptr = const_cast<GradientPairPrecise*>(data_[id].data());
+      ptr = const_cast<GradientPairT<H>*>(data_[id].data());
     }
     return {ptr, nbins_};
   }
@@ -442,7 +448,7 @@ class HistCollection {
   /*! \brief flag to identify contiguous memory allocation */
   bool contiguous_allocation_ = false;
 
-  std::vector<std::vector<GradientPairPrecise>> data_;
+  std::vector<std::vector<GradientPairT<H>>> data_;
 
   /*! \brief row_ptr_[nid] locates bin for histogram of node nid */
   std::vector<size_t> row_ptr_;
@@ -453,6 +459,7 @@ class HistCollection {
  * Supports processing multiple tree-nodes for nested parallelism
  * Able to reduce histograms across threads in efficient way
  */
+template <typename H = double>
 class ParallelGHistBuilder {
  public:
   void Init(size_t nbins) {
@@ -465,7 +472,7 @@ class ParallelGHistBuilder {
   // Add new elements if needed, mark all hists as unused
   // targeted_hists - already allocated hists which should contain final results after Reduce() call
   void Reset(size_t nthreads, size_t nodes, const BlockedSpace2d& space,
-             const std::vector<GHistRow>& targeted_hists) {
+             const std::vector<GHistRow<H>>& targeted_hists) {
     hist_buffer_.Init(nbins_);
     tid_nid_to_hist_.clear();
     threads_to_nids_map_.clear();
@@ -486,7 +493,7 @@ class ParallelGHistBuilder {
   }
 
   // Get specified hist, initialize hist by zeros if it wasn't used before
-  GHistRow GetInitializedHist(size_t tid, size_t nid) {
+  GHistRow<H> GetInitializedHist(size_t tid, size_t nid) {
     CHECK_LT(nid, nodes_);
     CHECK_LT(tid, nthreads_);
 
@@ -494,7 +501,7 @@ class ParallelGHistBuilder {
     if (idx >= 0) {
       hist_buffer_.AllocateData(idx);
     }
-    GHistRow hist = idx == -1 ? targeted_hists_[nid] : hist_buffer_[idx];
+    GHistRow<H> hist = idx == -1 ? targeted_hists_[nid] : hist_buffer_[idx];
 
     if (!hist_was_used_[tid * nodes_ + nid]) {
       InitilizeHistByZeroes(hist, 0, hist.size());
@@ -509,7 +516,7 @@ class ParallelGHistBuilder {
     CHECK_GT(end, begin);
     CHECK_LT(nid, nodes_);
 
-    GHistRow dst = targeted_hists_[nid];
+    GHistRow<H> dst = targeted_hists_[nid];
 
     bool is_updated = false;
     for (size_t tid = 0; tid < nthreads_; ++tid) {
@@ -517,7 +524,7 @@ class ParallelGHistBuilder {
         is_updated = true;
 
         int idx = tid_nid_to_hist_.at({tid, nid});
-        GHistRow src = idx == -1 ? targeted_hists_[nid] : hist_buffer_[idx];
+        GHistRow<H> src = idx == -1 ? targeted_hists_[nid] : hist_buffer_[idx];
 
         if (dst.data() != src.data()) {
           IncrementHist(dst, src, begin, end);
@@ -603,7 +610,7 @@ class ParallelGHistBuilder {
   /*! \brief number of nodes which will be processed in parallel  */
   size_t nodes_ = 0;
   /*! \brief Buffer for additional histograms for Parallel processing  */
-  HistCollection hist_buffer_;
+  HistCollection<H> hist_buffer_;
   /*!
    * \brief Marks which hists were used, it means that they should be merged.
    * Contains only {true or false} values
@@ -614,7 +621,7 @@ class ParallelGHistBuilder {
   /*! \brief Buffer for additional histograms for Parallel processing  */
   std::vector<bool> threads_to_nids_map_;
   /*! \brief Contains histograms for final results  */
-  std::vector<GHistRow> targeted_hists_;
+  std::vector<GHistRow<H>> targeted_hists_;
   /*!
    * \brief map pair {tid, nid} to index of allocated histogram from hist_buffer_ and
    * targeted_hists_, -1 is reserved for targeted_hists_
@@ -634,7 +641,7 @@ class GHistBuilder {
   template <bool any_missing, typename T = float, typename H = double>
   void BuildHist(const std::vector<GradientPairT<T>>& gpair,
                  const RowSetCollection::Elem row_indices, const GHistIndexMatrix& gmat,
-                 GHistRow hist, bool force_read_by_column = false) const;
+                 GHistRow<H> hist, bool force_read_by_column = false) const;
   uint32_t GetNumBins() const { return nbins_; }
 
  private:

@@ -5,19 +5,19 @@
 #define XGBOOST_TREE_HIST_EVALUATE_SPLITS_H_
 
 #include <algorithm>
+#include <limits>
 #include <memory>
 #include <numeric>
-#include <limits>
 #include <utility>
 #include <vector>
 
-#include "../param.h"
-#include "../constraints.h"
-#include "../split_evaluator.h"
 #include "../../common/categorical.h"
-#include "../../common/random.h"
 #include "../../common/hist_util.h"
+#include "../../common/random.h"
 #include "../../data/gradient_index.h"
+#include "../constraints.h"
+#include "../param.h"
+#include "../split_evaluator.h"
 
 namespace xgboost {
 namespace tree {
@@ -36,7 +36,7 @@ class HistEvaluator {
   TrainParam param_;
   std::shared_ptr<common::ColumnSampler> column_sampler_;
   TreeEvaluator tree_evaluator_;
-  int32_t n_threads_ {0};
+  int32_t n_threads_{0};
   FeatureInteractionConstraintHost interaction_constraints_;
   std::vector<NodeEntry> snode_;
 
@@ -61,7 +61,8 @@ class HistEvaluator {
    *        pseudo-category for missing value but here we just do a complete scan to avoid
    *        making specialized histogram bin.
    */
-  void EnumerateOneHot(common::HistogramCuts const &cut, const common::GHistRow &hist,
+  template <class H = double>
+  void EnumerateOneHot(common::HistogramCuts const &cut, const common::GHistRow<H> &hist,
                        bst_feature_t fidx, bst_node_t nidx,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        SplitEntry *p_best) const {
@@ -135,9 +136,9 @@ class HistEvaluator {
    *   | [DE] ABC | CDE [AB] |
    *   | [E] ABCD | BCDE [A] |
    */
-  template <int d_step>
+  template <int d_step, typename H = double>
   void EnumeratePart(common::HistogramCuts const &cut, common::Span<size_t const> sorted_idx,
-                     common::GHistRow const &hist, bst_feature_t fidx, bst_node_t nidx,
+                     common::GHistRow<H> const &hist, bst_feature_t fidx, bst_node_t nidx,
                      TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                      SplitEntry *p_best) {
     static_assert(d_step == +1 || d_step == -1, "Invalid step.");
@@ -207,8 +208,8 @@ class HistEvaluator {
   // Enumerate/Scan the split values of specific feature
   // Returns the sum of gradients corresponding to the data points that contains
   // a non-missing value for the particular feature fid.
-  template <int d_step>
-  GradStats EnumerateSplit(common::HistogramCuts const &cut, const common::GHistRow &hist,
+  template <int d_step, typename H = double>
+  GradStats EnumerateSplit(common::HistogramCuts const &cut, const common::GHistRow<H> &hist,
                            bst_feature_t fidx, bst_node_t nidx,
                            TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                            SplitEntry *p_best) const {
@@ -279,24 +280,22 @@ class HistEvaluator {
   }
 
  public:
-  void EvaluateSplits(const common::HistCollection &hist, common::HistogramCuts const &cut,
+  template <class H = double>
+  void EvaluateSplits(const common::HistCollection<H> &hist, common::HistogramCuts const &cut,
                       common::Span<FeatureType const> feature_types, const RegTree &tree,
                       std::vector<ExpandEntry> *p_entries) {
-    auto& entries = *p_entries;
+    auto &entries = *p_entries;
     // All nodes are on the same level, so we can store the shared ptr.
-    std::vector<std::shared_ptr<HostDeviceVector<bst_feature_t>>> features(
-        entries.size());
+    std::vector<std::shared_ptr<HostDeviceVector<bst_feature_t>>> features(entries.size());
     for (size_t nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
       auto nidx = entries[nidx_in_set].nid;
-      features[nidx_in_set] =
-          column_sampler_->GetFeatureSet(tree.GetDepth(nidx));
+      features[nidx_in_set] = column_sampler_->GetFeatureSet(tree.GetDepth(nidx));
     }
     CHECK(!features.empty());
-    const size_t grain_size =
-        std::max<size_t>(1, features.front()->Size() / n_threads_);
-    common::BlockedSpace2d space(entries.size(), [&](size_t nidx_in_set) {
-      return features[nidx_in_set]->Size();
-    }, grain_size);
+    const size_t grain_size = std::max<size_t>(1, features.front()->Size() / n_threads_);
+    common::BlockedSpace2d space(
+        entries.size(), [&](size_t nidx_in_set) { return features[nidx_in_set]->Size(); },
+        grain_size);
 
     std::vector<ExpandEntry> tloc_candidates(n_threads_ * entries.size());
     for (size_t i = 0; i < entries.size(); ++i) {
@@ -305,7 +304,7 @@ class HistEvaluator {
       }
     }
     auto evaluator = tree_evaluator_.GetEvaluator();
-    auto const& cut_ptrs = cut.Ptrs();
+    auto const &cut_ptrs = cut.Ptrs();
 
     common::ParallelFor2d(space, n_threads_, [&](size_t nidx_in_set, common::Range1d r) {
       auto tidx = omp_get_thread_num();
@@ -346,23 +345,20 @@ class HistEvaluator {
       }
     });
 
-    for (unsigned nidx_in_set = 0; nidx_in_set < entries.size();
-         ++nidx_in_set) {
+    for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
       for (auto tidx = 0; tidx < n_threads_; ++tidx) {
-        entries[nidx_in_set].split.Update(
-            tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
+        entries[nidx_in_set].split.Update(tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
       }
     }
   }
   // Add splits to tree, handles all statistic
-  void ApplyTreeSplit(ExpandEntry const& candidate, RegTree *p_tree) {
+  void ApplyTreeSplit(ExpandEntry const &candidate, RegTree *p_tree) {
     auto evaluator = tree_evaluator_.GetEvaluator();
     RegTree &tree = *p_tree;
 
     GradStats parent_sum = candidate.split.left_sum;
     parent_sum.Add(candidate.split.right_sum);
-    auto base_weight =
-        evaluator.CalcWeight(candidate.nid, param_, GradStats{parent_sum});
+    auto base_weight = evaluator.CalcWeight(candidate.nid, param_, GradStats{parent_sum});
 
     auto left_weight =
         evaluator.CalcWeight(candidate.nid, param_, GradStats{candidate.split.left_sum});
@@ -387,36 +383,33 @@ class HistEvaluator {
     auto left_child = tree[candidate.nid].LeftChild();
     auto right_child = tree[candidate.nid].RightChild();
     tree_evaluator_.AddSplit(candidate.nid, left_child, right_child,
-                             tree[candidate.nid].SplitIndex(), left_weight,
-                             right_weight);
+                             tree[candidate.nid].SplitIndex(), left_weight, right_weight);
 
     auto max_node = std::max(left_child, tree[candidate.nid].RightChild());
     max_node = std::max(candidate.nid, max_node);
     snode_.resize(tree.GetNodes().size());
     snode_.at(left_child).stats = candidate.split.left_sum;
-    snode_.at(left_child).root_gain = evaluator.CalcGain(
-        candidate.nid, param_, GradStats{candidate.split.left_sum});
+    snode_.at(left_child).root_gain =
+        evaluator.CalcGain(candidate.nid, param_, GradStats{candidate.split.left_sum});
     snode_.at(right_child).stats = candidate.split.right_sum;
-    snode_.at(right_child).root_gain = evaluator.CalcGain(
-        candidate.nid, param_, GradStats{candidate.split.right_sum});
+    snode_.at(right_child).root_gain =
+        evaluator.CalcGain(candidate.nid, param_, GradStats{candidate.split.right_sum});
 
-    interaction_constraints_.Split(candidate.nid,
-                                   tree[candidate.nid].SplitIndex(), left_child,
+    interaction_constraints_.Split(candidate.nid, tree[candidate.nid].SplitIndex(), left_child,
                                    right_child);
   }
 
   auto Evaluator() const { return tree_evaluator_.GetEvaluator(); }
-  auto const& Stats() const { return snode_; }
+  auto const &Stats() const { return snode_; }
 
-  float InitRoot(GradStats const& root_sum) {
+  float InitRoot(GradStats const &root_sum) {
     snode_.resize(1);
     auto root_evaluator = tree_evaluator_.GetEvaluator();
 
     snode_[0].stats = GradStats{root_sum.GetGrad(), root_sum.GetHess()};
-    snode_[0].root_gain = root_evaluator.CalcGain(RegTree::kRoot, param_,
-                                                  GradStats{snode_[0].stats});
-    auto weight = root_evaluator.CalcWeight(RegTree::kRoot, param_,
-                                            GradStats{snode_[0].stats});
+    snode_[0].root_gain =
+        root_evaluator.CalcGain(RegTree::kRoot, param_, GradStats{snode_[0].stats});
+    auto weight = root_evaluator.CalcWeight(RegTree::kRoot, param_, GradStats{snode_[0].stats});
     return weight;
   }
 

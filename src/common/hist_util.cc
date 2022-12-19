@@ -66,7 +66,8 @@ HistogramCuts SketchOnDMatrix(DMatrix *m, int32_t max_bins, int32_t n_threads, b
 /*!
  * \brief fill a histogram by zeros in range [begin, end)
  */
-void InitilizeHistByZeroes(GHistRow hist, size_t begin, size_t end) {
+template <class H>
+void InitilizeHistByZeroes(GHistRow<H> hist, size_t begin, size_t end) {
 #if defined(XGBOOST_STRICT_R_MODE) && XGBOOST_STRICT_R_MODE == 1
   std::fill(hist.begin() + begin, hist.begin() + end, xgboost::GradientPairPrecise());
 #else   // defined(XGBOOST_STRICT_R_MODE) && XGBOOST_STRICT_R_MODE == 1
@@ -77,7 +78,8 @@ void InitilizeHistByZeroes(GHistRow hist, size_t begin, size_t end) {
 /*!
  * \brief Increment hist as dst += add in range [begin, end)
  */
-void IncrementHist(GHistRow dst, const GHistRow add, size_t begin, size_t end) {
+template <class H>
+void IncrementHist(GHistRow<H> dst, const GHistRow<H> add, size_t begin, size_t end) {
   double *pdst = reinterpret_cast<double *>(dst.data());
   const double *padd = reinterpret_cast<const double *>(add.data());
 
@@ -89,7 +91,8 @@ void IncrementHist(GHistRow dst, const GHistRow add, size_t begin, size_t end) {
 /*!
  * \brief Copy hist from src to dst in range [begin, end)
  */
-void CopyHist(GHistRow dst, const GHistRow src, size_t begin, size_t end) {
+template <class H>
+void CopyHist(GHistRow<H> dst, const GHistRow<H> src, size_t begin, size_t end) {
   double *pdst = reinterpret_cast<double *>(dst.data());
   const double *psrc = reinterpret_cast<const double *>(src.data());
 
@@ -101,7 +104,8 @@ void CopyHist(GHistRow dst, const GHistRow src, size_t begin, size_t end) {
 /*!
  * \brief Compute Subtraction: dst = src1 - src2 in range [begin, end)
  */
-void SubtractionHist(GHistRow dst, const GHistRow src1, const GHistRow src2, size_t begin,
+template <class H>
+void SubtractionHist(GHistRow<H> dst, const GHistRow<H> src1, const GHistRow<H> src2, size_t begin,
                      size_t end) {
   double *pdst = reinterpret_cast<double *>(dst.data());
   const double *psrc1 = reinterpret_cast<const double *>(src1.data());
@@ -191,7 +195,7 @@ class GHistBuildingManager {
 template <bool do_prefetch, class BuildingManager, typename T = float, typename H = double>
 void RowsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
                              const RowSetCollection::Elem row_indices, const GHistIndexMatrix &gmat,
-                             GHistRow hist) {
+                             GHistRow<H> hist) {
   constexpr bool kAnyMissing = BuildingManager::kAnyMissing;
   constexpr bool kFirstPage = BuildingManager::kFirstPage;
   using BinIdxType = typename BuildingManager::BinIdxType;
@@ -255,7 +259,7 @@ void RowsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
 template <class BuildingManager, typename T = float, typename H = double>
 void ColsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
                              const RowSetCollection::Elem row_indices, const GHistIndexMatrix &gmat,
-                             GHistRow hist) {
+                             GHistRow<H> hist) {
   constexpr bool kAnyMissing = BuildingManager::kAnyMissing;
   constexpr bool kFirstPage = BuildingManager::kFirstPage;
   using BinIdxType = typename BuildingManager::BinIdxType;
@@ -304,7 +308,7 @@ void ColsWiseBuildHistKernel(const std::vector<GradientPairT<T>> &gpair,
 template <class BuildingManager, typename T = float, typename H = double>
 void BuildHistDispatch(const std::vector<GradientPairT<T>> &gpair,
                        const RowSetCollection::Elem row_indices, const GHistIndexMatrix &gmat,
-                       GHistRow hist) {
+                       GHistRow<H> hist) {
   if (BuildingManager::kReadByColumn) {
     ColsWiseBuildHistKernel<BuildingManager, T, H>(gpair, row_indices, gmat, hist);
   } else {
@@ -331,7 +335,7 @@ void BuildHistDispatch(const std::vector<GradientPairT<T>> &gpair,
 template <bool any_missing, typename T, typename H>
 void GHistBuilder::BuildHist(const std::vector<GradientPairT<T>> &gpair,
                              const RowSetCollection::Elem row_indices, const GHistIndexMatrix &gmat,
-                             GHistRow hist, bool force_read_by_column) const {
+                             GHistRow<H> hist, bool force_read_by_column) const {
   /* force_read_by_column is used for testing the columnwise building of histograms.
    * default force_read_by_column = false
    */
@@ -351,19 +355,48 @@ void GHistBuilder::BuildHist(const std::vector<GradientPairT<T>> &gpair,
 template void GHistBuilder::BuildHist<true, float, double>(const std::vector<GradientPair> &gpair,
                                                            const RowSetCollection::Elem row_indices,
                                                            const GHistIndexMatrix &gmat,
-                                                           GHistRow hist,
+                                                           GHistRow<double> hist,
                                                            bool force_read_by_column) const;
 
 template void GHistBuilder::BuildHist<true, EncryptedType<float>, EncryptedType<double>>(
     const std::vector<EncryptedGradientPair> &gpair, const RowSetCollection::Elem row_indices,
-    const GHistIndexMatrix &gmat, GHistRow hist, bool force_read_by_column) const;
+    const GHistIndexMatrix &gmat, GHistRow<EncryptedType<double>> hist,
+    bool force_read_by_column) const;
 
 template void GHistBuilder::BuildHist<false, float, double>(
     const std::vector<GradientPair> &gpair, const RowSetCollection::Elem row_indices,
-    const GHistIndexMatrix &gmat, GHistRow hist, bool force_read_by_column) const;
+    const GHistIndexMatrix &gmat, GHistRow<double> hist, bool force_read_by_column) const;
 
 template void GHistBuilder::BuildHist<false, EncryptedType<float>, EncryptedType<double>>(
     const std::vector<EncryptedGradientPair> &gpair, const RowSetCollection::Elem row_indices,
-    const GHistIndexMatrix &gmat, GHistRow hist, bool force_read_by_column) const;
+    const GHistIndexMatrix &gmat, GHistRow<EncryptedType<double>> hist,
+    bool force_read_by_column) const;
+
+template void InitilizeHistByZeroes<double>(GHistRow<double> hist, size_t begin, size_t end);
+
+template void IncrementHist<double>(GHistRow<double> dst, const GHistRow<double> add, size_t begin,
+                                    size_t end);
+
+template void CopyHist<double>(GHistRow<double> dst, const GHistRow<double> src, size_t begin,
+                               size_t end);
+
+template void SubtractionHist<double>(GHistRow<double> dst, const GHistRow<double> src1,
+                                      const GHistRow<double> src2, size_t begin, size_t end);
+
+template void InitilizeHistByZeroes<EncryptedType<double>>(GHistRow<EncryptedType<double>> hist,
+                                                           size_t begin, size_t end);
+
+template void IncrementHist<EncryptedType<double>>(GHistRow<EncryptedType<double>> dst,
+                                                   const GHistRow<EncryptedType<double>> add,
+                                                   size_t begin, size_t end);
+
+template void CopyHist<EncryptedType<double>>(GHistRow<EncryptedType<double>> dst,
+                                              const GHistRow<EncryptedType<double>> src,
+                                              size_t begin, size_t end);
+
+template void SubtractionHist<EncryptedType<double>>(GHistRow<EncryptedType<double>> dst,
+                                                     const GHistRow<EncryptedType<double>> src1,
+                                                     const GHistRow<EncryptedType<double>> src2,
+                                                     size_t begin, size_t end);
 }  // namespace common
 }  // namespace xgboost
