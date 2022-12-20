@@ -25,10 +25,7 @@ namespace tree {
 
 DMLC_REGISTRY_FILE_TAG(updater_quantile_hist);
 
-void QuantileHistMaker::Configure(const Args &args) {
-  param_.UpdateAllowUnknown(args);
-  fed_param_.UpdateAllowUnknown(args);
-}
+void QuantileHistMaker::Configure(const Args &args) { param_.UpdateAllowUnknown(args); }
 
 template <typename T, typename H>
 inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair, DMatrix *dmat,
@@ -57,11 +54,14 @@ inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair
 void QuantileHistMaker::Update(HostDeviceVector<GradientPair> *gpair, DMatrix *dmat,
                                common::Span<HostDeviceVector<bst_node_t>> out_position,
                                const std::vector<RegTree *> &trees) {
-  if (fed_param_.fl_role == FedratedRole::Guest) {
-    UpdateT(gpair, dmat, out_position, trees);
-  } else {
-    //UpdateT(gpair, dmat, out_position, trees);
-  }
+  UpdateT<float, double>(gpair, dmat, out_position, trees);
+}
+
+void QuantileHistMaker::Update(HostDeviceVector<EncryptedGradientPair> *gpair, DMatrix *dmat,
+                               common::Span<HostDeviceVector<bst_node_t>> out_position,
+                               const std::vector<RegTree *> &trees) {
+  // TODO:
+  // UpdateT<EncryptedType<float>, EncryptedType<double>>(gpair, dmat, out_position, trees);
 }
 
 bool QuantileHistMaker::UpdatePredictionCache(const DMatrix *data,

@@ -86,6 +86,7 @@ class QuantileHistMaker : public TreeUpdater {
  public:
   explicit QuantileHistMaker(GenericParameter const* ctx, ObjInfo task)
       : TreeUpdater(ctx), task_{task} {}
+
   void Configure(const Args& args) override;
 
   template <typename T = float, typename H = double>
@@ -94,6 +95,10 @@ class QuantileHistMaker : public TreeUpdater {
                       const std::vector<RegTree*>& trees);
 
   void Update(HostDeviceVector<GradientPair>* gpair, DMatrix* dmat,
+              common::Span<HostDeviceVector<bst_node_t>> out_position,
+              const std::vector<RegTree*>& trees) override;
+
+  void Update(HostDeviceVector<EncryptedGradientPair>* gpair, DMatrix* dmat,
               common::Span<HostDeviceVector<bst_node_t>> out_position,
               const std::vector<RegTree*>& trees) override;
 
@@ -115,8 +120,6 @@ class QuantileHistMaker : public TreeUpdater {
  protected:
   // training parameter
   TrainParam param_;
-  FederatedParam fed_param_;
-
   // actual builder that runs the algorithm
   struct Builder {
    public:
