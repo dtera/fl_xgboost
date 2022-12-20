@@ -25,7 +25,10 @@ namespace tree {
 
 DMLC_REGISTRY_FILE_TAG(updater_quantile_hist);
 
-void QuantileHistMaker::Configure(const Args &args) { param_.UpdateAllowUnknown(args); }
+void QuantileHistMaker::Configure(const Args &args) {
+  param_.UpdateAllowUnknown(args);
+  fed_param_.UpdateAllowUnknown(args);
+}
 
 template <typename T>
 inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair, DMatrix *dmat,
@@ -44,6 +47,8 @@ inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair
   size_t t_idx{0};
   for (auto p_tree : trees) {
     auto &t_row_position = out_position[t_idx];
+    if (fed_param_.fl_role == FedratedRole::Guest)  {
+    }
     this->pimpl_->UpdateTree<T>(gpair, dmat, p_tree, &t_row_position);
     ++t_idx;
   }

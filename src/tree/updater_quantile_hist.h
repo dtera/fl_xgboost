@@ -31,6 +31,7 @@
 #include "hist/histogram.h"
 #include "xgboost/base.h"
 #include "xgboost/data.h"
+#include "xgboost/federated_param.h"
 #include "xgboost/json.h"
 
 namespace xgboost {
@@ -114,6 +115,7 @@ class QuantileHistMaker : public TreeUpdater {
  protected:
   // training parameter
   TrainParam param_;
+  FederatedParam fed_param_;
 
   // actual builder that runs the algorithm
   struct Builder {
