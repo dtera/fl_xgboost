@@ -67,8 +67,8 @@ bool QuantileHistMaker::UpdatePredictionCache(const DMatrix *data,
 }
 
 template <typename T, typename H>
-CPUExpandEntry QuantileHistMaker::Builder::InitRoot(
-    DMatrix *p_fmat, RegTree *p_tree, const std::vector<GradientPairT<T>> &gpair_h) {
+CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_tree,
+                                                    const std::vector<GradientPairT<T>> &gpair_h) {
   CPUExpandEntry node(RegTree::kRoot, p_tree->GetDepth(0), 0.0f);
 
   size_t page_id = 0;
@@ -104,7 +104,7 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(
       for (auto const &grad : gpair_h) {
         grad_stat.Add(grad.GetGrad(), grad.GetHess());
       }
-      collective::Allreduce<collective::Operation::kSum>(reinterpret_cast<double *>(&grad_stat), 2);
+      collective::Allreduce<collective::Operation::kSum>(reinterpret_cast<H *>(&grad_stat), 2);
     }
 
     auto weight = evaluator_->InitRoot(GradStats{grad_stat});
@@ -127,9 +127,9 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(
 }
 
 template <typename T>
-void QuantileHistMaker::Builder::BuildHistogram(
-    DMatrix *p_fmat, RegTree *p_tree, std::vector<CPUExpandEntry> const &valid_candidates,
-    std::vector<GradientPairT<T>> const &gpair) {
+void QuantileHistMaker::Builder::BuildHistogram(DMatrix *p_fmat, RegTree *p_tree,
+                                                std::vector<CPUExpandEntry> const &valid_candidates,
+                                                std::vector<GradientPairT<T>> const &gpair) {
   std::vector<CPUExpandEntry> nodes_to_build(valid_candidates.size());
   std::vector<CPUExpandEntry> nodes_to_sub(valid_candidates.size());
 
@@ -196,7 +196,7 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
   if (is_same<float, T>()) {
     driver.Push(this->InitRoot<T, double>(p_fmat, p_tree, gpair_h));
   } else {
-    //driver.Push(this->InitRoot<T, EncryptedType<double>>(p_fmat, p_tree, gpair_h));
+    // driver.Push(this->InitRoot<T, EncryptedType<double>>(p_fmat, p_tree, gpair_h));
   }
   auto const &tree = *p_tree;
   auto expand_set = driver.Pop();
