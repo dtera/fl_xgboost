@@ -131,7 +131,7 @@ class QuantileHistMaker : public TreeUpdater {
       monitor_->Init("Quantile::Builder");
     }
     // update one tree, growing
-    template <typename T = float>
+    template <typename T = float, typename H = double>
     void UpdateTree(HostDeviceVector<GradientPairT<T>>* gpair, DMatrix* p_fmat, RegTree* p_tree,
                     HostDeviceVector<bst_node_t>* p_out_position);
 
@@ -162,7 +162,7 @@ class QuantileHistMaker : public TreeUpdater {
     void LeafPartition(RegTree const& tree, common::Span<EncryptedGradientPair const> gpair,
                        std::vector<bst_node_t>* p_out_position);
 
-    template <typename T = float>
+    template <typename T = float, typename H = double>
     void ExpandTree(DMatrix* p_fmat, RegTree* p_tree, const std::vector<GradientPairT<T>>& gpair_h,
                     HostDeviceVector<bst_node_t>* p_out_position);
 

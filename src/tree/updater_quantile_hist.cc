@@ -44,7 +44,7 @@ inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair
   size_t t_idx{0};
   for (auto p_tree : trees) {
     auto &t_row_position = out_position[t_idx];
-    this->pimpl_->UpdateTree(gpair, dmat, p_tree, &t_row_position);
+    this->pimpl_->UpdateTree<T>(gpair, dmat, p_tree, &t_row_position);
     ++t_idx;
   }
 
@@ -186,18 +186,14 @@ void QuantileHistMaker::Builder::LeafPartition(RegTree const &tree,
   monitor_->Stop(__func__);
 }
 
-template <typename T>
+template <typename T, typename H>
 void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
                                             const std::vector<GradientPairT<T>> &gpair_h,
                                             HostDeviceVector<bst_node_t> *p_out_position) {
   monitor_->Start(__func__);
 
   Driver<CPUExpandEntry> driver(param_);
-  if (is_same<float, T>()) {
-    driver.Push(this->InitRoot<T, double>(p_fmat, p_tree, gpair_h));
-  } else {
-    // driver.Push(this->InitRoot<T, EncryptedType<double>>(p_fmat, p_tree, gpair_h));
-  }
+  driver.Push(this->InitRoot<T, H>(p_fmat, p_tree, gpair_h));
   auto const &tree = *p_tree;
   auto expand_set = driver.Pop();
 
@@ -250,7 +246,7 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
   monitor_->Stop(__func__);
 }
 
-template <typename T>
+template <typename T, typename H>
 void QuantileHistMaker::Builder::UpdateTree(HostDeviceVector<GradientPairT<T>> *gpair,
                                             DMatrix *p_fmat, RegTree *p_tree,
                                             HostDeviceVector<bst_node_t> *p_out_position) {
@@ -264,9 +260,9 @@ void QuantileHistMaker::Builder::UpdateTree(HostDeviceVector<GradientPairT<T>> *
     gpair_ptr = &gpair_local_;
   }
 
-  this->InitData(p_fmat, *p_tree, gpair_ptr);
+  this->InitData<T>(p_fmat, *p_tree, gpair_ptr);
 
-  ExpandTree(p_fmat, p_tree, *gpair_ptr, p_out_position);
+  ExpandTree<T, H>(p_fmat, p_tree, *gpair_ptr, p_out_position);
   monitor_->Stop(__func__);
 }
 
@@ -352,7 +348,7 @@ void QuantileHistMaker::Builder::InitData(DMatrix *fmat, const RegTree &tree,
       CHECK_EQ(param_.sampling_method, TrainParam::kUniform)
           << "Only uniform sampling is supported, "
           << "gradient-based sampling is only support by GPU Hist.";
-      InitSampling(*fmat, gpair);
+      InitSampling<T>(*fmat, gpair);
     }
   }
 
