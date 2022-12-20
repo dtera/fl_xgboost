@@ -88,7 +88,7 @@ class QuantileHistMaker : public TreeUpdater {
       : TreeUpdater(ctx), task_{task} {}
   void Configure(const Args& args) override;
 
-  template <typename T = float>
+  template <typename T = float, typename H = double>
   inline void UpdateT(HostDeviceVector<GradientPairT<T>>* gpair, DMatrix* dmat,
                       common::Span<HostDeviceVector<bst_node_t>> out_position,
                       const std::vector<RegTree*>& trees);
