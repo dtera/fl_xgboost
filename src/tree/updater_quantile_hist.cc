@@ -88,6 +88,8 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
     ++page_id;
   }
 
+  grad_stat.Clear();
+  encrypted_grad_stat.Clear();
   {
     if (p_fmat->IsDense()) {
       /**

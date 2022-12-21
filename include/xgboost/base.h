@@ -294,6 +294,11 @@ class GradientPairInternal {
 
   XGBOOST_DEVICE inline void SetHess(T h) { hess_ = h; }
 
+  XGBOOST_DEVICE inline void Clear() {
+    SetGrad(T(0));
+    SetHess(T(0));
+  }
+
   inline void Add(const ValueT& grad, const ValueT& hess) {
     grad_ += grad;
     hess_ += hess;
