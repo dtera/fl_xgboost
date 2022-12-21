@@ -153,6 +153,10 @@ class QuantileHistMaker : public TreeUpdater {
 
     void SetGradPairLocal(std::vector<EncryptedGradientPair>* gpair_ptr);
 
+    void AddGradPair(const GradientPair &gpair);
+
+    void AddGradPair(const EncryptedGradientPair &gpair);
+
     template <typename ExpandEntry>
     void BuildHist(size_t page_id, common::BlockedSpace2d space, GHistIndexMatrix const& gidx,
                    RegTree* p_tree, common::RowSetCollection const& row_set_collection,
@@ -208,6 +212,8 @@ class QuantileHistMaker : public TreeUpdater {
     std::unique_ptr<HistogramBuilder<CPUExpandEntry, float, double>> histogram_builder_;
     std::unique_ptr<HistogramBuilder<CPUExpandEntry, EncryptedType<float>, EncryptedType<double>>>
         encrypted_histogram_builder_;
+    GradientPairPrecise grad_stat;
+    EncryptedGradientPairPrecise encrypted_grad_stat;
     ObjInfo task_;
     // Context for number of threads
     Context const* ctx_;

@@ -299,6 +299,11 @@ class GradientPairInternal {
     hess_ += hess;
   }
 
+  inline void EncryptedAdd(const EncryptedType<float>& grad, const EncryptedType<float>& hess) {
+    grad_ += grad;
+    hess_ += hess;
+  }
+
   inline static void Reduce(GradientPairInternal<T>& a,
                             const GradientPairInternal<T>& b) {  // NOLINT(*)
     a += b;

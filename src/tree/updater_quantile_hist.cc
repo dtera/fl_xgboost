@@ -89,8 +89,6 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
   }
 
   {
-    GradientPairT<double> grad_stat;
-    GradientPairT<EncryptedType<double>> encrypted_grad_stat;
     if (p_fmat->IsDense()) {
       /**
        * Specialized code for dense data: For dense data (with no missing value), the sum
@@ -117,18 +115,10 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
         }
       }
     } else {
-      if (is_same<float, T>()) {
-        for (auto const &grad : gpair_h) {
-          //TODO
-          //grad_stat.Add(grad.GetGrad(), grad.GetHess());
-        }
-        collective::Allreduce<collective::Operation::kSum>(reinterpret_cast<double *>(&grad_stat),
-                                                           2);
-      } else {
-        for (auto const &grad : gpair_h) {
-          //encrypted_grad_stat.Add(grad.GetGrad(), grad.GetHess());
-        }
+      for (auto const &grad : gpair_h) {
+        AddGradPair(grad);
       }
+      collective::Allreduce<collective::Operation::kSum>(reinterpret_cast<double *>(&grad_stat), 2);
     }
 
     auto weight = evaluator_->InitRoot(GradStats{grad_stat});
@@ -362,6 +352,14 @@ void QuantileHistMaker::Builder::SetGradPairLocal(std::vector<EncryptedGradientP
     encrypted_gpair_local_ = *gpair_ptr;
     gpair_ptr = &encrypted_gpair_local_;
   }
+}
+
+void QuantileHistMaker::Builder::AddGradPair(const GradientPair &gpair) {
+  grad_stat.Add(gpair.GetGrad(), gpair.GetHess());
+}
+
+void QuantileHistMaker::Builder::AddGradPair(const EncryptedGradientPair &gpair) {
+  encrypted_grad_stat.EncryptedAdd(gpair.GetGrad(), gpair.GetHess());
 }
 
 template <typename ExpandEntry>
