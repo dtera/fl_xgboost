@@ -89,7 +89,7 @@ class QuantileHistMaker : public TreeUpdater {
 
   void Configure(const Args& args) override;
 
-  template <typename T = float, typename H = double>
+  template <typename T = float>
   inline void UpdateT(HostDeviceVector<GradientPairT<T>>* gpair, DMatrix* dmat,
                       common::Span<HostDeviceVector<bst_node_t>> out_position,
                       const std::vector<RegTree*>& trees);
@@ -136,7 +136,7 @@ class QuantileHistMaker : public TreeUpdater {
       monitor_->Init("Quantile::Builder");
     }
     // update one tree, growing
-    template <typename T = float, typename H = double>
+    template <typename T = float>
     void UpdateTree(HostDeviceVector<GradientPairT<T>>* gpair, DMatrix* p_fmat, RegTree* p_tree,
                     HostDeviceVector<bst_node_t>* p_out_position);
 
@@ -149,10 +149,28 @@ class QuantileHistMaker : public TreeUpdater {
 
     size_t GetNumberOfTrees();
 
+    void SetGradPairLocal(std::vector<GradientPair>* gpair_ptr);
+
+    void SetGradPairLocal(std::vector<EncryptedGradientPair>* gpair_ptr);
+
+    template <typename ExpandEntry>
+    void BuildHist(size_t page_id, common::BlockedSpace2d space, GHistIndexMatrix const& gidx,
+                   RegTree* p_tree, common::RowSetCollection const& row_set_collection,
+                   std::vector<ExpandEntry> const& nodes_for_explicit_hist_build,
+                   std::vector<ExpandEntry> const& nodes_for_subtraction_trick,
+                   std::vector<GradientPair> const& gpair);
+
+    template <typename ExpandEntry>
+    void BuildHist(size_t page_id, common::BlockedSpace2d space, GHistIndexMatrix const& gidx,
+                   RegTree* p_tree, common::RowSetCollection const& row_set_collection,
+                   std::vector<ExpandEntry> const& nodes_for_explicit_hist_build,
+                   std::vector<ExpandEntry> const& nodes_for_subtraction_trick,
+                   std::vector<EncryptedGradientPair> const& gpair);
+
     template <typename T = float>
     void InitSampling(const DMatrix& fmat, std::vector<GradientPairT<T>>* gpair);
 
-    template <typename T = float, typename H = double>
+    template <typename T = float>
     CPUExpandEntry InitRoot(DMatrix* p_fmat, RegTree* p_tree,
                             const std::vector<GradientPairT<T>>& gpair_h);
 
@@ -167,7 +185,7 @@ class QuantileHistMaker : public TreeUpdater {
     void LeafPartition(RegTree const& tree, common::Span<EncryptedGradientPair const> gpair,
                        std::vector<bst_node_t>* p_out_position);
 
-    template <typename T = float, typename H = double>
+    template <typename T = float>
     void ExpandTree(DMatrix* p_fmat, RegTree* p_tree, const std::vector<GradientPairT<T>>& gpair_h,
                     HostDeviceVector<bst_node_t>* p_out_position);
 
@@ -178,6 +196,7 @@ class QuantileHistMaker : public TreeUpdater {
         std::make_shared<common::ColumnSampler>()};
 
     std::vector<GradientPair> gpair_local_;
+    std::vector<EncryptedGradientPair> encrypted_gpair_local_;
 
     std::unique_ptr<HistEvaluator<CPUExpandEntry>> evaluator_;
     std::vector<CommonRowPartitioner> partitioner_;
@@ -186,7 +205,9 @@ class QuantileHistMaker : public TreeUpdater {
     const RegTree* p_last_tree_{nullptr};
     DMatrix const* const p_last_fmat_;
 
-    std::unique_ptr<HistogramBuilder<CPUExpandEntry>> histogram_builder_;
+    std::unique_ptr<HistogramBuilder<CPUExpandEntry, float, double>> histogram_builder_;
+    std::unique_ptr<HistogramBuilder<CPUExpandEntry, EncryptedType<float>, EncryptedType<double>>>
+        encrypted_histogram_builder_;
     ObjInfo task_;
     // Context for number of threads
     Context const* ctx_;

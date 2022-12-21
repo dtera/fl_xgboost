@@ -428,7 +428,7 @@ class HistCollection {
   // allocate thread local memory i-th node
   void AllocateData(bst_uint nid) {
     if (data_[row_ptr_[nid]].size() == 0) {
-      data_[row_ptr_[nid]].resize(nbins_, {0, 0});
+      data_[row_ptr_[nid]].resize(nbins_, {H(0), H(0)});
     }
   }
   // allocate common buffer contiguously for all nodes, need for single Allreduce call

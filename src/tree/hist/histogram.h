@@ -16,14 +16,14 @@
 
 namespace xgboost {
 namespace tree {
-template <typename ExpandEntry, typename HistT = double>
+template <typename ExpandEntry, typename T = float, typename H = double>
 class HistogramBuilder {
   /*! \brief culmulative histogram of gradients. */
-  common::HistCollection<HistT> hist_;
+  common::HistCollection<H> hist_;
   /*! \brief culmulative local parent histogram of gradients. */
-  common::HistCollection<HistT> hist_local_worker_;
+  common::HistCollection<H> hist_local_worker_;
   common::GHistBuilder builder_;
-  common::ParallelGHistBuilder<HistT> buffer_;
+  common::ParallelGHistBuilder<H> buffer_;
   BatchParam param_;
   int32_t n_threads_{-1};
   size_t n_batches_{0};
@@ -54,7 +54,7 @@ class HistogramBuilder {
     auto DMLC_ATTRIBUTE_UNUSED __force_instantiation = &GradientPairPrecise::Reduce;
   }
 
-  template <bool any_missing, typename T = float, typename H = double>
+  template <bool any_missing>
   void BuildLocalHistograms(size_t page_idx, common::BlockedSpace2d space,
                             GHistIndexMatrix const &gidx,
                             std::vector<ExpandEntry> const &nodes_for_explicit_hist_build,
@@ -106,7 +106,6 @@ class HistogramBuilder {
   }
 
   /** Main entry point of this class, build histogram for tree nodes. */
-  template <typename T = float, typename H = double>
   void BuildHist(size_t page_id, common::BlockedSpace2d space, GHistIndexMatrix const &gidx,
                  RegTree *p_tree, common::RowSetCollection const &row_set_collection,
                  std::vector<ExpandEntry> const &nodes_for_explicit_hist_build,
@@ -119,11 +118,11 @@ class HistogramBuilder {
                         nodes_for_subtraction_trick, p_tree);
     }
     if (gidx.IsDense()) {
-      this->BuildLocalHistograms<false, T, H>(page_id, space, gidx, nodes_for_explicit_hist_build,
-                                              row_set_collection, gpair, force_read_by_column);
+      this->BuildLocalHistograms<false>(page_id, space, gidx, nodes_for_explicit_hist_build,
+                                        row_set_collection, gpair, force_read_by_column);
     } else {
-      this->BuildLocalHistograms<true, T, H>(page_id, space, gidx, nodes_for_explicit_hist_build,
-                                             row_set_collection, gpair, force_read_by_column);
+      this->BuildLocalHistograms<true>(page_id, space, gidx, nodes_for_explicit_hist_build,
+                                       row_set_collection, gpair, force_read_by_column);
     }
 
     CHECK_GE(n_batches_, 1);
@@ -138,8 +137,8 @@ class HistogramBuilder {
       this->SyncHistogramLocal(p_tree, nodes_for_explicit_hist_build, nodes_for_subtraction_trick);
     }
   }
+
   /** same as the other build hist but handles only single batch data (in-core) */
-  template <typename T = float, typename H = double>
   void BuildHist(size_t page_id, GHistIndexMatrix const &gidx, RegTree *p_tree,
                  common::RowSetCollection const &row_set_collection,
                  std::vector<ExpandEntry> const &nodes_for_explicit_hist_build,
@@ -154,9 +153,8 @@ class HistogramBuilder {
           return row_set_collection[nidx].Size();
         },
         256);
-    this->BuildHist<T, H>(page_id, space, gidx, p_tree, row_set_collection,
-                          nodes_for_explicit_hist_build, nodes_for_subtraction_trick, gpair,
-                          force_read_by_column);
+    this->BuildHist(page_id, space, gidx, p_tree, row_set_collection, nodes_for_explicit_hist_build,
+                    nodes_for_subtraction_trick, gpair, force_read_by_column);
   }
 
   void SyncHistogramDistributed(RegTree *p_tree,
@@ -225,7 +223,7 @@ class HistogramBuilder {
 
  public:
   /* Getters for tests. */
-  common::HistCollection<HistT> const &Histogram() { return hist_; }
+  common::HistCollection<H> const &Histogram() { return hist_; }
   auto &Buffer() { return buffer_; }
 
  private:

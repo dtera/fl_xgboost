@@ -27,7 +27,7 @@ DMLC_REGISTRY_FILE_TAG(updater_quantile_hist);
 
 void QuantileHistMaker::Configure(const Args &args) { param_.UpdateAllowUnknown(args); }
 
-template <typename T, typename H>
+template <typename T>
 inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair, DMatrix *dmat,
                                        common::Span<HostDeviceVector<bst_node_t>> out_position,
                                        const std::vector<RegTree *> &trees) {
@@ -44,7 +44,7 @@ inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair
   size_t t_idx{0};
   for (auto p_tree : trees) {
     auto &t_row_position = out_position[t_idx];
-    this->pimpl_->UpdateTree<T, H>(gpair, dmat, p_tree, &t_row_position);
+    this->pimpl_->UpdateTree<T>(gpair, dmat, p_tree, &t_row_position);
     ++t_idx;
   }
 
@@ -54,14 +54,13 @@ inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair
 void QuantileHistMaker::Update(HostDeviceVector<GradientPair> *gpair, DMatrix *dmat,
                                common::Span<HostDeviceVector<bst_node_t>> out_position,
                                const std::vector<RegTree *> &trees) {
-  UpdateT<float, double>(gpair, dmat, out_position, trees);
+  UpdateT<float>(gpair, dmat, out_position, trees);
 }
 
 void QuantileHistMaker::Update(HostDeviceVector<EncryptedGradientPair> *gpair, DMatrix *dmat,
                                common::Span<HostDeviceVector<bst_node_t>> out_position,
                                const std::vector<RegTree *> &trees) {
-  // TODO:
-  // UpdateT<EncryptedType<float>, EncryptedType<double>>(gpair, dmat, out_position, trees);
+  UpdateT<EncryptedType<float>>(gpair, dmat, out_position, trees);
 }
 
 bool QuantileHistMaker::UpdatePredictionCache(const DMatrix *data,
@@ -73,7 +72,7 @@ bool QuantileHistMaker::UpdatePredictionCache(const DMatrix *data,
   }
 }
 
-template <typename T, typename H>
+template <typename T>
 CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_tree,
                                                     const std::vector<GradientPairT<T>> &gpair_h) {
   CPUExpandEntry node(RegTree::kRoot, p_tree->GetDepth(0), 0.0f);
@@ -83,14 +82,15 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
   for (auto const &gidx : p_fmat->GetBatches<GHistIndexMatrix>(HistBatch(param_))) {
     std::vector<CPUExpandEntry> nodes_to_build{node};
     std::vector<CPUExpandEntry> nodes_to_sub;
-    this->histogram_builder_->template BuildHist<T, H>(page_id, space, gidx, p_tree,
-                                                       partitioner_.at(page_id).Partitions(),
-                                                       nodes_to_build, nodes_to_sub, gpair_h);
+    BuildHist(page_id, space, gidx, p_tree, partitioner_.at(page_id).Partitions(), nodes_to_build,
+              nodes_to_sub, gpair_h);
+
     ++page_id;
   }
 
   {
-    GradientPairT<H> grad_stat;
+    GradientPairT<double> grad_stat;
+    GradientPairT<EncryptedType<double>> encrypted_grad_stat;
     if (p_fmat->IsDense()) {
       /**
        * Specialized code for dense data: For dense data (with no missing value), the sum
@@ -101,17 +101,34 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
       CHECK_GE(row_ptr.size(), 2);
       uint32_t const ibegin = row_ptr[0];
       uint32_t const iend = row_ptr[1];
-      auto hist = this->histogram_builder_->Histogram()[RegTree::kRoot];
-      auto begin = hist.data();
-      for (uint32_t i = ibegin; i < iend; ++i) {
-        GradientPairT<H> const &et = begin[i];
-        grad_stat.Add(et.GetGrad(), et.GetHess());
+      if (is_same<float, T>()) {
+        auto hist = this->histogram_builder_->Histogram()[RegTree::kRoot];
+        auto begin = hist.data();
+        for (uint32_t i = ibegin; i < iend; ++i) {
+          GradientPairT<double> const &et = begin[i];
+          grad_stat.Add(et.GetGrad(), et.GetHess());
+        }
+      } else {
+        auto hist = this->encrypted_histogram_builder_->Histogram()[RegTree::kRoot];
+        auto begin = hist.data();
+        for (uint32_t i = ibegin; i < iend; ++i) {
+          GradientPairT<EncryptedType<double>> const &et = begin[i];
+          encrypted_grad_stat.Add(et.GetGrad(), et.GetHess());
+        }
       }
     } else {
-      for (auto const &grad : gpair_h) {
-        grad_stat.Add(grad.GetGrad(), grad.GetHess());
+      if (is_same<float, T>()) {
+        for (auto const &grad : gpair_h) {
+          //TODO
+          //grad_stat.Add(grad.GetGrad(), grad.GetHess());
+        }
+        collective::Allreduce<collective::Operation::kSum>(reinterpret_cast<double *>(&grad_stat),
+                                                           2);
+      } else {
+        for (auto const &grad : gpair_h) {
+          //encrypted_grad_stat.Add(grad.GetGrad(), grad.GetHess());
+        }
       }
-      collective::Allreduce<collective::Operation::kSum>(reinterpret_cast<H *>(&grad_stat), 2);
     }
 
     auto weight = evaluator_->InitRoot(GradStats{grad_stat});
@@ -159,9 +176,8 @@ void QuantileHistMaker::Builder::BuildHistogram(DMatrix *p_fmat, RegTree *p_tree
   size_t page_id{0};
   auto space = ConstructHistSpace(partitioner_, nodes_to_build);
   for (auto const &gidx : p_fmat->GetBatches<GHistIndexMatrix>(HistBatch(param_))) {
-    histogram_builder_->BuildHist(page_id, space, gidx, p_tree,
-                                  partitioner_.at(page_id).Partitions(), nodes_to_build,
-                                  nodes_to_sub, gpair);
+    BuildHist(page_id, space, gidx, p_tree, partitioner_.at(page_id).Partitions(), nodes_to_build,
+              nodes_to_sub, gpair);
     ++page_id;
   }
 }
@@ -193,14 +209,14 @@ void QuantileHistMaker::Builder::LeafPartition(RegTree const &tree,
   monitor_->Stop(__func__);
 }
 
-template <typename T, typename H>
+template <typename T>
 void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
                                             const std::vector<GradientPairT<T>> &gpair_h,
                                             HostDeviceVector<bst_node_t> *p_out_position) {
   monitor_->Start(__func__);
 
   Driver<CPUExpandEntry> driver(param_);
-  driver.Push(this->InitRoot<T, H>(p_fmat, p_tree, gpair_h));
+  driver.Push(this->InitRoot<T>(p_fmat, p_tree, gpair_h));
   auto const &tree = *p_tree;
   auto expand_set = driver.Pop();
 
@@ -253,7 +269,7 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
   monitor_->Stop(__func__);
 }
 
-template <typename T, typename H>
+template <typename T>
 void QuantileHistMaker::Builder::UpdateTree(HostDeviceVector<GradientPairT<T>> *gpair,
                                             DMatrix *p_fmat, RegTree *p_tree,
                                             HostDeviceVector<bst_node_t> *p_out_position) {
@@ -261,15 +277,16 @@ void QuantileHistMaker::Builder::UpdateTree(HostDeviceVector<GradientPairT<T>> *
 
   std::vector<GradientPairT<T>> *gpair_ptr = &(gpair->HostVector());
   // in case 'num_parallel_trees != 1' no posibility to change initial gpair
-  if (GetNumberOfTrees() != 1) {
+  SetGradPairLocal(gpair_ptr);
+  /*if (GetNumberOfTrees() != 1) {
     gpair_local_.resize(gpair_ptr->size());
     gpair_local_ = *gpair_ptr;
     gpair_ptr = &gpair_local_;
-  }
+  }*/
 
   this->InitData<T>(p_fmat, *p_tree, gpair_ptr);
 
-  ExpandTree<T, H>(p_fmat, p_tree, *gpair_ptr, p_out_position);
+  ExpandTree<T>(p_fmat, p_tree, *gpair_ptr, p_out_position);
   monitor_->Stop(__func__);
 }
 
@@ -318,16 +335,58 @@ void QuantileHistMaker::Builder::InitSampling(const DMatrix &fmat,
       const size_t iend = (tid == (n_threads - 1)) ? info.num_row_ : ibegin + discard_size;
       RandomReplace::MakeIf(
           [&](size_t i, RandomReplace::EngineT &eng) {
-            return !(gpair_ref[i].GetHess() >= 0.0f && coin_flip(eng));
+            // return !(gpair_ref[i].GetHess() >= 0.0f && coin_flip(eng));
+            return !(coin_flip(eng));
           },
-          GradientPairT<T>(0), initial_seed, ibegin, iend, &gpair_ref);
+          GradientPairT<T>(T(0), T(0)), initial_seed, ibegin, iend, &gpair_ref);
     });
   }
   exc.Rethrow();
 #endif  // XGBOOST_CUSTOMIZE_GLOBAL_PRNG
   monitor_->Stop(__func__);
 }
+
 size_t QuantileHistMaker::Builder::GetNumberOfTrees() { return n_trees_; }
+
+void QuantileHistMaker::Builder::SetGradPairLocal(std::vector<GradientPair> *gpair_ptr) {
+  if (GetNumberOfTrees() != 1) {
+    gpair_local_.resize(gpair_ptr->size());
+    gpair_local_ = *gpair_ptr;
+    gpair_ptr = &gpair_local_;
+  }
+}
+
+void QuantileHistMaker::Builder::SetGradPairLocal(std::vector<EncryptedGradientPair> *gpair_ptr) {
+  if (GetNumberOfTrees() != 1) {
+    encrypted_gpair_local_.resize(gpair_ptr->size());
+    encrypted_gpair_local_ = *gpair_ptr;
+    gpair_ptr = &encrypted_gpair_local_;
+  }
+}
+
+template <typename ExpandEntry>
+void QuantileHistMaker::Builder::BuildHist(
+    size_t page_id, common::BlockedSpace2d space, GHistIndexMatrix const &gidx, RegTree *p_tree,
+    common::RowSetCollection const &row_set_collection,
+    std::vector<ExpandEntry> const &nodes_for_explicit_hist_build,
+    std::vector<ExpandEntry> const &nodes_for_subtraction_trick,
+    std::vector<GradientPair> const &gpair) {
+  this->histogram_builder_->BuildHist(page_id, space, gidx, p_tree, row_set_collection,
+                                      nodes_for_explicit_hist_build, nodes_for_subtraction_trick,
+                                      gpair);
+}
+
+template <typename ExpandEntry>
+void QuantileHistMaker::Builder::BuildHist(
+    size_t page_id, common::BlockedSpace2d space, GHistIndexMatrix const &gidx, RegTree *p_tree,
+    common::RowSetCollection const &row_set_collection,
+    std::vector<ExpandEntry> const &nodes_for_explicit_hist_build,
+    std::vector<ExpandEntry> const &nodes_for_subtraction_trick,
+    std::vector<EncryptedGradientPair> const &gpair) {
+  this->encrypted_histogram_builder_->BuildHist(page_id, space, gidx, p_tree, row_set_collection,
+                                                nodes_for_explicit_hist_build,
+                                                nodes_for_subtraction_trick, gpair);
+}
 
 template <typename T>
 void QuantileHistMaker::Builder::InitData(DMatrix *fmat, const RegTree &tree,
@@ -348,8 +407,13 @@ void QuantileHistMaker::Builder::InitData(DMatrix *fmat, const RegTree &tree,
       partitioner_.emplace_back(this->ctx_, page.Size(), page.base_rowid);
       ++page_id;
     }
-    histogram_builder_->Reset(n_total_bins, HistBatch(param_), ctx_->Threads(), page_id,
-                              collective::IsDistributed());
+    if (is_same<float, T>()) {
+      histogram_builder_->Reset(n_total_bins, HistBatch(param_), ctx_->Threads(), page_id,
+                                collective::IsDistributed());
+    } else {
+      encrypted_histogram_builder_->Reset(n_total_bins, HistBatch(param_), ctx_->Threads(), page_id,
+                                          collective::IsDistributed());
+    }
 
     if (param_.subsample < 1.0f) {
       CHECK_EQ(param_.sampling_method, TrainParam::kUniform)
