@@ -83,7 +83,7 @@ class GloablApproxBuilder {
     CPUExpandEntry best;
     best.nid = RegTree::kRoot;
     best.depth = 0;
-    GradStats root_sum;
+    GradStats<> root_sum;
     for (auto const &g : gpair) {
       root_sum.Add(g);
     }

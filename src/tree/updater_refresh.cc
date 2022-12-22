@@ -26,20 +26,16 @@ class TreeRefresher : public TreeUpdater {
  public:
   explicit TreeRefresher(GenericParameter const *ctx) : TreeUpdater(ctx) {}
   void Configure(const Args &args) override { param_.UpdateAllowUnknown(args); }
-  void LoadConfig(Json const& in) override {
-    auto const& config = get<Object const>(in);
+  void LoadConfig(Json const &in) override {
+    auto const &config = get<Object const>(in);
     FromJson(config.at("train_param"), &this->param_);
   }
-  void SaveConfig(Json* p_out) const override {
-    auto& out = *p_out;
+  void SaveConfig(Json *p_out) const override {
+    auto &out = *p_out;
     out["train_param"] = ToJson(param_);
   }
-  char const* Name() const override {
-    return "refresh";
-  }
-  bool CanModifyTree() const override {
-    return true;
-  }
+  char const *Name() const override { return "refresh"; }
+  bool CanModifyTree() const override { return true; }
   // update the tree, do pruning
   void Update(HostDeviceVector<GradientPair> *gpair, DMatrix *p_fmat,
               common::Span<HostDeviceVector<bst_node_t>> /*out_position*/,
@@ -47,12 +43,12 @@ class TreeRefresher : public TreeUpdater {
     if (trees.size() == 0) return;
     const std::vector<GradientPair> &gpair_h = gpair->ConstHostVector();
     // thread temporal space
-    std::vector<std::vector<GradStats> > stemp;
+    std::vector<std::vector<GradStats<>>> stemp;
     std::vector<RegTree::FVec> fvec_temp;
     // setup temp space for each thread
     const int nthread = ctx_->Threads();
     fvec_temp.resize(nthread, RegTree::FVec());
-    stemp.resize(nthread, std::vector<GradStats>());
+    stemp.resize(nthread, std::vector<GradStats<>>());
     dmlc::OMPException exc;
 #pragma omp parallel num_threads(nthread)
     {
@@ -62,8 +58,8 @@ class TreeRefresher : public TreeUpdater {
         for (auto tree : trees) {
           num_nodes += tree->param.num_nodes;
         }
-        stemp[tid].resize(num_nodes, GradStats());
-        std::fill(stemp[tid].begin(), stemp[tid].end(), GradStats());
+        stemp[tid].resize(num_nodes, GradStats<>());
+        std::fill(stemp[tid].begin(), stemp[tid].end(), GradStats<>());
         fvec_temp[tid].Init(trees[0]->param.num_feature);
       });
     }
@@ -85,8 +81,7 @@ class TreeRefresher : public TreeUpdater {
           feats.Fill(inst);
           int offset = 0;
           for (auto tree : trees) {
-            AddStats(*tree, feats, gpair_h, info, ridx,
-                     dmlc::BeginPtr(stemp[tid]) + offset);
+            AddStats(*tree, feats, gpair_h, info, ridx, dmlc::BeginPtr(stemp[tid]) + offset);
             offset += tree->param.num_nodes;
           }
           feats.Drop(inst);
@@ -116,40 +111,34 @@ class TreeRefresher : public TreeUpdater {
   }
 
  private:
-  inline static void AddStats(const RegTree &tree,
-                              const RegTree::FVec &feat,
-                              const std::vector<GradientPair> &gpair,
-                              const MetaInfo&,
-                              const bst_uint ridx,
-                              GradStats *gstats) {
+  inline static void AddStats(const RegTree &tree, const RegTree::FVec &feat,
+                              const std::vector<GradientPair> &gpair, const MetaInfo &,
+                              const bst_uint ridx, GradStats<> *gstats) {
     // start from groups that belongs to current data
     auto pid = 0;
     gstats[pid].Add(gpair[ridx]);
-    auto const& cats = tree.GetCategoriesMatrix();
+    auto const &cats = tree.GetCategoriesMatrix();
     // traverse tree
     while (!tree[pid].IsLeaf()) {
       unsigned split_index = tree[pid].SplitIndex();
-      pid = predictor::GetNextNode<true, true>(
-          tree[pid], pid, feat.GetFvalue(split_index), feat.IsMissing(split_index),
-          cats);
+      pid = predictor::GetNextNode<true, true>(tree[pid], pid, feat.GetFvalue(split_index),
+                                               feat.IsMissing(split_index), cats);
       gstats[pid].Add(gpair[ridx]);
     }
   }
-  inline void Refresh(const GradStats *gstats,
-                      int nid, RegTree *p_tree) {
+  inline void Refresh(const GradStats<> *gstats, int nid, RegTree *p_tree) {
     RegTree &tree = *p_tree;
-    tree.Stat(nid).base_weight =
-        static_cast<bst_float>(CalcWeight(param_, gstats[nid]));
+    tree.Stat(nid).base_weight = static_cast<bst_float>(CalcWeight(param_, gstats[nid]));
     tree.Stat(nid).sum_hess = static_cast<bst_float>(gstats[nid].sum_hess);
     if (tree[nid].IsLeaf()) {
       if (param_.refresh_leaf) {
         tree[nid].SetLeaf(tree.Stat(nid).base_weight * param_.learning_rate);
       }
     } else {
-      tree.Stat(nid).loss_chg = static_cast<bst_float>(
-          xgboost::tree::CalcGain(param_, gstats[tree[nid].LeftChild()]) +
-          xgboost::tree::CalcGain(param_, gstats[tree[nid].RightChild()]) -
-          xgboost::tree::CalcGain(param_, gstats[nid]));
+      tree.Stat(nid).loss_chg =
+          static_cast<bst_float>(xgboost::tree::CalcGain(param_, gstats[tree[nid].LeftChild()]) +
+                                 xgboost::tree::CalcGain(param_, gstats[tree[nid].RightChild()]) -
+                                 xgboost::tree::CalcGain(param_, gstats[nid]));
       this->Refresh(gstats, tree[nid].LeftChild(), p_tree);
       this->Refresh(gstats, tree[nid].RightChild(), p_tree);
     }

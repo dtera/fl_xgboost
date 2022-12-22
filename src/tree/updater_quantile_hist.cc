@@ -123,10 +123,12 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
       collective::Allreduce<collective::Operation::kSum>(reinterpret_cast<double *>(&grad_stat), 2);
     }
 
-    auto weight = evaluator_->InitRoot(GradStats{grad_stat});
-    p_tree->Stat(RegTree::kRoot).sum_hess = grad_stat.GetHess();
-    p_tree->Stat(RegTree::kRoot).base_weight = weight;
-    (*p_tree)[RegTree::kRoot].SetLeaf(param_.learning_rate * weight);
+    if (is_same<float, T>()) {
+      auto weight = evaluator_->InitRoot(GradStats<>{grad_stat});
+      p_tree->Stat(RegTree::kRoot).sum_hess = grad_stat.GetHess();
+      p_tree->Stat(RegTree::kRoot).base_weight = weight;
+      (*p_tree)[RegTree::kRoot].SetLeaf(param_.learning_rate * weight);
+    }
 
     std::vector<CPUExpandEntry> entries{node};
     monitor_->Start("EvaluateSplits");

@@ -5,6 +5,7 @@
 #define XGBOOST_TREE_HIST_EXPAND_ENTRY_H_
 
 #include <utility>
+
 #include "../param.h"
 
 namespace xgboost {
@@ -13,13 +14,12 @@ namespace tree {
 struct CPUExpandEntry {
   int nid;
   int depth;
-  SplitEntry split;
+  SplitEntry<> split;
   CPUExpandEntry() = default;
   XGBOOST_DEVICE
-  CPUExpandEntry(int nid, int depth, SplitEntry split)
+  CPUExpandEntry(int nid, int depth, SplitEntry<> split)
       : nid(nid), depth(depth), split(std::move(split)) {}
-  CPUExpandEntry(int nid, int depth, float loss_chg)
-      : nid(nid), depth(depth)  {
+  CPUExpandEntry(int nid, int depth, float loss_chg) : nid(nid), depth(depth) {
     split.loss_chg = loss_chg;
   }
 
