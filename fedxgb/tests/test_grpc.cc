@@ -6,8 +6,7 @@
 #include <random>
 
 #include "comm/grpc/GRPCComm.hpp"
-#include "comm/grpc/XgbClient.h"
-#include "comm/grpc/XgbServer.h"
+#include "comm/grpc/XgbServiceRegistry.h"
 #include "opt_paillier.h"
 
 using namespace std;
@@ -33,7 +32,7 @@ opt_private_key_t *pri_;
 uint32_t bitLength_ = 1024;
 
 TEST(grpc, xgb_server) {
-  XgbServiceServer server;
+  XgbServiceServer *server = FIND_XGB_SERVICE(XgbServiceServer);
   cout << "XgbServiceServer Running..." << endl;
   TIME_STAT(opt_paillier_keygen(&pub_, &pri_, bitLength_), KeyGen)
   EncryptedType<>::pub = pub_;
@@ -58,16 +57,16 @@ TEST(grpc, xgb_server) {
         encrypted_grad_pairs[i].SetHess(EncryptedType(mpz_ciphers_[i]));
       },
       len_);
-  server.SendGradPairs(1, encrypted_grad_pairs);
-  server.SendSplits(1, encrypted_splits_, len_);
-  server.SendPubKey(pub_);
+  server->SendGradPairs(1, encrypted_grad_pairs);
+  server->SendSplits(1, encrypted_splits_, len_);
+  server->SendPubKey(pub_);
   cout << *pub_ << endl;
   // sleep(30000);
 
-  XgbServiceClient client;
+  XgbServiceClient *client = FIND_XGB_SERVICE(XgbServiceClient);
   for (int i = 1; i < 2; ++i) {
-    client.GetEncryptedGradPairs(i, res_encrypted_grad_pairs);
-    client.GetEncryptedSplits(i, res_encrypted_splits_);
+    client->GetEncryptedGradPairs(i, res_encrypted_grad_pairs);
+    client->GetEncryptedSplits(i, res_encrypted_splits_);
     opt_paillier_batch_decrypt(res_grad_pairs, res_encrypted_grad_pairs, pub_, pri_);
     for (int j = 0; j < len_; ++j) {
       char *c1, *c2, *c3, *c4;
@@ -85,7 +84,7 @@ TEST(grpc, xgb_server) {
       cout << "res_encrypted_splits_[" << j << "]: " << c4 << endl;
     }
   }
-  server.Shutdown();
+  server->Shutdown();
 }
 
 TEST(grpc, xgb_client) {
