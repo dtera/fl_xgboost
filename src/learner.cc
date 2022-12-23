@@ -534,7 +534,7 @@ class LearnerConfiguration : public Learner {
         auto p = fparam_.fl_address.find(":");
         client_ = FIND_XGB_SERVICE(XgbServiceClient);
         client_->Start(atoi(fparam_.fl_address.substr(p + 1).c_str()),
-                       fparam_.fl_address.substr(0, p), omp_get_thread_num());
+                       fparam_.fl_address.substr(0, p), omp_get_num_procs());
         client_->GetPubKey(&pub_);
         cout << "** RPC client connect server success! " << endl;
       }

@@ -18,6 +18,7 @@
 #include "../constraints.h"
 #include "../param.h"
 #include "../split_evaluator.h"
+#include "comm/grpc/XgbServiceRegistry.h"
 
 namespace xgboost {
 namespace tree {
@@ -93,9 +94,10 @@ class HistEvaluator {
       right_sum = GradStats<>{hist[i]};
       left_sum.SetSubstract(parent.stats, right_sum);
       if (IsValid(left_sum, right_sum)) {
-        auto missing_left_chg = static_cast<float>(
-            evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<>{left_sum}, GradStats<>{right_sum}) -
-            parent.root_gain);
+        auto missing_left_chg =
+            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<>{left_sum},
+                                                       GradStats<>{right_sum}) -
+                               parent.root_gain);
         best.Update(missing_left_chg, fidx, split_pt, true, true, left_sum, right_sum);
       }
 
@@ -103,9 +105,10 @@ class HistEvaluator {
       right_sum.Add(missing);
       left_sum.SetSubstract(parent.stats, right_sum);
       if (IsValid(left_sum, right_sum)) {
-        auto missing_right_chg = static_cast<float>(
-            evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<>{left_sum}, GradStats<>{right_sum}) -
-            parent.root_gain);
+        auto missing_right_chg =
+            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<>{left_sum},
+                                                       GradStats<>{right_sum}) -
+                               parent.root_gain);
         best.Update(missing_right_chg, fidx, split_pt, false, true, left_sum, right_sum);
       }
     }
@@ -179,9 +182,9 @@ class HistEvaluator {
         right_sum.SetSubstract(parent.stats, left_sum);  // missing on right
       }
       if (IsValid(left_sum, right_sum)) {
-        auto loss_chg =
-            evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<>{left_sum}, GradStats<>{right_sum}) -
-            parent.root_gain;
+        auto loss_chg = evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<>{left_sum},
+                                                GradStats<>{right_sum}) -
+                        parent.root_gain;
         // We don't have a numeric split point, nan here is a dummy split.
         if (best.Update(loss_chg, fidx, std::numeric_limits<float>::quiet_NaN(), d_step == 1, true,
                         left_sum, right_sum)) {
@@ -210,9 +213,9 @@ class HistEvaluator {
   // a non-missing value for the particular feature fid.
   template <int d_step, typename H = double>
   GradStats<> EnumerateSplit(common::HistogramCuts const &cut, const common::GHistRow<H> &hist,
-                           bst_feature_t fidx, bst_node_t nidx,
-                           TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
-                           SplitEntry<> *p_best) const {
+                             bst_feature_t fidx, bst_node_t nidx,
+                             TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
+                             SplitEntry<> *p_best) const {
     static_assert(d_step == +1 || d_step == -1, "Invalid step.");
 
     // aliases
