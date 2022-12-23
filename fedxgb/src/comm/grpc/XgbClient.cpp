@@ -108,8 +108,12 @@ void XgbServiceAsyncClient::Stop() {
 }
 
 //=================================XgbServiceClient Begin=================================
-XgbServiceClient::XgbServiceClient(const uint32_t port, const string& host, int32_t n_threads)
-    : n_threads_(n_threads) {
+XgbServiceClient::XgbServiceClient(const uint32_t port, const string& host, int32_t n_threads) {
+  Start(port, host, n_threads);
+}
+
+void XgbServiceClient::Start(const uint32_t port, const string& host, int32_t n_threads) {
+  n_threads_ = n_threads;
   channel_args_.SetMaxReceiveMessageSize(-1);
   channel_args_.SetMaxReceiveMessageSize(-1);
   stub_ = XgbService::NewStub(grpc::CreateCustomChannel(

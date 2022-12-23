@@ -83,7 +83,11 @@ class XgbServiceServer final : public XgbService::Service {
   opt_public_key_t *pub_;
 
  public:
-  XgbServiceServer(const uint32_t port = 50001, const string &host = "0.0.0.0");
+  explicit XgbServiceServer() = default;
+
+  XgbServiceServer(const uint32_t port, const string &host);
+
+  void Start(const uint32_t port = 50001, const string &host = "0.0.0.0");
 
   void Run();
 

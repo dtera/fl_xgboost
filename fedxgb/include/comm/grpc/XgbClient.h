@@ -69,8 +69,11 @@ class XgbServiceClient {
   grpc::ChannelArguments channel_args_;
 
  public:
-  XgbServiceClient(const uint32_t port = 50001, const string &host = "0.0.0.0",
-                   int32_t n_threads = 10);
+  explicit XgbServiceClient() = default;
+
+  XgbServiceClient(const uint32_t por, const string &host, int32_t n_threads);
+
+  void Start(const uint32_t port = 50001, const string &host = "0.0.0.0", int32_t n_threads = 10);
 
   void GetPubKey(opt_public_key_t **pub);
 

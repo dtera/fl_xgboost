@@ -32,7 +32,8 @@ opt_private_key_t *pri_;
 uint32_t bitLength_ = 1024;
 
 TEST(grpc, xgb_server) {
-  XgbServiceServer *server = FIND_XGB_SERVICE(XgbServiceServer);
+  std::unique_ptr<XgbServiceServer> server = FIND_XGB_SERVICE(XgbServiceServer);
+  server->Start();
   cout << "XgbServiceServer Running..." << endl;
   TIME_STAT(opt_paillier_keygen(&pub_, &pri_, bitLength_), KeyGen)
   EncryptedType<>::pub = pub_;
@@ -63,7 +64,8 @@ TEST(grpc, xgb_server) {
   cout << *pub_ << endl;
   // sleep(30000);
 
-  XgbServiceClient *client = FIND_XGB_SERVICE(XgbServiceClient);
+  std::unique_ptr<XgbServiceClient> client = FIND_XGB_SERVICE(XgbServiceClient);
+  client->Start();
   for (int i = 1; i < 2; ++i) {
     client->GetEncryptedGradPairs(i, res_encrypted_grad_pairs);
     client->GetEncryptedSplits(i, res_encrypted_splits_);

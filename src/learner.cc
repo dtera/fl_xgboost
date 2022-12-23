@@ -522,14 +522,19 @@ class LearnerConfiguration : public Learner {
     // config rpc service for xgb
     if (tparam_.dsplit == DataSplitMode::kCol) {
       if (fparam_.fl_role == FedratedRole::Guest) {
-        server_.reset(new XgbServiceServer(fparam_.fl_port));
+        // server_.reset(new XgbServiceServer(fparam_.fl_port));
+        server_ = FIND_XGB_SERVICE(XgbServiceServer);
+        server_->Start(fparam_.fl_port);
         opt_paillier_keygen(&pub_, &pri_, fparam_.fl_bit_len);
         server_->SendPubKey(pub_);
+        if (server_.get() == nullptr) {
+        }
         // sleep(10);
       } else {
         auto p = fparam_.fl_address.find(":");
-        client_.reset(new XgbServiceClient(atoi(fparam_.fl_address.substr(p + 1).c_str()),
-                                           fparam_.fl_address.substr(0, p)));
+        client_ = FIND_XGB_SERVICE(XgbServiceClient);
+        client_->Start(atoi(fparam_.fl_address.substr(p + 1).c_str()),
+                       fparam_.fl_address.substr(0, p), omp_get_thread_num());
         client_->GetPubKey(&pub_);
         cout << "** RPC client connect server success! " << endl;
       }

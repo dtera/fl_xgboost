@@ -22,8 +22,7 @@
 #include <utility>
 #include <vector>
 
-#include "comm/grpc/XgbServer.h"
-#include "comm/grpc/XgbClient.h"
+#include "comm/grpc/XgbServiceRegistry.h"
 
 namespace xgboost {
 
@@ -288,10 +287,6 @@ class Learner : public Model, public Configurable, public dmlc::Serializable {
   std::unique_ptr<ObjFunction> obj_;
   /*! \brief The gradient booster used by the model*/
   std::unique_ptr<GradientBooster> gbm_;
-  /*! \brief The GRPC server*/
-  std::unique_ptr<XgbServiceServer> server_;
-  /*! \brief The GRPC client*/
-  std::unique_ptr<XgbServiceClient> client_;
   /*! \brief public key*/
   opt_public_key_t *pub_;
   /*! \brief private key*/

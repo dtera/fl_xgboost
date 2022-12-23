@@ -132,8 +132,10 @@ void XgbServiceAsyncServer::Stop() {
 }
 
 //=================================XgbServiceServer Begin=================================
-XgbServiceServer::XgbServiceServer(const uint32_t port, const string& host)
-    : server_address_(host + ":" + to_string(port)) {
+XgbServiceServer::XgbServiceServer(const uint32_t port, const string& host) { Start(port, host); }
+
+void XgbServiceServer::Start(const uint32_t port, const string& host) {
+  server_address_ = host + ":" + to_string(port);
   xgb_thread_.reset(new thread((bind(&XgbServiceServer::Run, this))));
 }
 
@@ -230,7 +232,8 @@ Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* reques
 Status XgbServiceServer::GetEncryptedGradPairs(ServerContext* context,
                                                const GradPairsRequest* request,
                                                GradPairsResponse* response) {
-  // GetEncryptedData(grad_pair, mpz_t, { mpz_t2_mpz_type(encrypted_grad_pair, encrypted_grad_pairs[i]); });
+  // GetEncryptedData(grad_pair, mpz_t, { mpz_t2_mpz_type(encrypted_grad_pair,
+  // encrypted_grad_pairs[i]); });
   GetEncryptedData(grad_pair, vector<xgboost::EncryptedGradientPair>, {
     mpz_t2_mpz_type(encrypted_grad_pair->mutable_grad(), grad_pairs[i].GetGrad());
     mpz_t2_mpz_type(encrypted_grad_pair->mutable_hess(), grad_pairs[i].GetHess());
