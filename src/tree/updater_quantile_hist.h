@@ -130,6 +130,8 @@ class QuantileHistMaker : public TreeUpdater {
           param_(param),
           p_last_fmat_(fmat),
           histogram_builder_{new HistogramBuilder<CPUExpandEntry>},
+          encrypted_histogram_builder_{
+              new HistogramBuilder<CPUExpandEntry, EncryptedType<float>, EncryptedType<double>>},
           task_{task},
           ctx_{ctx},
           monitor_{std::make_unique<common::Monitor>()} {
@@ -153,9 +155,9 @@ class QuantileHistMaker : public TreeUpdater {
 
     void SetGradPairLocal(std::vector<EncryptedGradientPair>* gpair_ptr);
 
-    void AddGradPair(const GradientPair &gpair);
+    void AddGradPair(const GradientPair& gpair);
 
-    void AddGradPair(const EncryptedGradientPair &gpair);
+    void AddGradPair(const EncryptedGradientPair& gpair);
 
     template <typename ExpandEntry>
     void BuildHist(size_t page_id, common::BlockedSpace2d space, GHistIndexMatrix const& gidx,
