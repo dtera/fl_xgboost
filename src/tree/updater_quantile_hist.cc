@@ -134,7 +134,14 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
     monitor_->Start("EvaluateSplits");
     auto ft = p_fmat->Info().feature_types.ConstHostSpan();
     for (auto const &gmat : p_fmat->GetBatches<GHistIndexMatrix>(HistBatch(param_))) {
-      evaluator_->EvaluateSplits(histogram_builder_->Histogram(), gmat.cut, ft, *p_tree, &entries);
+      if (is_same<float, T>()) {
+        evaluator_->EvaluateSplits(histogram_builder_->Histogram(), gmat.cut, ft, *p_tree,
+                                   &entries);
+      } else {
+        // TODO
+        /*evaluator_->EvaluateSplits(encrypted_histogram_builder_->Histogram(), gmat.cut, ft, *p_tree,
+                                   &entries);*/
+      }
       break;
     }
     monitor_->Stop("EvaluateSplits");
