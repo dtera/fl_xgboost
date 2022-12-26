@@ -204,7 +204,8 @@ class QuantileHistMaker : public TreeUpdater {
     std::vector<GradientPair> gpair_local_;
     std::vector<EncryptedGradientPair> encrypted_gpair_local_;
 
-    std::unique_ptr<HistEvaluator<CPUExpandEntry>> evaluator_;
+    std::unique_ptr<HistEvaluator<CPUExpandEntry, double>> evaluator_;
+    std::unique_ptr<HistEvaluator<CPUExpandEntry, EncryptedType<double>>> encrypted_evaluator_;
     std::vector<CommonRowPartitioner> partitioner_;
 
     // back pointers to tree and data matrix
