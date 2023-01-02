@@ -69,9 +69,9 @@ HistogramCuts SketchOnDMatrix(DMatrix *m, int32_t max_bins, int32_t n_threads, b
 template <class H>
 void InitilizeHistByZeroes(GHistRow<H> hist, size_t begin, size_t end) {
 #if defined(XGBOOST_STRICT_R_MODE) && XGBOOST_STRICT_R_MODE == 1
-  std::fill(hist.begin() + begin, hist.begin() + end, xgboost::GradientPairPrecise());
+  std::fill(hist.begin() + begin, hist.begin() + end, xgboost::GradientPairT<H>());
 #else   // defined(XGBOOST_STRICT_R_MODE) && XGBOOST_STRICT_R_MODE == 1
-  memset(hist.data() + begin, '\0', (end - begin) * sizeof(xgboost::GradientPairPrecise));
+  memset(hist.data() + begin, '\0', (end - begin) * sizeof(xgboost::GradientPairT<H>));
 #endif  // defined(XGBOOST_STRICT_R_MODE) && XGBOOST_STRICT_R_MODE == 1
 }
 

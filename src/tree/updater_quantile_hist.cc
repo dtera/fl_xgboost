@@ -139,8 +139,8 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
                                    &entries);
       } else {
         // TODO
-        /*encrypted_evaluator_->EvaluateSplits(encrypted_histogram_builder_->Histogram(), gmat.cut,
-                                             ft, *p_tree, &entries);*/
+        encrypted_evaluator_->EvaluateSplits(encrypted_histogram_builder_->Histogram(), gmat.cut,
+                                             ft, *p_tree, &entries);
       }
       break;
     }
