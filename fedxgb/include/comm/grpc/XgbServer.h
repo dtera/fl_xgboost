@@ -81,6 +81,7 @@ class XgbServiceServer final : public XgbService::Service {
   unordered_map<uint32_t, pair<size_t, const vector<xgboost::EncryptedGradientPair>>> grad_pairs_;
   unordered_map<uint32_t, pair<size_t, XgbEncryptedSplit *>> splits_;
   opt_public_key_t *pub_;
+  bool finished_ = false;
 
  public:
   explicit XgbServiceServer() = default;

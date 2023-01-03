@@ -71,7 +71,11 @@ void InitilizeHistByZeroes(GHistRow<H> hist, size_t begin, size_t end) {
 #if defined(XGBOOST_STRICT_R_MODE) && XGBOOST_STRICT_R_MODE == 1
   std::fill(hist.begin() + begin, hist.begin() + end, xgboost::GradientPairT<H>());
 #else   // defined(XGBOOST_STRICT_R_MODE) && XGBOOST_STRICT_R_MODE == 1
-  memset(hist.data() + begin, '\0', (end - begin) * sizeof(xgboost::GradientPairT<H>));
+  if (is_same<double, H>()) {
+    memset(hist.data() + begin, '\0', (end - begin) * sizeof(xgboost::GradientPairT<H>));
+  } else {
+    // std::fill(hist.begin() + begin, hist.begin() + end, xgboost::GradientPairT<H>());
+  }
 #endif  // defined(XGBOOST_STRICT_R_MODE) && XGBOOST_STRICT_R_MODE == 1
 }
 

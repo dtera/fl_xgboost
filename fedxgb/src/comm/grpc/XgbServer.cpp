@@ -157,6 +157,8 @@ void XgbServiceServer::Run() {
 }
 
 void XgbServiceServer::Shutdown() {
+  while (!finished_) {
+  }
   server_->Shutdown();
   xgb_thread_->join();
 }
@@ -250,6 +252,8 @@ Status XgbServiceServer::GetEncryptedSplits(ServerContext* context, const Splits
     mpz_t2_mpz_type(encrypted_grad_pair_sum->mutable_hess(),
                     splits[i].encrypted_grad_pair_sum.hess);
   });
+
+  finished_ = true;
 }
 
 //=================================XgbServiceServer End===================================
