@@ -84,8 +84,8 @@ void InitilizeHistByZeroes(GHistRow<H> hist, size_t begin, size_t end) {
  */
 template <class H>
 void IncrementHist(GHistRow<H> dst, const GHistRow<H> add, size_t begin, size_t end) {
-  double *pdst = reinterpret_cast<double *>(dst.data());
-  const double *padd = reinterpret_cast<const double *>(add.data());
+  H *pdst = reinterpret_cast<H *>(dst.data());
+  const H *padd = reinterpret_cast<const H *>(add.data());
 
   for (size_t i = 2 * begin; i < 2 * end; ++i) {
     pdst[i] += padd[i];
@@ -97,8 +97,8 @@ void IncrementHist(GHistRow<H> dst, const GHistRow<H> add, size_t begin, size_t 
  */
 template <class H>
 void CopyHist(GHistRow<H> dst, const GHistRow<H> src, size_t begin, size_t end) {
-  double *pdst = reinterpret_cast<double *>(dst.data());
-  const double *psrc = reinterpret_cast<const double *>(src.data());
+  H *pdst = reinterpret_cast<H *>(dst.data());
+  const H *psrc = reinterpret_cast<const H *>(src.data());
 
   for (size_t i = 2 * begin; i < 2 * end; ++i) {
     pdst[i] = psrc[i];
@@ -111,9 +111,9 @@ void CopyHist(GHistRow<H> dst, const GHistRow<H> src, size_t begin, size_t end) 
 template <class H>
 void SubtractionHist(GHistRow<H> dst, const GHistRow<H> src1, const GHistRow<H> src2, size_t begin,
                      size_t end) {
-  double *pdst = reinterpret_cast<double *>(dst.data());
-  const double *psrc1 = reinterpret_cast<const double *>(src1.data());
-  const double *psrc2 = reinterpret_cast<const double *>(src2.data());
+  H *pdst = reinterpret_cast<H *>(dst.data());
+  const H *psrc1 = reinterpret_cast<const H *>(src1.data());
+  const H *psrc2 = reinterpret_cast<const H *>(src2.data());
 
   for (size_t i = 2 * begin; i < 2 * end; ++i) {
     pdst[i] = psrc1[i] - psrc2[i];
