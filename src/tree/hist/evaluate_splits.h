@@ -425,7 +425,16 @@ class HistEvaluator {
   auto Evaluator() const { return tree_evaluator_.GetEvaluator(); }
   auto const &Stats() const { return snode_; }
 
-  float InitRoot(GradStats<H> const &root_sum) {
+  float InitRoot(GradStats<EncryptedType<double>> const &root_sum) {
+    snode_.resize(1);
+    auto root_evaluator = tree_evaluator_.GetEvaluator();
+
+    snode_[0].stats = GradStats<H>{root_sum.GetGrad(), root_sum.GetHess()};
+
+    return 0;
+  }
+
+  float InitRoot(GradStats<double> const &root_sum) {
     snode_.resize(1);
     auto root_evaluator = tree_evaluator_.GetEvaluator();
 
@@ -433,6 +442,7 @@ class HistEvaluator {
     snode_[0].root_gain =
         root_evaluator.CalcGain(RegTree::kRoot, param_, GradStats<H>{snode_[0].stats});
     auto weight = root_evaluator.CalcWeight(RegTree::kRoot, param_, GradStats<H>{snode_[0].stats});
+
     return weight;
   }
 

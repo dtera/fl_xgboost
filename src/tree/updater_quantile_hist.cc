@@ -128,6 +128,8 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
       p_tree->Stat(RegTree::kRoot).sum_hess = grad_stat.GetHess();
       p_tree->Stat(RegTree::kRoot).base_weight = weight;
       (*p_tree)[RegTree::kRoot].SetLeaf(param_.learning_rate * weight);
+    } else {
+      encrypted_evaluator_->InitRoot(GradStats<EncryptedType<double>>{encrypted_grad_stat});
     }
 
     std::vector<CPUExpandEntry> entries{node};
@@ -138,7 +140,7 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
         evaluator_->EvaluateSplits(histogram_builder_->Histogram(), gmat.cut, ft, *p_tree,
                                    &entries);
       } else {
-        // TODO
+        // evaluate splits for host
         encrypted_evaluator_->EvaluateSplits(encrypted_histogram_builder_->Histogram(), gmat.cut,
                                              ft, *p_tree, &entries);
       }
