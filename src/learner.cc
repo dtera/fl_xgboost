@@ -1345,14 +1345,16 @@ class LearnerImpl : public LearnerIO {
       TrainingObserver::Instance().Observe(gpair_, "Gradients");
 
       monitor_.Start("SendEncryptedGradient");
-      server_->SendGradPairs(predt.version, encrypted_gpair_.HostVector());
+      server_->cur_version = predt.version;
+      server_->SendGradPairs(encrypted_gpair_.HostVector());
       monitor_.Stop("SendEncryptedGradient");
       TrainingObserver::Instance().Observe(encrypted_gpair_, "EncryptedGradients");
       // For checking the encrypted gradient pairs
       // opt_paillier_batch_decrypt(gpair_.HostVector(), encrypted_gpair_.HostVector(), pub_, pri_);
       gbm_->DoBoost(train.get(), &gpair_, &predt, obj_.get());
     } else {
-      client_->GetEncryptedGradPairs(predt.version, encrypted_gpair_.HostVector());
+      client_->cur_version = predt.version;
+      client_->GetEncryptedGradPairs(encrypted_gpair_.HostVector());
       gbm_->DoBoost(train.get(), &encrypted_gpair_, &predt, obj_.get());
     }
     monitor_.Stop("UpdateOneIter");

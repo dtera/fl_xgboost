@@ -152,9 +152,10 @@ void XgbServiceClient::GetPubKey(opt_public_key_t** pub) {
   });
 }
 
-void XgbServiceClient::GetEncryptedGradPairs(const uint32_t& version, mpz_t* encryptedGradPairs) {
+void XgbServiceClient::GetEncryptedGradPairs(mpz_t* encryptedGradPairs) {
   RpcRequest(GradPairsRequest, GetEncryptedGradPairs, GradPairsResponse,
-             request.set_version(version), {
+             request.set_version(cur_version), {
+               response.set_version(cur_version);
                auto egps = response.encrypted_grad_pairs();
                // encryptedGradPairs = new mpz_t[egps.size()];
                xgboost::common::ParallelFor(egps.size(), n_threads_, [&](int i) {
@@ -169,9 +170,10 @@ void XgbServiceClient::GetEncryptedGradPairs(const uint32_t& version, mpz_t* enc
 }
 
 void XgbServiceClient::GetEncryptedGradPairs(
-    const uint32_t& version, vector<xgboost::EncryptedGradientPair>& encryptedGradPairs) {
+    vector<xgboost::EncryptedGradientPair>& encryptedGradPairs) {
   RpcRequest(GradPairsRequest, GetEncryptedGradPairs, GradPairsResponse,
-             request.set_version(version), {
+             request.set_version(cur_version), {
+               response.set_version(cur_version);
                auto egps = response.encrypted_grad_pairs();
                xgboost::common::ParallelFor(egps.size(), n_threads_, [&](int i) {
                  EncryptedType grad, hess;
@@ -183,18 +185,23 @@ void XgbServiceClient::GetEncryptedGradPairs(
              });
 }
 
-void XgbServiceClient::GetEncryptedSplits(const uint32_t& version,
-                                          XgbEncryptedSplit* encryptedSplits) {
-  RpcRequest(SplitsRequest, GetEncryptedSplits, SplitsResponse, request.set_version(version), {
+void XgbServiceClient::SendEncryptedSplits(SplitsRequest& splits_request) {
+  RpcRequest_(splits_request, SendEncryptedSplits, SplitsResponse,
+              { response.set_version(cur_version); });
+}
+
+void XgbServiceClient::GetEncryptedSplits(XgbEncryptedSplit* encryptedSplits) {
+  RpcRequest(SplitsRequest, SendEncryptedSplits, SplitsResponse, request.set_version(cur_version), {
+    response.set_version(cur_version);
+    /*
     auto ess = response.encrypted_splits();
-    // encryptedSplits = make_shared<XgbEncryptedSplit*>(new XgbEncryptedSplit[ess.size()]);
     xgboost::common::ParallelFor(ess.size(), n_threads_, [&](int i) {
       encryptedSplits[i].mask_id = ess[i].mask_id();
-      auto t = ess[i].encrypted_grad_pair_sum();
+      auto t = ess[i].left_sum();
       // mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum, t);
       mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum.grad, t.grad());
       mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum.hess, t.hess());
-    });
+    });*/
   });
 }
 //=================================XgbServiceClient End===================================

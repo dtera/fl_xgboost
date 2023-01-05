@@ -165,17 +165,16 @@ void XgbServiceServer::Shutdown() {
 
 void XgbServiceServer::SendPubKey(opt_public_key_t* pub) { pub_ = pub; }
 
-void XgbServiceServer::SendGradPairs(const uint32_t version, mpz_t* grad_pairs, size_t size) {
+void XgbServiceServer::SendGradPairs(mpz_t* grad_pairs, size_t size) {
   // grad_pairs_.insert({version, {size, encrypted_grad_pairs}});
 }
 
-void XgbServiceServer::SendGradPairs(const uint32_t version,
-                                     const vector<xgboost::EncryptedGradientPair>& grad_pairs) {
-  grad_pairs_.insert({version, {grad_pairs.size(), grad_pairs}});
+void XgbServiceServer::SendGradPairs(const vector<xgboost::EncryptedGradientPair>& grad_pairs) {
+  grad_pairs_.insert({cur_version, {grad_pairs.size(), grad_pairs}});
 }
 
-void XgbServiceServer::SendSplits(const uint32_t version, XgbEncryptedSplit* splits, size_t size) {
-  splits_.insert({version, {size, splits}});
+void XgbServiceServer::SendSplits(XgbEncryptedSplit* splits, size_t size) {
+  splits_.insert({cur_version, {size, splits}});
 }
 
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
@@ -242,18 +241,19 @@ Status XgbServiceServer::GetEncryptedGradPairs(ServerContext* context,
   });
 }
 
-Status XgbServiceServer::GetEncryptedSplits(ServerContext* context, const SplitsRequest* request,
-                                            SplitsResponse* response) {
-  GetEncryptedData(split, XgbEncryptedSplit*, {
+Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const SplitsRequest* request,
+                                             SplitsResponse* response) {
+  /*GetEncryptedData(split, XgbEncryptedSplit*, {
     encrypted_split->set_mask_id(splits[i].mask_id);
     auto encrypted_grad_pair_sum = encrypted_split->mutable_encrypted_grad_pair_sum();
     mpz_t2_mpz_type(encrypted_grad_pair_sum->mutable_grad(),
                     splits[i].encrypted_grad_pair_sum.grad);
     mpz_t2_mpz_type(encrypted_grad_pair_sum->mutable_hess(),
                     splits[i].encrypted_grad_pair_sum.hess);
-  });
+  });*/
 
   finished_ = true;
+  return Status::OK;
 }
 
 //=================================XgbServiceServer End===================================

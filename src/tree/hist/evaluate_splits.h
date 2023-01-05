@@ -20,6 +20,8 @@
 #include "../split_evaluator.h"
 #include "comm/grpc/XgbServiceRegistry.h"
 
+using namespace google::protobuf;
+
 namespace xgboost {
 namespace tree {
 
@@ -71,7 +73,7 @@ class HistEvaluator {
   void EnumerateOneHot(common::HistogramCuts const &cut, const common::GHistRow<H> &hist,
                        bst_feature_t fidx, bst_node_t nidx,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
-                       SplitEntry<> *p_best) const {
+                       SplitEntry<> *p_best, RepeatedPtrField<EncryptedSplit> *ess) const {
     const std::vector<uint32_t> &cut_ptr = cut.Ptrs();
     const std::vector<bst_float> &cut_val = cut.Values();
 
@@ -98,26 +100,14 @@ class HistEvaluator {
       // missing on left (treat missing as other categories)
       right_sum = GradStats<H>{hist[i]};
       left_sum.SetSubstract(parent.stats, right_sum);
-      if (IsValid(left_sum, right_sum)) {
-        /*auto missing_left_chg =
-            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<H>{left_sum},
-                                                       GradStats<H>{right_sum}) -
-                               parent.root_gain);*/
-        // TODO
-        // best.Update(missing_left_chg, fidx, split_pt, true, true, left_sum, right_sum);
-      }
+      EnumerateUpdate<1>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, ess, true,
+                         true);
 
       // missing on right (treat missing as chosen category)
       right_sum.Add(missing);
       left_sum.SetSubstract(parent.stats, right_sum);
-      if (IsValid(left_sum, right_sum)) {
-        /*auto missing_right_chg =
-            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<H>{left_sum},
-                                                       GradStats<H>{right_sum}) -
-                               parent.root_gain);*/
-        // TODO
-        // best.Update(missing_right_chg, fidx, split_pt, false, true, left_sum, right_sum);
-      }
+      EnumerateUpdate<1>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, ess, false,
+                         true);
     }
 
     if (best.is_cat) {
@@ -150,7 +140,7 @@ class HistEvaluator {
   void EnumeratePart(common::HistogramCuts const &cut, common::Span<size_t const> sorted_idx,
                      common::GHistRow<H> const &hist, bst_feature_t fidx, bst_node_t nidx,
                      TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
-                     SplitEntry<> *p_best) {
+                     SplitEntry<> *p_best, RepeatedPtrField<EncryptedSplit> *ess) {
     static_assert(d_step == +1 || d_step == -1, "Invalid step.");
 
     auto const &cut_ptr = cut.Ptrs();
@@ -188,14 +178,11 @@ class HistEvaluator {
         left_sum.Add(f_hist[sorted_idx[j]].GetGrad(), f_hist[sorted_idx[j]].GetHess());
         right_sum.SetSubstract(parent.stats, left_sum);  // missing on right
       }
-      if (IsValid(left_sum, right_sum)) {
-        /*auto loss_chg = evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<H>{left_sum},
-                                                GradStats<H>{right_sum}) -
-                        parent.root_gain;*/
-        // TODO We don't have a numeric split point, nan here is a dummy split.
-        /*if (best.Update(loss_chg, fidx, std::numeric_limits<float>::quiet_NaN(), d_step == 1,
-        true, left_sum, right_sum)) { best_thresh = i;
-        }*/
+
+      // TODO We don't have a numeric split point, nan here is a dummy split.
+      if (EnumerateUpdate<1>(i, fidx, nidx, std::numeric_limits<float>::quiet_NaN(), evaluator,
+                             left_sum, right_sum, best, ess, d_step == 1, true)) {
+        best_thresh = i;
       }
     }
 
@@ -215,38 +202,47 @@ class HistEvaluator {
   }
 
   template <int d_step>
-  void EnumerateUpdate(common::HistogramCuts const &cut, bst_bin_t i, bst_feature_t fidx,
-                       bst_node_t nidx, TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
+  bool EnumerateUpdate(bst_bin_t i, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
+                       TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<EncryptedType<double>> &left_sum,
-                       GradStats<EncryptedType<double>> &right_sum, SplitEntry<> &best) const {}
+                       GradStats<EncryptedType<double>> &right_sum, SplitEntry<> &best,
+                       RepeatedPtrField<EncryptedSplit> *ess, bool default_left,
+                       bool is_cat = false) const {
+    EncryptedSplit *es = ess->Add();
+    es->set_mask_id(to_string(fidx) + "_" + to_string(i));
+    xgbcomm::GradPair *ls = es->mutable_left_sum();
+    xgbcomm::GradPair *rs = es->mutable_right_sum();
+    mpz_t2_mpz_type(ls->mutable_grad(), left_sum.sum_grad);
+    mpz_t2_mpz_type(ls->mutable_hess(), left_sum.sum_hess);
+    mpz_t2_mpz_type(rs->mutable_grad(), right_sum.sum_grad);
+    mpz_t2_mpz_type(rs->mutable_hess(), right_sum.sum_hess);
+    return true;
+  }
 
   template <int d_step>
-  void EnumerateUpdate(common::HistogramCuts const &cut, bst_bin_t i, bst_feature_t fidx,
-                       bst_node_t nidx, TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
+  bool EnumerateUpdate(bst_bin_t i, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
+                       TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<double> &left_sum, GradStats<double> &right_sum,
-                       SplitEntry<> &best) const {
-    bst_float loss_chg;
-    bst_float split_pt;
-    if (d_step > 0) {
-      // forward enumeration: split at right bound of each bin
-      loss_chg =
-          static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<H>{left_sum},
-                                                     GradStats<H>{right_sum}) -
-                             snode_[nidx].root_gain);
-      split_pt = cut.Values()[i];  // not used for partition based
-      best.Update(loss_chg, fidx, split_pt, d_step == -1, false, left_sum, right_sum);
-    } else {
-      // backward enumeration: split at left bound of each bin
-      loss_chg =
-          static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<H>{right_sum},
-                                                     GradStats<H>{left_sum}) -
-                             snode_[nidx].root_gain);
-      if (i == static_cast<bst_bin_t>(cut.Ptrs()[fidx])) {
-        split_pt = cut.MinValues()[fidx];
+                       SplitEntry<> &best, RepeatedPtrField<EncryptedSplit> *ess, bool default_left,
+                       bool is_cat = false) const {
+    if (IsValid(left_sum, right_sum)) {
+      bst_float loss_chg;
+      if (d_step > 0) {
+        // forward enumeration: split at right bound of each bin
+        loss_chg =
+            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<H>{left_sum},
+                                                       GradStats<H>{right_sum}) -
+                               snode_[nidx].root_gain);
+
+        return best.Update(loss_chg, fidx, split_pt, default_left, is_cat, left_sum, right_sum);
       } else {
-        split_pt = cut.Values()[i - 1];
+        // backward enumeration: split at left bound of each bin
+        loss_chg =
+            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<H>{right_sum},
+                                                       GradStats<H>{left_sum}) -
+                               snode_[nidx].root_gain);
+        return best.Update(loss_chg, fidx, split_pt, default_left, is_cat, right_sum, left_sum);
       }
-      best.Update(loss_chg, fidx, split_pt, d_step == -1, false, right_sum, left_sum);
     }
   }
 
@@ -257,7 +253,7 @@ class HistEvaluator {
   GradStats<H> EnumerateSplit(common::HistogramCuts const &cut, const common::GHistRow<H> &hist,
                               bst_feature_t fidx, bst_node_t nidx,
                               TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
-                              SplitEntry<> *p_best) const {
+                              SplitEntry<> *p_best, RepeatedPtrField<EncryptedSplit> *ess) const {
     static_assert(d_step == +1 || d_step == -1, "Invalid step.");
 
     // aliases
@@ -293,9 +289,17 @@ class HistEvaluator {
       // try to find a split
       left_sum.Add(hist[i].GetGrad(), hist[i].GetHess());
       right_sum.SetSubstract(parent.stats, left_sum);
-      if (IsValid(left_sum, right_sum)) {
-        EnumerateUpdate<d_step>(cut, i, fidx, nidx, evaluator, left_sum, right_sum, best);
+      // update best split
+      bst_float split_pt;
+      if (d_step > 0) {
+        split_pt = cut.Values()[i];  // not used for partition based
+      } else if (i == static_cast<bst_bin_t>(cut.Ptrs()[fidx])) {
+        split_pt = cut.MinValues()[fidx];
+      } else {
+        split_pt = cut.Values()[i - 1];
       }
+      EnumerateUpdate<d_step>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, ess,
+                              d_step == -1);
     }
 
     p_best->Update(best);
@@ -328,6 +332,9 @@ class HistEvaluator {
     auto evaluator = tree_evaluator_.GetEvaluator();
     auto const &cut_ptrs = cut.Ptrs();
 
+    SplitsRequest splits_request;
+    RepeatedPtrField<EncryptedSplit> *ess = splits_request.mutable_encrypted_splits();
+
     common::ParallelFor2d(space, n_threads_, [&](size_t nidx_in_set, common::Range1d r) {
       auto tidx = omp_get_thread_num();
       auto entry = &tloc_candidates[n_threads_ * nidx_in_set + tidx];
@@ -344,7 +351,7 @@ class HistEvaluator {
         if (is_cat) {
           auto n_bins = cut_ptrs.at(fidx + 1) - cut_ptrs[fidx];
           if (common::UseOneHot(n_bins, param_.max_cat_to_onehot)) {
-            EnumerateOneHot(cut, histogram, fidx, nidx, evaluator, best);
+            EnumerateOneHot(cut, histogram, fidx, nidx, evaluator, best, ess);
           } else {
             std::vector<size_t> sorted_idx(n_bins);
             std::iota(sorted_idx.begin(), sorted_idx.end(), 0);
@@ -356,17 +363,22 @@ class HistEvaluator {
               return ret;*/
               return true;
             });
-            EnumeratePart<+1>(cut, sorted_idx, histogram, fidx, nidx, evaluator, best);
-            EnumeratePart<-1>(cut, sorted_idx, histogram, fidx, nidx, evaluator, best);
+            EnumeratePart<+1>(cut, sorted_idx, histogram, fidx, nidx, evaluator, best, ess);
+            EnumeratePart<-1>(cut, sorted_idx, histogram, fidx, nidx, evaluator, best, ess);
           }
         } else {
-          auto grad_stats = EnumerateSplit<+1>(cut, histogram, fidx, nidx, evaluator, best);
+          auto grad_stats = EnumerateSplit<+1>(cut, histogram, fidx, nidx, evaluator, best, ess);
           if (SplitContainsMissingValues(grad_stats, snode_[nidx])) {
-            EnumerateSplit<-1>(cut, histogram, fidx, nidx, evaluator, best);
+            EnumerateSplit<-1>(cut, histogram, fidx, nidx, evaluator, best, ess);
           }
         }
       }
     });
+    if (is_same<double, H>()) {
+      //server_
+    } else {
+      client_->SendEncryptedSplits(splits_request);
+    }
 
     for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
       for (auto tidx = 0; tidx < n_threads_; ++tidx) {
@@ -374,6 +386,7 @@ class HistEvaluator {
       }
     }
   }
+
   // Add splits to tree, handles all statistic
   void ApplyTreeSplit(ExpandEntry const &candidate, RegTree *p_tree) {
     auto evaluator = tree_evaluator_.GetEvaluator();

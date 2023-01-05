@@ -69,6 +69,8 @@ class XgbServiceClient {
   grpc::ChannelArguments channel_args_;
 
  public:
+  uint32_t cur_version = 0;
+
   explicit XgbServiceClient() = default;
 
   XgbServiceClient(const uint32_t por, const string &host, int32_t n_threads);
@@ -78,11 +80,12 @@ class XgbServiceClient {
 
   void GetPubKey(opt_public_key_t **pub);
 
-  void GetEncryptedGradPairs(const uint32_t &version, mpz_t *encryptedGradPairs);
+  void GetEncryptedGradPairs(mpz_t *encryptedGradPairs);
 
-  void GetEncryptedGradPairs(const uint32_t &version,
-                             vector<xgboost::EncryptedGradientPair> &encryptedGradPairs);
+  void GetEncryptedGradPairs(vector<xgboost::EncryptedGradientPair> &encryptedGradPairs);
 
-  void GetEncryptedSplits(const uint32_t &version, XgbEncryptedSplit *encryptedSplits);
+  void SendEncryptedSplits(SplitsRequest &splits_request);
+
+  void GetEncryptedSplits(XgbEncryptedSplit *encryptedSplits);
 };
 //=================================XgbServiceClient End===================================

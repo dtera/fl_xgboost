@@ -62,13 +62,25 @@ void mpz_type2_mpz_t(EncryptedType<T> &m_t, const MpzType &mt) {
   }
 }
 
-
 #define MAX_MESSAGE_LENGTH 10 * 1024 * 1024 * 1024l
 
 #define RpcRequest(Request, RequestFunc, Response, SetRequest, SetResponse)               \
   Request request;                                                                        \
   Response response;                                                                      \
   SetRequest;                                                                             \
+                                                                                          \
+  ClientContext context;                                                                  \
+  context.set_wait_for_ready(true);                                                       \
+  auto s = stub_->RequestFunc(&context, request, &response);                              \
+  if (s.ok()) {                                                                           \
+    DEBUG << "** RPC request success! " << std::endl;                                     \
+    SetResponse;                                                                          \
+  } else {                                                                                \
+    ERROR << "code: " << s.error_code() << ", error: " << s.error_message() << std::endl; \
+  }
+
+#define RpcRequest_(request, RequestFunc, Response, SetResponse)                          \
+  Response response;                                                                      \
                                                                                           \
   ClientContext context;                                                                  \
   context.set_wait_for_ready(true);                                                       \

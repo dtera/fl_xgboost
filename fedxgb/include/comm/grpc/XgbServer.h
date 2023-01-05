@@ -84,6 +84,8 @@ class XgbServiceServer final : public XgbService::Service {
   bool finished_ = false;
 
  public:
+  uint32_t cur_version = 0;
+
   explicit XgbServiceServer() = default;
 
   XgbServiceServer(const uint32_t port, const string &host);
@@ -96,12 +98,11 @@ class XgbServiceServer final : public XgbService::Service {
 
   void SendPubKey(opt_public_key_t *pub);
 
-  void SendGradPairs(const uint32_t version, mpz_t *grad_pairs, size_t size);
+  void SendGradPairs(mpz_t *grad_pairs, size_t size);
 
-  void SendGradPairs(const uint32_t version,
-                     const vector<xgboost::EncryptedGradientPair> &grad_pairs);
+  void SendGradPairs(const vector<xgboost::EncryptedGradientPair> &grad_pairs);
 
-  void SendSplits(const uint32_t version, XgbEncryptedSplit *splits, size_t size);
+  void SendSplits(XgbEncryptedSplit *splits, size_t size);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;
@@ -109,7 +110,7 @@ class XgbServiceServer final : public XgbService::Service {
   Status GetEncryptedGradPairs(ServerContext *context, const GradPairsRequest *request,
                                GradPairsResponse *response) override;
 
-  Status GetEncryptedSplits(ServerContext *context, const SplitsRequest *request,
-                            SplitsResponse *response) override;
+  Status SendEncryptedSplits(ServerContext *context, const SplitsRequest *request,
+                             SplitsResponse *response) override;
 };
 //=================================XgbServiceServer End===================================

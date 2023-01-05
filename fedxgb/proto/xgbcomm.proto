@@ -12,7 +12,7 @@ service XgbService {
   rpc GetEncryptedSplits_ (stream SplitsRequest) returns (stream SplitsResponse) {}
   rpc GetPubKey (Request) returns (PubKeyResponse) {}
   rpc GetEncryptedGradPairs (GradPairsRequest) returns (GradPairsResponse) {}
-  rpc GetEncryptedSplits (SplitsRequest) returns (SplitsResponse) {}
+  rpc SendEncryptedSplits (SplitsRequest) returns (SplitsResponse) {}
 }
 
 message Request {}
@@ -41,16 +41,17 @@ message GradPairsResponse {
 
 message SplitsRequest {
   uint32 version = 1;
+  repeated EncryptedSplit encrypted_splits = 2;
 }
 
 message SplitsResponse {
   uint32 version = 1;
-  repeated EncryptedSplit encrypted_splits = 2;
 }
 
 message EncryptedSplit {
   string mask_id = 1;
-  GradPair encrypted_grad_pair_sum = 2;
+  GradPair left_sum = 2;
+  GradPair right_sum = 3;
 }
 
 message MpzType {

@@ -58,8 +58,8 @@ TEST(grpc, xgb_server) {
         encrypted_grad_pairs[i].SetHess(EncryptedType(mpz_ciphers_[i]));
       },
       len_);
-  server->SendGradPairs(1, encrypted_grad_pairs);
-  server->SendSplits(1, encrypted_splits_, len_);
+  server->SendGradPairs(encrypted_grad_pairs);
+  server->SendSplits(encrypted_splits_, len_);
   server->SendPubKey(pub_);
   cout << *pub_ << endl;
   // sleep(30000);
