@@ -73,7 +73,7 @@ class HistEvaluator {
   void EnumerateOneHot(common::HistogramCuts const &cut, const common::GHistRow<H> &hist,
                        bst_feature_t fidx, bst_node_t nidx,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
-                       SplitEntry<> *p_best, RepeatedPtrField<EncryptedSplit> *ess) const {
+                       SplitEntry<> *p_best, SplitsRequest *splits_request) const {
     const std::vector<uint32_t> &cut_ptr = cut.Ptrs();
     const std::vector<bst_float> &cut_val = cut.Values();
 
@@ -100,14 +100,14 @@ class HistEvaluator {
       // missing on left (treat missing as other categories)
       right_sum = GradStats<H>{hist[i]};
       left_sum.SetSubstract(parent.stats, right_sum);
-      EnumerateUpdate<1>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, ess, true,
-                         true);
+      EnumerateUpdate<1>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best,
+                         splits_request, true, true);
 
       // missing on right (treat missing as chosen category)
       right_sum.Add(missing);
       left_sum.SetSubstract(parent.stats, right_sum);
-      EnumerateUpdate<1>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, ess, false,
-                         true);
+      EnumerateUpdate<1>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best,
+                         splits_request, false, true);
     }
 
     if (best.is_cat) {
@@ -140,7 +140,7 @@ class HistEvaluator {
   void EnumeratePart(common::HistogramCuts const &cut, common::Span<size_t const> sorted_idx,
                      common::GHistRow<H> const &hist, bst_feature_t fidx, bst_node_t nidx,
                      TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
-                     SplitEntry<> *p_best, RepeatedPtrField<EncryptedSplit> *ess) {
+                     SplitEntry<> *p_best, SplitsRequest *splits_request) {
     static_assert(d_step == +1 || d_step == -1, "Invalid step.");
 
     auto const &cut_ptr = cut.Ptrs();
@@ -181,7 +181,7 @@ class HistEvaluator {
 
       // TODO We don't have a numeric split point, nan here is a dummy split.
       if (EnumerateUpdate<1>(i, fidx, nidx, std::numeric_limits<float>::quiet_NaN(), evaluator,
-                             left_sum, right_sum, best, ess, d_step == 1, true)) {
+                             left_sum, right_sum, best, splits_request, d_step == 1, true)) {
         best_thresh = i;
       }
     }
@@ -206,16 +206,18 @@ class HistEvaluator {
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<EncryptedType<double>> &left_sum,
                        GradStats<EncryptedType<double>> &right_sum, SplitEntry<> &best,
-                       RepeatedPtrField<EncryptedSplit> *ess, bool default_left,
+                       SplitsRequest *splits_request, bool default_left,
                        bool is_cat = false) const {
-    EncryptedSplit *es = ess->Add();
+    EncryptedSplit *es = splits_request->mutable_encrypted_splits()->Add();
     es->set_mask_id(to_string(fidx) + "_" + to_string(i));
     xgbcomm::GradPair *ls = es->mutable_left_sum();
     xgbcomm::GradPair *rs = es->mutable_right_sum();
-    mpz_t2_mpz_type(ls->mutable_grad(), left_sum.sum_grad);
-    mpz_t2_mpz_type(ls->mutable_hess(), left_sum.sum_hess);
-    mpz_t2_mpz_type(rs->mutable_grad(), right_sum.sum_grad);
-    mpz_t2_mpz_type(rs->mutable_hess(), right_sum.sum_hess);
+    mpz_t2_mpz_type(ls, left_sum);
+    mpz_t2_mpz_type(rs, right_sum);
+    es->set_d_step(d_step);
+    es->set_default_left(default_left);
+    es->set_is_cat(is_cat);
+
     return true;
   }
 
@@ -223,24 +225,24 @@ class HistEvaluator {
   bool EnumerateUpdate(bst_bin_t i, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<double> &left_sum, GradStats<double> &right_sum,
-                       SplitEntry<> &best, RepeatedPtrField<EncryptedSplit> *ess, bool default_left,
+                       SplitEntry<> &best, SplitsRequest *splits_request, bool default_left,
                        bool is_cat = false) const {
     if (IsValid(left_sum, right_sum)) {
       bst_float loss_chg;
       if (d_step > 0) {
         // forward enumeration: split at right bound of each bin
-        loss_chg =
-            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<H>{left_sum},
-                                                       GradStats<H>{right_sum}) -
-                               snode_[nidx].root_gain);
+        loss_chg = static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx,
+                                                              GradStats<double>{left_sum},
+                                                              GradStats<double>{right_sum}) -
+                                      snode_[nidx].root_gain);
 
         return best.Update(loss_chg, fidx, split_pt, default_left, is_cat, left_sum, right_sum);
       } else {
         // backward enumeration: split at left bound of each bin
-        loss_chg =
-            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, GradStats<H>{right_sum},
-                                                       GradStats<H>{left_sum}) -
-                               snode_[nidx].root_gain);
+        loss_chg = static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx,
+                                                              GradStats<double>{right_sum},
+                                                              GradStats<double>{left_sum}) -
+                                      snode_[nidx].root_gain);
         return best.Update(loss_chg, fidx, split_pt, default_left, is_cat, right_sum, left_sum);
       }
     }
@@ -253,7 +255,7 @@ class HistEvaluator {
   GradStats<H> EnumerateSplit(common::HistogramCuts const &cut, const common::GHistRow<H> &hist,
                               bst_feature_t fidx, bst_node_t nidx,
                               TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
-                              SplitEntry<> *p_best, RepeatedPtrField<EncryptedSplit> *ess) const {
+                              SplitEntry<> *p_best, SplitsRequest *splits_request) const {
     static_assert(d_step == +1 || d_step == -1, "Invalid step.");
 
     // aliases
@@ -298,8 +300,8 @@ class HistEvaluator {
       } else {
         split_pt = cut.Values()[i - 1];
       }
-      EnumerateUpdate<d_step>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, ess,
-                              d_step == -1);
+      EnumerateUpdate<d_step>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best,
+                              splits_request, d_step == -1);
     }
 
     p_best->Update(best);
@@ -323,21 +325,23 @@ class HistEvaluator {
         entries.size(), [&](size_t nidx_in_set) { return features[nidx_in_set]->Size(); },
         grain_size);
 
+    std::vector<SplitsRequest> splits_requests;
+    splits_requests.resize(entries.size(), SplitsRequest());
     std::vector<ExpandEntry> tloc_candidates(n_threads_ * entries.size());
+    std::vector<SplitsRequest> tloc_requests(n_threads_ * entries.size());
     for (size_t i = 0; i < entries.size(); ++i) {
       for (decltype(n_threads_) j = 0; j < n_threads_; ++j) {
         tloc_candidates[i * n_threads_ + j] = entries[i];
+        tloc_requests[i * n_threads_ + j] = splits_requests[i];
       }
     }
     auto evaluator = tree_evaluator_.GetEvaluator();
     auto const &cut_ptrs = cut.Ptrs();
 
-    SplitsRequest splits_request;
-    RepeatedPtrField<EncryptedSplit> *ess = splits_request.mutable_encrypted_splits();
-
     common::ParallelFor2d(space, n_threads_, [&](size_t nidx_in_set, common::Range1d r) {
       auto tidx = omp_get_thread_num();
       auto entry = &tloc_candidates[n_threads_ * nidx_in_set + tidx];
+      auto splits_req = &tloc_requests[n_threads_ * nidx_in_set + tidx];
       auto best = &entry->split;
       auto nidx = entry->nid;
       auto histogram = hist[nidx];
@@ -351,7 +355,7 @@ class HistEvaluator {
         if (is_cat) {
           auto n_bins = cut_ptrs.at(fidx + 1) - cut_ptrs[fidx];
           if (common::UseOneHot(n_bins, param_.max_cat_to_onehot)) {
-            EnumerateOneHot(cut, histogram, fidx, nidx, evaluator, best, ess);
+            EnumerateOneHot(cut, histogram, fidx, nidx, evaluator, best, splits_req);
           } else {
             std::vector<size_t> sorted_idx(n_bins);
             std::iota(sorted_idx.begin(), sorted_idx.end(), 0);
@@ -363,27 +367,38 @@ class HistEvaluator {
               return ret;*/
               return true;
             });
-            EnumeratePart<+1>(cut, sorted_idx, histogram, fidx, nidx, evaluator, best, ess);
-            EnumeratePart<-1>(cut, sorted_idx, histogram, fidx, nidx, evaluator, best, ess);
+            EnumeratePart<+1>(cut, sorted_idx, histogram, fidx, nidx, evaluator, best, splits_req);
+            EnumeratePart<-1>(cut, sorted_idx, histogram, fidx, nidx, evaluator, best, splits_req);
           }
         } else {
-          auto grad_stats = EnumerateSplit<+1>(cut, histogram, fidx, nidx, evaluator, best, ess);
+          auto grad_stats =
+              EnumerateSplit<+1>(cut, histogram, fidx, nidx, evaluator, best, splits_req);
           if (SplitContainsMissingValues(grad_stats, snode_[nidx])) {
-            EnumerateSplit<-1>(cut, histogram, fidx, nidx, evaluator, best, ess);
+            EnumerateSplit<-1>(cut, histogram, fidx, nidx, evaluator, best, splits_req);
           }
         }
       }
     });
     if (is_same<double, H>()) {
-      //server_
-    } else {
-      client_->SendEncryptedSplits(splits_request);
-    }
+      // update expand entry for the other part
+      // server_->UpdateExpandEntry(entries);
 
-    for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
-      for (auto tidx = 0; tidx < n_threads_; ++tidx) {
-        entries[nidx_in_set].split.Update(tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
+      for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
+        for (auto tidx = 0; tidx < n_threads_; ++tidx) {
+          entries[nidx_in_set].split.Update(tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
+        }
       }
+    } else {
+      for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
+        for (auto tidx = 0; tidx < n_threads_; ++tidx) {
+          splits_requests[nidx_in_set].mutable_encrypted_splits()->MergeFrom(
+              tloc_requests[n_threads_ * nidx_in_set + tidx].encrypted_splits());
+        }
+        splits_requests[nidx_in_set].set_nidx(nidx_in_set);
+        client_->SendEncryptedSplits(splits_requests[nidx_in_set]);
+      }
+      SplitsRequest empty_req;
+      client_->SendEncryptedSplits(empty_req);
     }
   }
 

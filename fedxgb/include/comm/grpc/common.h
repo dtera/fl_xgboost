@@ -6,6 +6,7 @@
 
 #include <gmp.h>
 
+#include "tree/param.h"
 #include "xgbcomm.grpc.pb.h"
 #include "xgboost/base.h"
 #include "xgboost/logging.h"
@@ -34,12 +35,27 @@ struct GradPair {
 
 struct XgbEncryptedSplit {
   std::string mask_id;
-  struct GradPair encrypted_grad_pair_sum;
+  struct GradPair left_sum;
+  struct GradPair right_sum;
 };
 
 void mpz_t2_mpz_type(MpzType *mt, const mpz_t &m_t);
 
+void mpz_t2_mpz_type(xgbcomm::GradPair *gp, const GradPair &g_p);
+
+void mpz_t2_mpz_type(xgbcomm::GradPair *gp, const xgboost::EncryptedGradientPair &g_p);
+
+void mpz_t2_mpz_type(xgbcomm::GradPair *gp,
+                     const xgboost::tree::GradStats<EncryptedType<double>> &g_p);
+
 void mpz_type2_mpz_t(mpz_t &m_t, const MpzType &mt);
+
+void mpz_type2_mpz_t(GradPair &g_p, const xgbcomm::GradPair &gp);
+
+void mpz_type2_mpz_t(xgboost::EncryptedGradientPair &g_p, const xgbcomm::GradPair &gp);
+
+void mpz_type2_mpz_t(xgboost::tree::GradStats<EncryptedType<double>> &g_p,
+                     const xgbcomm::GradPair &gp);
 
 template <typename T>
 void mpz_t2_mpz_type(MpzType *mt, const EncryptedType<T> &m_t) {

@@ -41,7 +41,8 @@ message GradPairsResponse {
 
 message SplitsRequest {
   uint32 version = 1;
-  repeated EncryptedSplit encrypted_splits = 2;
+  uint32 nidx = 2;
+  repeated EncryptedSplit encrypted_splits = 3;
 }
 
 message SplitsResponse {
@@ -52,6 +53,9 @@ message EncryptedSplit {
   string mask_id = 1;
   GradPair left_sum = 2;
   GradPair right_sum = 3;
+  int32 d_step = 4;
+  bool default_left = 5;
+  bool is_cat = 6;
 }
 
 message MpzType {

@@ -282,6 +282,7 @@ namespace detail {
  * precision, integer, floating point. */
 template <typename T>
 class GradientPairInternal {
+ public:
   /*! \brief gradient statistics */
   T grad_;
   /*! \brief second order gradient statistics */

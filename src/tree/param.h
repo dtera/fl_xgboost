@@ -340,6 +340,17 @@ struct XGBOOST_ALIGNAS(16) GradStats {
   }
 };
 
+template <typename T>
+void opt_paillier_decrypt(xgboost::tree::GradStats<T> &res,
+                          const xgboost::tree::GradStats<EncryptedType<T>> &ciphertext,
+                          const opt_public_key_t *pub, const opt_private_key_t *pri,
+                          int precision = 8, int radix = 10, const bool is_crt = true) {
+  opt_paillier_decrypt_t(res.sum_grad, ciphertext.sum_grad.data_, pub, pri, precision, radix,
+                         is_crt);
+  opt_paillier_decrypt_t(res.sum_hess, ciphertext.sum_hess.data_, pub, pri, precision, radix,
+                         is_crt);
+}
+
 /*!
  * \brief statistics that is helpful to store
  *   and represent a split solution for the tree

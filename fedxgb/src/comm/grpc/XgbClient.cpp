@@ -186,22 +186,21 @@ void XgbServiceClient::GetEncryptedGradPairs(
 }
 
 void XgbServiceClient::SendEncryptedSplits(SplitsRequest& splits_request) {
-  RpcRequest_(splits_request, SendEncryptedSplits, SplitsResponse,
-              { response.set_version(cur_version); });
+  RpcRequest_(splits_request, SendEncryptedSplits, SplitsResponse, {});
 }
 
 void XgbServiceClient::GetEncryptedSplits(XgbEncryptedSplit* encryptedSplits) {
-  RpcRequest(SplitsRequest, SendEncryptedSplits, SplitsResponse, request.set_version(cur_version), {
-    response.set_version(cur_version);
-    /*
-    auto ess = response.encrypted_splits();
-    xgboost::common::ParallelFor(ess.size(), n_threads_, [&](int i) {
-      encryptedSplits[i].mask_id = ess[i].mask_id();
-      auto t = ess[i].left_sum();
-      // mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum, t);
-      mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum.grad, t.grad());
-      mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum.hess, t.hess());
-    });*/
-  });
+  RpcRequest(SplitsRequest, SendEncryptedSplits, SplitsResponse, request.set_version(cur_version),
+             {
+                 /*
+                 auto ess = response.encrypted_splits();
+                 xgboost::common::ParallelFor(ess.size(), n_threads_, [&](int i) {
+                   encryptedSplits[i].mask_id = ess[i].mask_id();
+                   auto t = ess[i].left_sum();
+                   // mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum, t);
+                   mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum.grad, t.grad());
+                   mpz_type2_mpz_t(encryptedSplits[i].encrypted_grad_pair_sum.hess, t.hess());
+                 });*/
+             });
 }
 //=================================XgbServiceClient End===================================

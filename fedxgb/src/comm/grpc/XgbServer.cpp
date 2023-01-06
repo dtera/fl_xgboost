@@ -134,7 +134,8 @@ void XgbServiceAsyncServer::Stop() {
 //=================================XgbServiceServer Begin=================================
 XgbServiceServer::XgbServiceServer(const uint32_t port, const string& host) { Start(port, host); }
 
-void XgbServiceServer::Start(const uint32_t port, const string& host) {
+void XgbServiceServer::Start(const uint32_t port, const string& host, int32_t n_threads) {
+  n_threads_ = n_threads;
   server_address_ = host + ":" + to_string(port);
   xgb_thread_.reset(new thread((bind(&XgbServiceServer::Run, this))));
 }
@@ -165,6 +166,8 @@ void XgbServiceServer::Shutdown() {
 
 void XgbServiceServer::SendPubKey(opt_public_key_t* pub) { pub_ = pub; }
 
+void XgbServiceServer::SetPriKey(opt_private_key_t* pri) { pri_ = pri; }
+
 void XgbServiceServer::SendGradPairs(mpz_t* grad_pairs, size_t size) {
   // grad_pairs_.insert({version, {size, encrypted_grad_pairs}});
 }
@@ -175,6 +178,24 @@ void XgbServiceServer::SendGradPairs(const vector<xgboost::EncryptedGradientPair
 
 void XgbServiceServer::SendSplits(XgbEncryptedSplit* splits, size_t size) {
   splits_.insert({cur_version, {size, splits}});
+}
+
+template <typename ExpandEntry>
+void XgbServiceServer::UpdateExpandEntry(std::vector<ExpandEntry>* entries) {
+  while (!finish_split_) {
+  }  // wait for the other part
+  for (unsigned nidx_in_set = 0; nidx_in_set < entries->size(); ++nidx_in_set) {
+    auto encrypted_splits = splits_requests_[nidx_in_set]->encrypted_splits();
+    ParallelFor(encrypted_splits.size(), n_threads_, [&](int i) {
+      xgboost::tree::GradStats<double> left_sum;
+      xgboost::tree::GradStats<double> right_sum;
+      xgboost::tree::GradStats<EncryptedType<double>> encrypted_left_sum;
+      xgboost::tree::GradStats<EncryptedType<double>> encrypted_right_sum;
+      mpz_type2_mpz_t(encrypted_left_sum, encrypted_splits[i].left_sum());
+      mpz_type2_mpz_t(encrypted_right_sum, encrypted_splits[i].left_sum());
+      opt_paillier_decrypt(left_sum, encrypted_left_sum, pub_, pri_);
+    });
+  }
 }
 
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
@@ -235,24 +256,23 @@ Status XgbServiceServer::GetEncryptedGradPairs(ServerContext* context,
                                                GradPairsResponse* response) {
   // GetEncryptedData(grad_pair, mpz_t, { mpz_t2_mpz_type(encrypted_grad_pair,
   // encrypted_grad_pairs[i]); });
-  GetEncryptedData(grad_pair, vector<xgboost::EncryptedGradientPair>, {
-    mpz_t2_mpz_type(encrypted_grad_pair->mutable_grad(), grad_pairs[i].GetGrad());
-    mpz_t2_mpz_type(encrypted_grad_pair->mutable_hess(), grad_pairs[i].GetHess());
-  });
+  GetEncryptedData(grad_pair, vector<xgboost::EncryptedGradientPair>,
+                   { mpz_t2_mpz_type(encrypted_grad_pair, grad_pairs[i]); });
 }
 
 Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const SplitsRequest* request,
                                              SplitsResponse* response) {
-  /*GetEncryptedData(split, XgbEncryptedSplit*, {
-    encrypted_split->set_mask_id(splits[i].mask_id);
-    auto encrypted_grad_pair_sum = encrypted_split->mutable_encrypted_grad_pair_sum();
-    mpz_t2_mpz_type(encrypted_grad_pair_sum->mutable_grad(),
-                    splits[i].encrypted_grad_pair_sum.grad);
-    mpz_t2_mpz_type(encrypted_grad_pair_sum->mutable_hess(),
-                    splits[i].encrypted_grad_pair_sum.hess);
-  });*/
+  if (request->encrypted_splits().empty()) {
+    finish_split_ = true;
+  } else {
+    splits_requests_.insert({request->nidx(), request});
+    response->set_version(cur_version);
+  }
 
-  finished_ = true;
+  if (cur_version == max_version) {
+    finished_ = true;
+  }
+
   return Status::OK;
 }
 

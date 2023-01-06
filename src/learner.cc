@@ -1346,6 +1346,7 @@ class LearnerImpl : public LearnerIO {
 
       monitor_.Start("SendEncryptedGradient");
       server_->cur_version = predt.version;
+      server_->max_version = BoostedRounds() - 1;
       server_->SendGradPairs(encrypted_gpair_.HostVector());
       monitor_.Stop("SendEncryptedGradient");
       TrainingObserver::Instance().Observe(encrypted_gpair_, "EncryptedGradients");

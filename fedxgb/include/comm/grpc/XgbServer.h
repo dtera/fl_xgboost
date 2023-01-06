@@ -77,20 +77,26 @@ class XgbServiceServer final : public XgbService::Service {
   string server_address_;
   unique_ptr<thread> xgb_thread_;
   unique_ptr<Server> server_;
+  int32_t n_threads_;
   // unordered_map<uint32_t, pair<size_t, mpz_t *>> grad_pairs_;
   unordered_map<uint32_t, pair<size_t, const vector<xgboost::EncryptedGradientPair>>> grad_pairs_;
   unordered_map<uint32_t, pair<size_t, XgbEncryptedSplit *>> splits_;
   opt_public_key_t *pub_;
+  opt_private_key_t *pri_;
+  unordered_map<uint32_t, const SplitsRequest *> splits_requests_;
+  bool finish_split_ = false;
   bool finished_ = false;
 
  public:
   uint32_t cur_version = 0;
+  uint32_t max_version = -1;
 
   explicit XgbServiceServer() = default;
 
   XgbServiceServer(const uint32_t port, const string &host);
 
-  void Start(const uint32_t port = 50001, const string &host = "0.0.0.0");
+  void Start(const uint32_t port = 50001, const string &host = "0.0.0.0",
+             int32_t n_threads = omp_get_num_procs());
 
   void Run();
 
@@ -98,11 +104,16 @@ class XgbServiceServer final : public XgbService::Service {
 
   void SendPubKey(opt_public_key_t *pub);
 
+  void SetPriKey(opt_private_key_t *pri);
+
   void SendGradPairs(mpz_t *grad_pairs, size_t size);
 
   void SendGradPairs(const vector<xgboost::EncryptedGradientPair> &grad_pairs);
 
   void SendSplits(XgbEncryptedSplit *splits, size_t size);
+
+  template <typename ExpandEntry>
+  void UpdateExpandEntry(std::vector<ExpandEntry> *entries);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;
