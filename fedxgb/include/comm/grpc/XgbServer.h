@@ -14,6 +14,7 @@
 #include <thread>
 
 #include "common.h"
+#include "tree/hist/expand_entry.h"
 #include "xgbcomm.grpc.pb.h"
 
 using grpc::Server;

@@ -276,4 +276,6 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
   return Status::OK;
 }
 
+template void XgbServiceServer::UpdateExpandEntry(
+    std::vector<xgboost::tree::CPUExpandEntry>* entries);
 //=================================XgbServiceServer End===================================
