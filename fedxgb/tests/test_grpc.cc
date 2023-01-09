@@ -52,7 +52,7 @@ TEST(grpc, xgb_server) {
   res_grad_pairs.resize(len_);
   repeat(
       [&](int i) {
-        mpz_set(encrypted_splits_[i].encrypted_grad_pair_sum.grad, mpz_ciphers_[i]);
+        mpz_set(encrypted_splits_[i].left_sum.grad, mpz_ciphers_[i]);
         encrypted_grad_pairs[i].Add(EncryptedType(mpz_ciphers_[i]), EncryptedType(mpz_ciphers_[i]));
         encrypted_grad_pairs[i].SetGrad(EncryptedType(mpz_ciphers_[i]));
         encrypted_grad_pairs[i].SetHess(EncryptedType(mpz_ciphers_[i]));
@@ -67,8 +67,8 @@ TEST(grpc, xgb_server) {
   std::unique_ptr<XgbServiceClient> client = FIND_XGB_SERVICE(XgbServiceClient);
   client->Start();
   for (int i = 1; i < 2; ++i) {
-    client->GetEncryptedGradPairs(i, res_encrypted_grad_pairs);
-    client->GetEncryptedSplits(i, res_encrypted_splits_);
+    client->GetEncryptedGradPairs(res_encrypted_grad_pairs);
+    client->GetEncryptedSplits(res_encrypted_splits_);
     opt_paillier_batch_decrypt(res_grad_pairs, res_encrypted_grad_pairs, pub_, pri_);
     for (int j = 0; j < len_; ++j) {
       char *c1, *c2, *c3, *c4;
@@ -80,8 +80,8 @@ TEST(grpc, xgb_server) {
       cout << "res_f_[" << j << "]: " << res_grad_pairs[j] << endl;
       assert(abs(plains_f_[j] - res_grad_pairs[j].GetGrad()) < 0.000001);
       cout << "==========================================================" << endl;
-      opt_paillier_get_plaintext(c3, encrypted_splits_[j].encrypted_grad_pair_sum.grad, pub_);
-      opt_paillier_get_plaintext(c4, res_encrypted_splits_[j].encrypted_grad_pair_sum.grad, pub_);
+      opt_paillier_get_plaintext(c3, encrypted_splits_[j].left_sum.grad, pub_);
+      opt_paillier_get_plaintext(c4, res_encrypted_splits_[j].left_sum.grad, pub_);
       cout << "encrypted_splits_[" << j << "]: " << c3 << endl;
       cout << "res_encrypted_splits_[" << j << "]: " << c4 << endl;
     }

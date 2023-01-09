@@ -3,7 +3,7 @@
 //
 #include "comm/grpc/common.h"
 
-void mpz_t2_mpz_type(MpzType *mt, const mpz_t &m_t) {
+void mpz_t2_mpz_type(xgbcomm::MpzType *mt, const mpz_t &m_t) {
   mt->set__mp_alloc(m_t->_mp_alloc);
   mt->set__mp_size(m_t->_mp_size);
   auto mp = m_t->_mp_d;
@@ -29,7 +29,7 @@ void mpz_t2_mpz_type(xgbcomm::GradPair *gp,
   mpz_t2_mpz_type(gp->mutable_hess(), g_p.sum_hess);
 }
 
-void mpz_type2_mpz_t(mpz_t &m_t, const MpzType &mt) {
+void mpz_type2_mpz_t(mpz_t &m_t, const xgbcomm::MpzType &mt) {
   m_t->_mp_alloc = mt._mp_alloc();
   m_t->_mp_size = mt._mp_size();
   m_t->_mp_d = new mp_limb_t[mt._mp_d().size()];

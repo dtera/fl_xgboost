@@ -15,8 +15,6 @@
 #define INFO LOG(INFO)
 #define ERROR LOG(FATAL)
 
-using xgbcomm::MpzType;
-
 enum class XgbCommType {
   GRAD_CONNECT = 1,
   GRAD_READ = 2,
@@ -39,18 +37,18 @@ struct XgbEncryptedSplit {
   struct GradPair right_sum;
 };
 
-void mpz_t2_mpz_type(MpzType *mt, const mpz_t &m_t);
+void mpz_t2_mpz_type(xgbcomm::MpzType *mt, const mpz_t &m_t);
 
-void mpz_t2_mpz_type(xgbcomm::GradPair *gp, const GradPair &g_p);
+void mpz_t2_mpz_type(xgbcomm::GradPair *gp, const struct GradPair &g_p);
 
 void mpz_t2_mpz_type(xgbcomm::GradPair *gp, const xgboost::EncryptedGradientPair &g_p);
 
 void mpz_t2_mpz_type(xgbcomm::GradPair *gp,
                      const xgboost::tree::GradStats<EncryptedType<double>> &g_p);
 
-void mpz_type2_mpz_t(mpz_t &m_t, const MpzType &mt);
+void mpz_type2_mpz_t(mpz_t &m_t, const xgbcomm::MpzType &mt);
 
-void mpz_type2_mpz_t(GradPair &g_p, const xgbcomm::GradPair &gp);
+void mpz_type2_mpz_t(struct GradPair &g_p, const xgbcomm::GradPair &gp);
 
 void mpz_type2_mpz_t(xgboost::EncryptedGradientPair &g_p, const xgbcomm::GradPair &gp);
 
@@ -58,7 +56,7 @@ void mpz_type2_mpz_t(xgboost::tree::GradStats<EncryptedType<double>> &g_p,
                      const xgbcomm::GradPair &gp);
 
 template <typename T>
-void mpz_t2_mpz_type(MpzType *mt, const EncryptedType<T> &m_t) {
+void mpz_t2_mpz_type(xgbcomm::MpzType *mt, const EncryptedType<T> &m_t) {
   mt->set__mp_alloc(m_t.data_->_mp_alloc);
   mt->set__mp_size(m_t.data_->_mp_size);
   auto mp = m_t.data_->_mp_d;
@@ -69,7 +67,7 @@ void mpz_t2_mpz_type(MpzType *mt, const EncryptedType<T> &m_t) {
 }
 
 template <typename T>
-void mpz_type2_mpz_t(EncryptedType<T> &m_t, const MpzType &mt) {
+void mpz_type2_mpz_t(EncryptedType<T> &m_t, const xgbcomm::MpzType &mt) {
   m_t.data_->_mp_alloc = mt._mp_alloc();
   m_t.data_->_mp_size = mt._mp_size();
   m_t.data_->_mp_d = new mp_limb_t[mt._mp_d().size()];
