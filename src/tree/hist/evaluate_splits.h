@@ -231,18 +231,16 @@ class HistEvaluator {
       bst_float loss_chg;
       if (d_step > 0) {
         // forward enumeration: split at right bound of each bin
-        loss_chg = static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx,
-                                                              GradStats<double>{left_sum},
-                                                              GradStats<double>{right_sum}) -
-                                      snode_[nidx].root_gain);
+        loss_chg =
+            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, left_sum, right_sum) -
+                               snode_[nidx].root_gain);
 
         return best.Update(loss_chg, fidx, split_pt, default_left, is_cat, left_sum, right_sum);
       } else {
         // backward enumeration: split at left bound of each bin
-        loss_chg = static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx,
-                                                              GradStats<double>{right_sum},
-                                                              GradStats<double>{left_sum}) -
-                                      snode_[nidx].root_gain);
+        loss_chg =
+            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, right_sum, left_sum) -
+                               snode_[nidx].root_gain);
         return best.Update(loss_chg, fidx, split_pt, default_left, is_cat, right_sum, left_sum);
       }
     }
@@ -309,6 +307,22 @@ class HistEvaluator {
   }
 
  public:
+  void SortFeatHistogram(std::vector<size_t> &sorted_idx,
+                         common::GHistRow<EncryptedType<double>> &feat_hist,
+                         TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) {
+    // TODO: Sort the histogram to get contiguous partitions for host part.
+  }
+
+  void SortFeatHistogram(std::vector<size_t> &sorted_idx, common::GHistRow<double> &feat_hist,
+                         TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) {
+    // Sort the histogram to get contiguous partitions.
+    std::stable_sort(sorted_idx.begin(), sorted_idx.end(), [&](size_t l, size_t r) {
+      auto ret = evaluator.CalcWeightCat(param_, feat_hist[l]) <
+                 evaluator.CalcWeightCat(param_, feat_hist[r]);
+      return ret;
+    });
+  }
+
   void EvaluateSplits(const common::HistCollection<H> &hist, common::HistogramCuts const &cut,
                       common::Span<FeatureType const> feature_types, const RegTree &tree,
                       std::vector<ExpandEntry> *p_entries) {
@@ -360,13 +374,8 @@ class HistEvaluator {
             std::vector<size_t> sorted_idx(n_bins);
             std::iota(sorted_idx.begin(), sorted_idx.end(), 0);
             auto feat_hist = histogram.subspan(cut_ptrs[fidx], n_bins);
-            // Sort the histogram to get contiguous partitions.
-            std::stable_sort(sorted_idx.begin(), sorted_idx.end(), [&](size_t l, size_t r) {
-              /*auto ret = evaluator.CalcWeightCat(param_, feat_hist[l]) <
-                         evaluator.CalcWeightCat(param_, feat_hist[r]);
-              return ret;*/
-              return true;
-            });
+            SortFeatHistogram(sorted_idx, feat_hist, evaluator);
+
             EnumeratePart<+1>(cut, sorted_idx, histogram, fidx, nidx, evaluator, best, splits_req);
             EnumeratePart<-1>(cut, sorted_idx, histogram, fidx, nidx, evaluator, best, splits_req);
           }
