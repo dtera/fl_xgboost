@@ -32,6 +32,7 @@ using xgbcomm::XgbService;
 
 using namespace std;
 using namespace xgbcomm;
+using namespace xgboost::tree;
 
 class XgbServiceAsyncServer {
  private:
@@ -114,7 +115,10 @@ class XgbServiceServer final : public XgbService::Service {
   void SendSplits(XgbEncryptedSplit *splits, size_t size);
 
   template <typename ExpandEntry>
-  void UpdateExpandEntry(std::vector<ExpandEntry> *entries);
+  void UpdateExpandEntry(
+      std::vector<ExpandEntry> *entries,
+      function<void(unsigned, GradStats<double> &, GradStats<double> &, EncryptedSplit &)>
+          update_grad_stats);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;

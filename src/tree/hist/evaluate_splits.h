@@ -201,7 +201,7 @@ class HistEvaluator {
     p_best->Update(best);
   }
 
-  template <int d_step>
+  template <int d_step = 1>
   bool EnumerateUpdate(bst_bin_t i, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<EncryptedType<double>> &left_sum,
@@ -209,6 +209,7 @@ class HistEvaluator {
                        SplitsRequest *splits_request, bool default_left,
                        bool is_cat = false) const {
     EncryptedSplit *es = splits_request->mutable_encrypted_splits()->Add();
+    // TODO: encrypt the feature id and bin id to mask id
     es->set_mask_id(to_string(fidx) + "_" + to_string(i));
     xgbcomm::GradPair *ls = es->mutable_left_sum();
     xgbcomm::GradPair *rs = es->mutable_right_sum();
@@ -221,7 +222,7 @@ class HistEvaluator {
     return true;
   }
 
-  template <int d_step>
+  template <int d_step = 1>
   bool EnumerateUpdate(bst_bin_t i, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<double> &left_sum, GradStats<double> &right_sum,
@@ -390,7 +391,19 @@ class HistEvaluator {
     });
     if (is_same<double, H>()) {
       // update expand entry for the other part
-      xgb_server_->UpdateExpandEntry(p_entries);
+      xgb_server_->UpdateExpandEntry(p_entries, [&](unsigned nidx, GradStats<double> &left_sum,
+                                                    GradStats<double> &right_sum,
+                                                    EncryptedSplit &es) {
+        // update grad statistics for the host part
+        auto mask_id = atoi(es.mask_id().c_str());
+        if (es.d_step() > 0) {
+          this->EnumerateUpdate<1>(-1, mask_id, nidx, 0.0, evaluator, left_sum, right_sum,
+                                   entries[nidx].split, nullptr, es.default_left(), es.is_cat());
+        } else {
+          this->EnumerateUpdate<-1>(-1, mask_id, nidx, 0.0, evaluator, left_sum, right_sum,
+                                    entries[nidx].split, nullptr, es.default_left(), es.is_cat());
+        }
+      });
 
       for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {

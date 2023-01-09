@@ -181,20 +181,25 @@ void XgbServiceServer::SendSplits(XgbEncryptedSplit* splits, size_t size) {
 }
 
 template <typename ExpandEntry>
-void XgbServiceServer::UpdateExpandEntry(std::vector<ExpandEntry>* entries) {
+void XgbServiceServer::UpdateExpandEntry(
+    std::vector<ExpandEntry>* entries,
+    function<void(unsigned, GradStats<double>&, GradStats<double>&, EncryptedSplit&)>
+        update_grad_stats) {
   while (!finish_split_) {
   }  // wait for the other part
   for (unsigned nidx_in_set = 0; nidx_in_set < entries->size(); ++nidx_in_set) {
     auto encrypted_splits = splits_requests_[nidx_in_set].encrypted_splits();
     ParallelFor(encrypted_splits.size(), n_threads_, [&](int i) {
-      xgboost::tree::GradStats<double> left_sum;
-      xgboost::tree::GradStats<double> right_sum;
-      xgboost::tree::GradStats<EncryptedType<double>> encrypted_left_sum;
-      xgboost::tree::GradStats<EncryptedType<double>> encrypted_right_sum;
+      GradStats<double> left_sum;
+      GradStats<double> right_sum;
+      GradStats<EncryptedType<double>> encrypted_left_sum;
+      GradStats<EncryptedType<double>> encrypted_right_sum;
       mpz_type2_mpz_t(encrypted_left_sum, encrypted_splits[i].left_sum());
       mpz_type2_mpz_t(encrypted_right_sum, encrypted_splits[i].right_sum());
       opt_paillier_decrypt(left_sum, encrypted_left_sum, pub_, pri_);
       opt_paillier_decrypt(right_sum, encrypted_right_sum, pub_, pri_);
+      // update grad statistics
+      update_grad_stats(nidx_in_set, left_sum, right_sum, encrypted_splits[i]);
     });
   }
 }
@@ -278,5 +283,7 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
 }
 
 template void XgbServiceServer::UpdateExpandEntry(
-    std::vector<xgboost::tree::CPUExpandEntry>* entries);
+    std::vector<CPUExpandEntry>* entries,
+    function<void(unsigned, GradStats<double>&, GradStats<double>&, EncryptedSplit&)>
+        update_grad_stats);
 //=================================XgbServiceServer End===================================
