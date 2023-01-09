@@ -523,19 +523,19 @@ class LearnerConfiguration : public Learner {
     if (tparam_.dsplit == DataSplitMode::kCol) {
       if (fparam_.fl_role == FedratedRole::Guest) {
         // server_.reset(new XgbServiceServer(fparam_.fl_port));
-        server_ = FIND_XGB_SERVICE(XgbServiceServer);
-        server_->Start(fparam_.fl_port);
+        xgb_server_ = FIND_XGB_SERVICE(XgbServiceServer);
+        xgb_server_->Start(fparam_.fl_port);
         opt_paillier_keygen(&pub_, &pri_, fparam_.fl_bit_len);
-        server_->SendPubKey(pub_);
-        if (server_.get() == nullptr) {
+        xgb_server_->SendPubKey(pub_);
+        if (xgb_server_.get() == nullptr) {
         }
         // sleep(10);
       } else {
         auto p = fparam_.fl_address.find(":");
-        client_ = FIND_XGB_SERVICE(XgbServiceClient);
-        client_->Start(atoi(fparam_.fl_address.substr(p + 1).c_str()),
+        xgb_client_ = FIND_XGB_SERVICE(XgbServiceClient);
+        xgb_client_->Start(atoi(fparam_.fl_address.substr(p + 1).c_str()),
                        fparam_.fl_address.substr(0, p), omp_get_num_procs());
-        client_->GetPubKey(&pub_);
+        xgb_client_->GetPubKey(&pub_);
         cout << "** RPC client connect server success! " << endl;
       }
       EncryptedType<>::pub = pub_;
@@ -1252,8 +1252,8 @@ class LearnerImpl : public LearnerIO {
     if (local_map->find(this) != local_map->cend()) {
       local_map->erase(this);
     }
-    if (server_ != nullptr) {
-      server_->Shutdown();
+    if (xgb_server_ != nullptr) {
+      xgb_server_->Shutdown();
     }
   }
   // Configuration before data is known.
@@ -1345,17 +1345,17 @@ class LearnerImpl : public LearnerIO {
       TrainingObserver::Instance().Observe(gpair_, "Gradients");
 
       monitor_.Start("SendEncryptedGradient");
-      server_->cur_version = predt.version;
-      server_->max_version = BoostedRounds() - 1;
-      server_->SendGradPairs(encrypted_gpair_.HostVector());
+      xgb_server_->cur_version = predt.version;
+      xgb_server_->max_version = BoostedRounds() - 1;
+      xgb_server_->SendGradPairs(encrypted_gpair_.HostVector());
       monitor_.Stop("SendEncryptedGradient");
       TrainingObserver::Instance().Observe(encrypted_gpair_, "EncryptedGradients");
       // For checking the encrypted gradient pairs
       // opt_paillier_batch_decrypt(gpair_.HostVector(), encrypted_gpair_.HostVector(), pub_, pri_);
       gbm_->DoBoost(train.get(), &gpair_, &predt, obj_.get());
     } else {
-      client_->cur_version = predt.version;
-      client_->GetEncryptedGradPairs(encrypted_gpair_.HostVector());
+      xgb_client_->cur_version = predt.version;
+      xgb_client_->GetEncryptedGradPairs(encrypted_gpair_.HostVector());
       gbm_->DoBoost(train.get(), &encrypted_gpair_, &predt, obj_.get());
     }
     monitor_.Stop("UpdateOneIter");

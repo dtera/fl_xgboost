@@ -33,11 +33,11 @@ DMLC_REGISTRY_DECLARE(XgbServiceServerFactory);
 DMLC_REGISTRY_DECLARE(XgbServiceClientFactory);
 }  // namespace dmlc
 
-static std::unique_ptr<XgbServiceServer> server_;
-static std::unique_ptr<XgbServiceClient> client_;
+extern std::unique_ptr<XgbServiceServer> xgb_server_;
+extern std::unique_ptr<XgbServiceClient> xgb_client_;
 
-REGISTER_XGB_SERVEICE(XgbServiceServer, server_);
-REGISTER_XGB_SERVEICE(XgbServiceClient, client_);
+REGISTER_XGB_SERVEICE(XgbServiceServer, xgb_server_);
+REGISTER_XGB_SERVEICE(XgbServiceClient, xgb_client_);
 
 #define FIND_XGB_SERVICE(ServiceName) \
   dmlc::Registry<ServiceName##Factory>::Find(#ServiceName)->body()

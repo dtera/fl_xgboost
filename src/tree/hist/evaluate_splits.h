@@ -381,8 +381,7 @@ class HistEvaluator {
     });
     if (is_same<double, H>()) {
       // update expand entry for the other part
-      server_ = FIND_XGB_SERVICE(XgbServiceServer);
-      server_->UpdateExpandEntry(p_entries);
+      xgb_server_->UpdateExpandEntry(p_entries);
 
       for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {
@@ -396,11 +395,10 @@ class HistEvaluator {
               tloc_requests[n_threads_ * nidx_in_set + tidx].encrypted_splits());
         }
         splits_requests[nidx_in_set].set_nidx(nidx_in_set);
-        client_ = FIND_XGB_SERVICE(XgbServiceClient);
-        client_->SendEncryptedSplits(splits_requests[nidx_in_set]);
+        xgb_client_->SendEncryptedSplits(splits_requests[nidx_in_set]);
       }
       SplitsRequest empty_req;
-      client_->SendEncryptedSplits(empty_req);
+      xgb_client_->SendEncryptedSplits(empty_req);
     }
   }
 
