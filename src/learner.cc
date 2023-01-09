@@ -527,14 +527,14 @@ class LearnerConfiguration : public Learner {
         xgb_server_->Start(fparam_.fl_port);
         opt_paillier_keygen(&pub_, &pri_, fparam_.fl_bit_len);
         xgb_server_->SendPubKey(pub_);
-        if (xgb_server_.get() == nullptr) {
-        }
-        // sleep(10);
+        xgb_server_->SetPriKey(pri_);
+        xgb_server_->max_version =
+            cfg_.count("num_round") == 0 ? 1 : std::atoi(cfg_["num_round"].c_str());
       } else {
         auto p = fparam_.fl_address.find(":");
         xgb_client_ = FIND_XGB_SERVICE(XgbServiceClient);
         xgb_client_->Start(atoi(fparam_.fl_address.substr(p + 1).c_str()),
-                       fparam_.fl_address.substr(0, p), omp_get_num_procs());
+                           fparam_.fl_address.substr(0, p), omp_get_num_procs());
         xgb_client_->GetPubKey(&pub_);
         cout << "** RPC client connect server success! " << endl;
       }
@@ -746,6 +746,7 @@ class LearnerConfiguration : public Learner {
     // FIXME(trivialfis): Make eval_metric a training parameter.
     keys.emplace_back(kEvalMetric);
     keys.emplace_back("num_output_group");
+    keys.emplace_back("num_round");
 
     std::sort(keys.begin(), keys.end());
 
@@ -1346,7 +1347,6 @@ class LearnerImpl : public LearnerIO {
 
       monitor_.Start("SendEncryptedGradient");
       xgb_server_->cur_version = predt.version;
-      xgb_server_->max_version = BoostedRounds() - 1;
       xgb_server_->SendGradPairs(encrypted_gpair_.HostVector());
       monitor_.Stop("SendEncryptedGradient");
       TrainingObserver::Instance().Observe(encrypted_gpair_, "EncryptedGradients");

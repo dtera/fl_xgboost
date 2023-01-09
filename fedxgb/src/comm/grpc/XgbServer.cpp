@@ -185,15 +185,16 @@ void XgbServiceServer::UpdateExpandEntry(std::vector<ExpandEntry>* entries) {
   while (!finish_split_) {
   }  // wait for the other part
   for (unsigned nidx_in_set = 0; nidx_in_set < entries->size(); ++nidx_in_set) {
-    auto encrypted_splits = splits_requests_[nidx_in_set]->encrypted_splits();
+    auto encrypted_splits = splits_requests_[nidx_in_set].encrypted_splits();
     ParallelFor(encrypted_splits.size(), n_threads_, [&](int i) {
       xgboost::tree::GradStats<double> left_sum;
       xgboost::tree::GradStats<double> right_sum;
       xgboost::tree::GradStats<EncryptedType<double>> encrypted_left_sum;
       xgboost::tree::GradStats<EncryptedType<double>> encrypted_right_sum;
       mpz_type2_mpz_t(encrypted_left_sum, encrypted_splits[i].left_sum());
-      mpz_type2_mpz_t(encrypted_right_sum, encrypted_splits[i].left_sum());
+      mpz_type2_mpz_t(encrypted_right_sum, encrypted_splits[i].right_sum());
       opt_paillier_decrypt(left_sum, encrypted_left_sum, pub_, pri_);
+      opt_paillier_decrypt(right_sum, encrypted_right_sum, pub_, pri_);
     });
   }
 }
@@ -265,7 +266,7 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
   if (request->encrypted_splits().empty()) {
     finish_split_ = true;
   } else {
-    splits_requests_.insert({request->nidx(), request});
+    splits_requests_.insert({request->nidx(), *request});
     response->set_version(cur_version);
   }
 

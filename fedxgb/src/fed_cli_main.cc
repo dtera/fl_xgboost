@@ -151,6 +151,7 @@ struct CLIParam : public XGBoostParameter<CLIParam> {
     // Don't copy the configuration to enable parameter validation.
     auto unknown_cfg = this->UpdateAllowUnknown(_cfg);
     this->cfg.emplace_back("validate_parameters", "True");
+    this->cfg.emplace_back("num_round", to_string(num_round));
     for (const auto& kv : unknown_cfg) {
       if (!strncmp("eval[", kv.first.c_str(), 5)) {
         char evname[256];
