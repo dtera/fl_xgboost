@@ -462,7 +462,9 @@ class LearnerConfiguration : public Learner {
     for (std::shared_ptr<DMatrix> const& d : cache) {
       local_cache.Cache(d, GenericParameter::kCpuId);
     }
+    pub_ = nullptr;
   }
+
   ~LearnerConfiguration() override {
     auto local_cache = ThreadLocalPredictionCache::Get();
     if (local_cache->find(this) != local_cache->cend()) {
