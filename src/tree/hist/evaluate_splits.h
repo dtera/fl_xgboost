@@ -243,6 +243,7 @@ class HistEvaluator {
         return best.Update(loss_chg, fidx, split_pt, default_left, is_cat, right_sum, left_sum);
       }
     }
+    return false;
   }
 
   // Enumerate/Scan the split values of specific feature
@@ -388,6 +389,11 @@ class HistEvaluator {
       }
     });
     if (is_same<double, H>()) {
+      for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
+        for (auto tidx = 0; tidx < n_threads_; ++tidx) {
+          entries[nidx_in_set].split.Update(tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
+        }
+      }
       // update expand entry for the other part
       xgb_server_->UpdateExpandEntry(
           p_entries, [&](unsigned nidx, GradStats<double> &left_sum, GradStats<double> &right_sum,
@@ -398,12 +404,6 @@ class HistEvaluator {
                                   entries[nidx].split, nullptr, es.d_step(), es.default_left(),
                                   es.is_cat());
           });
-
-      for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
-        for (auto tidx = 0; tidx < n_threads_; ++tidx) {
-          entries[nidx_in_set].split.Update(tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
-        }
-      }
     } else {
       for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {
