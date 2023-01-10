@@ -368,6 +368,8 @@ struct SplitEntryContainer {
   GradientT left_sum;
   GradientT right_sum;
 
+  int32_t part_id{-1};
+
   SplitEntryContainer() = default;
 
   friend std::ostream &operator<<(std::ostream &os, SplitEntryContainer const &s) {
@@ -378,10 +380,15 @@ struct SplitEntryContainer {
        << "is_cat: " << s.is_cat << "\n"
        << "left_sum: " << s.left_sum << "\n"
        << "right_sum: " << s.right_sum << std::endl;
+    if (s.part_id >= 0) {
+      os << "part_id: " << s.part_id << std::endl;
+    }
     return os;
   }
+
   /*!\return feature index to split on */
   bst_feature_t SplitIndex() const { return sindex & ((1U << 31) - 1U); }
+
   /*!\return whether missing value goes to left branch */
   bool DefaultLeft() const { return (sindex >> 31) != 0; }
   /*!
@@ -419,6 +426,7 @@ struct SplitEntryContainer {
       this->cat_bits = e.cat_bits;
       this->left_sum = e.left_sum;
       this->right_sum = e.right_sum;
+      this->part_id = e.part_id;
       return true;
     } else {
       return false;

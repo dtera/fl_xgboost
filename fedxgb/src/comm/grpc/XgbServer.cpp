@@ -183,13 +183,13 @@ void XgbServiceServer::SendSplits(XgbEncryptedSplit* splits, size_t size) {
 template <typename ExpandEntry>
 void XgbServiceServer::UpdateExpandEntry(
     std::vector<ExpandEntry>* entries,
-    function<void(unsigned, GradStats<double>&, GradStats<double>&, EncryptedSplit&)>
+    function<void(uint32_t, GradStats<double>&, GradStats<double>&, const SplitsRequest&)>
         update_grad_stats) {
   while (!finish_split_) {
   }  // wait for the other part
   for (unsigned nidx_in_set = 0; nidx_in_set < entries->size(); ++nidx_in_set) {
     auto encrypted_splits = splits_requests_[nidx_in_set].encrypted_splits();
-    ParallelFor(encrypted_splits.size(), n_threads_, [&](int i) {
+    ParallelFor(encrypted_splits.size(), n_threads_, [&](uint32_t i) {
       GradStats<double> left_sum;
       GradStats<double> right_sum;
       GradStats<EncryptedType<double>> encrypted_left_sum;
@@ -199,7 +199,7 @@ void XgbServiceServer::UpdateExpandEntry(
       opt_paillier_decrypt(left_sum, encrypted_left_sum, pub_, pri_);
       opt_paillier_decrypt(right_sum, encrypted_right_sum, pub_, pri_);
       // update grad statistics
-      update_grad_stats(nidx_in_set, left_sum, right_sum, encrypted_splits[i]);
+      update_grad_stats(i, left_sum, right_sum, splits_requests_[nidx_in_set]);
     });
   }
 }
@@ -284,6 +284,6 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
 
 template void XgbServiceServer::UpdateExpandEntry(
     std::vector<CPUExpandEntry>* entries,
-    function<void(unsigned, GradStats<double>&, GradStats<double>&, EncryptedSplit&)>
+    function<void(uint32_t, GradStats<double>&, GradStats<double>&, const SplitsRequest&)>
         update_grad_stats);
 //=================================XgbServiceServer End===================================

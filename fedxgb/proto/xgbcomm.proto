@@ -42,7 +42,8 @@ message GradPairsResponse {
 message SplitsRequest {
   uint32 version = 1;
   uint32 nidx = 2;
-  repeated EncryptedSplit encrypted_splits = 3;
+  uint32 part_id = 3;
+  repeated EncryptedSplit encrypted_splits = 4;
 }
 
 message SplitsResponse {

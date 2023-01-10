@@ -117,7 +117,7 @@ class XgbServiceServer final : public XgbService::Service {
   template <typename ExpandEntry>
   void UpdateExpandEntry(
       std::vector<ExpandEntry> *entries,
-      function<void(unsigned, GradStats<double> &, GradStats<double> &, EncryptedSplit &)>
+      function<void(uint32_t, GradStats<double> &, GradStats<double> &, const SplitsRequest &)>
           update_grad_stats);
 
   Status GetPubKey(ServerContext *context, const Request *request,

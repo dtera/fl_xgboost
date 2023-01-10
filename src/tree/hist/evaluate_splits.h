@@ -228,6 +228,7 @@ class HistEvaluator {
                        GradStats<double> &left_sum, GradStats<double> &right_sum,
                        SplitEntry<> &best, SplitsRequest *splits_request, int d_step,
                        bool default_left, bool is_cat = false) const {
+    bool updated = false;
     if (IsValid(left_sum, right_sum)) {
       bst_float loss_chg;
       if (d_step > 0) {
@@ -235,15 +236,15 @@ class HistEvaluator {
         loss_chg = evaluator.CalcSplitGain(param_, nidx, fidx, left_sum, right_sum) -
                    snode_[nidx].root_gain;
 
-        return best.Update(loss_chg, fidx, split_pt, default_left, is_cat, left_sum, right_sum);
+        updated = best.Update(loss_chg, fidx, split_pt, default_left, is_cat, left_sum, right_sum);
       } else {
         // backward enumeration: split at left bound of each bin
         loss_chg = evaluator.CalcSplitGain(param_, nidx, fidx, right_sum, left_sum) -
                    snode_[nidx].root_gain;
-        return best.Update(loss_chg, fidx, split_pt, default_left, is_cat, right_sum, left_sum);
+        updated = best.Update(loss_chg, fidx, split_pt, default_left, is_cat, right_sum, left_sum);
       }
     }
-    return false;
+    return updated;
   }
 
   // Enumerate/Scan the split values of specific feature
@@ -398,13 +399,17 @@ class HistEvaluator {
       if (fparam_.dsplit == DataSplitMode::kCol) {
         // update expand entry for the data holder part
         xgb_server_->UpdateExpandEntry(
-            p_entries, [&](unsigned nidx, GradStats<double> &left_sum, GradStats<double> &right_sum,
-                           EncryptedSplit &es) {
+            p_entries, [&](uint32_t i, GradStats<double> &left_sum, GradStats<double> &right_sum,
+                           const SplitsRequest &sr) {
+              auto es = sr.encrypted_splits()[i];
               // update grad statistics for the data holder part
               auto mask_id = atoi(es.mask_id().c_str());
-              this->EnumerateUpdate(-1, mask_id, nidx, 0.0, evaluator, left_sum, right_sum,
-                                    entries[nidx].split, nullptr, es.d_step(), es.default_left(),
-                                    es.is_cat());
+              auto updated = this->EnumerateUpdate(-1, mask_id, sr.nidx(), 0.0, evaluator, left_sum,
+                                                   right_sum, entries[sr.nidx()].split, nullptr,
+                                                   es.d_step(), es.default_left(), es.is_cat());
+              if (updated) {
+                entries[sr.nidx()].split.part_id = sr.part_id();
+              }
             });
       }
     } else {
