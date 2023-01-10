@@ -186,7 +186,7 @@ void XgbServiceServer::UpdateExpandEntry(
     function<void(uint32_t, GradStats<double>&, GradStats<double>&, const SplitsRequest&)>
         update_grad_stats) {
   while (!finish_split_) {
-  }  // wait for the other part
+  }  // wait for the data holder part
   for (unsigned nidx_in_set = 0; nidx_in_set < entries->size(); ++nidx_in_set) {
     auto encrypted_splits = splits_requests_[nidx_in_set].encrypted_splits();
     ParallelFor(encrypted_splits.size(), n_threads_, [&](uint32_t i) {
@@ -202,6 +202,7 @@ void XgbServiceServer::UpdateExpandEntry(
       update_grad_stats(i, left_sum, right_sum, splits_requests_[nidx_in_set]);
     });
   }
+  finish_split_ = false;
 }
 
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
@@ -270,6 +271,9 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
                                              SplitsResponse* response) {
   if (request->encrypted_splits().empty()) {
     finish_split_ = true;
+    while (finish_split_) {
+    }  // wait for the label part
+    // TODO: notify the data holder part: it's split is the best
   } else {
     splits_requests_.insert({request->nidx(), *request});
     response->set_version(cur_version);

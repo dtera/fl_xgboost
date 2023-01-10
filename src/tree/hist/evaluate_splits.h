@@ -396,7 +396,7 @@ class HistEvaluator {
         }
       }
 
-      if (fparam_.dsplit != DataSplitMode::kCol) {
+      if (fparam_.dsplit == DataSplitMode::kCol) {
         // update expand entry for the data holder part
         xgb_server_->UpdateExpandEntry(
             p_entries, [&](uint32_t i, GradStats<double> &left_sum, GradStats<double> &right_sum,
