@@ -396,7 +396,7 @@ class HistEvaluator {
         }
       }
 
-      if (fparam_.dsplit == DataSplitMode::kCol) {
+      if (fparam_.dsplit != DataSplitMode::kCol) {
         // update expand entry for the data holder part
         xgb_server_->UpdateExpandEntry(
             p_entries, [&](uint32_t i, GradStats<double> &left_sum, GradStats<double> &right_sum,
@@ -404,7 +404,7 @@ class HistEvaluator {
               auto es = sr.encrypted_splits()[i];
               // update grad statistics for the data holder part
               auto mask_id = atoi(es.mask_id().c_str());
-              auto updated = this->EnumerateUpdate(-1, mask_id, sr.nidx(), 0.0, evaluator, left_sum,
+              auto updated = this->EnumerateUpdate(-1, 0, sr.nidx(), 0.0, evaluator, left_sum,
                                                    right_sum, entries[sr.nidx()].split, nullptr,
                                                    es.d_step(), es.default_left(), es.is_cat());
               if (updated) {
