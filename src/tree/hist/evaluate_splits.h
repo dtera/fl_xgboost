@@ -100,14 +100,14 @@ class HistEvaluator {
       // missing on left (treat missing as other categories)
       right_sum = GradStats<H>{hist[i]};
       left_sum.SetSubstract(parent.stats, right_sum);
-      EnumerateUpdate<1>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best,
-                         splits_request, true, true);
+      EnumerateUpdate(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, splits_request,
+                      1, true, true);
 
       // missing on right (treat missing as chosen category)
       right_sum.Add(missing);
       left_sum.SetSubstract(parent.stats, right_sum);
-      EnumerateUpdate<1>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best,
-                         splits_request, false, true);
+      EnumerateUpdate(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, splits_request,
+                      1, false, true);
     }
 
     if (best.is_cat) {
@@ -180,8 +180,8 @@ class HistEvaluator {
       }
 
       // TODO We don't have a numeric split point, nan here is a dummy split.
-      if (EnumerateUpdate<1>(i, fidx, nidx, std::numeric_limits<float>::quiet_NaN(), evaluator,
-                             left_sum, right_sum, best, splits_request, d_step == 1, true)) {
+      if (EnumerateUpdate(i, fidx, nidx, std::numeric_limits<float>::quiet_NaN(), evaluator,
+                          left_sum, right_sum, best, splits_request, d_step, d_step == 1, true)) {
         best_thresh = i;
       }
     }
@@ -201,12 +201,11 @@ class HistEvaluator {
     p_best->Update(best);
   }
 
-  template <int d_step = 1>
   bool EnumerateUpdate(bst_bin_t i, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<EncryptedType<double>> &left_sum,
                        GradStats<EncryptedType<double>> &right_sum, SplitEntry<> &best,
-                       SplitsRequest *splits_request, bool default_left,
+                       SplitsRequest *splits_request, int d_step, bool default_left,
                        bool is_cat = false) const {
     EncryptedSplit *es = splits_request->mutable_encrypted_splits()->Add();
     // TODO: encrypt the feature id and bin id to mask id
@@ -222,12 +221,11 @@ class HistEvaluator {
     return true;
   }
 
-  template <int d_step = 1>
   bool EnumerateUpdate(bst_bin_t i, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<double> &left_sum, GradStats<double> &right_sum,
-                       SplitEntry<> &best, SplitsRequest *splits_request, bool default_left,
-                       bool is_cat = false) const {
+                       SplitEntry<> &best, SplitsRequest *splits_request, int d_step,
+                       bool default_left, bool is_cat = false) const {
     if (IsValid(left_sum, right_sum)) {
       bst_float loss_chg;
       if (d_step > 0) {
@@ -299,8 +297,8 @@ class HistEvaluator {
       } else {
         split_pt = cut.Values()[i - 1];
       }
-      EnumerateUpdate<d_step>(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best,
-                              splits_request, d_step == -1);
+      EnumerateUpdate(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, splits_request,
+                      d_step, d_step == -1);
     }
 
     p_best->Update(best);
@@ -391,19 +389,15 @@ class HistEvaluator {
     });
     if (is_same<double, H>()) {
       // update expand entry for the other part
-      xgb_server_->UpdateExpandEntry(p_entries, [&](unsigned nidx, GradStats<double> &left_sum,
-                                                    GradStats<double> &right_sum,
-                                                    EncryptedSplit &es) {
-        // update grad statistics for the host part
-        auto mask_id = atoi(es.mask_id().c_str());
-        if (es.d_step() > 0) {
-          this->EnumerateUpdate<1>(-1, mask_id, nidx, 0.0, evaluator, left_sum, right_sum,
-                                   entries[nidx].split, nullptr, es.default_left(), es.is_cat());
-        } else {
-          this->EnumerateUpdate<-1>(-1, mask_id, nidx, 0.0, evaluator, left_sum, right_sum,
-                                    entries[nidx].split, nullptr, es.default_left(), es.is_cat());
-        }
-      });
+      xgb_server_->UpdateExpandEntry(
+          p_entries, [&](unsigned nidx, GradStats<double> &left_sum, GradStats<double> &right_sum,
+                         EncryptedSplit &es) {
+            // update grad statistics for the host part
+            auto mask_id = atoi(es.mask_id().c_str());
+            this->EnumerateUpdate(-1, mask_id, nidx, 0.0, evaluator, left_sum, right_sum,
+                                  entries[nidx].split, nullptr, es.d_step(), es.default_left(),
+                                  es.is_cat());
+          });
 
       for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {
