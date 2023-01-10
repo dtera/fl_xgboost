@@ -394,16 +394,19 @@ class HistEvaluator {
           entries[nidx_in_set].split.Update(tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
         }
       }
-      // update expand entry for the other part
-      xgb_server_->UpdateExpandEntry(
-          p_entries, [&](unsigned nidx, GradStats<double> &left_sum, GradStats<double> &right_sum,
-                         EncryptedSplit &es) {
-            // update grad statistics for the host part
-            auto mask_id = atoi(es.mask_id().c_str());
-            this->EnumerateUpdate(-1, mask_id, nidx, 0.0, evaluator, left_sum, right_sum,
-                                  entries[nidx].split, nullptr, es.d_step(), es.default_left(),
-                                  es.is_cat());
-          });
+
+      if (param_.dsplit == DataSplitMode::kCol) {
+        // update expand entry for the other part
+        xgb_server_->UpdateExpandEntry(
+            p_entries, [&](unsigned nidx, GradStats<double> &left_sum, GradStats<double> &right_sum,
+                           EncryptedSplit &es) {
+              // update grad statistics for the host part
+              auto mask_id = atoi(es.mask_id().c_str());
+              this->EnumerateUpdate(-1, mask_id, nidx, 0.0, evaluator, left_sum, right_sum,
+                                    entries[nidx].split, nullptr, es.d_step(), es.default_left(),
+                                    es.is_cat());
+            });
+      }
     } else {
       for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {

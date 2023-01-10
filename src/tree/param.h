@@ -24,6 +24,8 @@ namespace tree {
 
 /*! \brief training parameters for regression tree */
 struct TrainParam : public XGBoostParameter<TrainParam> {
+  // data split mode, can be row, col, or none.
+  DataSplitMode dsplit{DataSplitMode::kAuto};
   // learning step size for a time
   float learning_rate;
   // minimum loss change required for a split
@@ -84,6 +86,13 @@ struct TrainParam : public XGBoostParameter<TrainParam> {
 
   // declare the parameters
   DMLC_DECLARE_PARAMETER(TrainParam) {
+    DMLC_DECLARE_FIELD(dsplit)
+        .set_default(DataSplitMode::kAuto)
+        .add_enum("auto", DataSplitMode::kAuto)
+        .add_enum("col", DataSplitMode::kCol)
+        .add_enum("row", DataSplitMode::kRow)
+        .add_enum("none", DataSplitMode::kNone)
+        .describe("Data split mode for distributed training.");
     DMLC_DECLARE_FIELD(learning_rate)
         .set_lower_bound(0.0f)
         .set_default(0.3f)
