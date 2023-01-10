@@ -25,7 +25,10 @@ namespace tree {
 
 DMLC_REGISTRY_FILE_TAG(updater_quantile_hist);
 
-void QuantileHistMaker::Configure(const Args &args) { param_.UpdateAllowUnknown(args); }
+void QuantileHistMaker::Configure(const Args &args) {
+  param_.UpdateAllowUnknown(args);
+  fparam_.UpdateAllowUnknown(args);
+}
 
 template <typename T>
 inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair, DMatrix *dmat,
@@ -38,7 +41,7 @@ inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair
   // build tree
   const size_t n_trees = trees.size();
   if (!pimpl_) {
-    pimpl_.reset(new Builder(n_trees, param_, dmat, task_, ctx_));
+    pimpl_.reset(new Builder(n_trees, param_, fparam_, dmat, task_, ctx_));
   }
 
   size_t t_idx{0};
@@ -140,7 +143,7 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
         evaluator_->EvaluateSplits(histogram_builder_->Histogram(), gmat.cut, ft, *p_tree,
                                    &entries);
       } else {
-        // evaluate splits for host
+        // evaluate splits for the data holder part
         encrypted_evaluator_->EvaluateSplits(encrypted_histogram_builder_->Histogram(), gmat.cut,
                                              ft, *p_tree, &entries);
       }
@@ -421,13 +424,13 @@ void QuantileHistMaker::Builder::InitData(DMatrix *fmat, const RegTree &tree,
     if (is_same<float, T>()) {
       histogram_builder_->Reset(n_total_bins, HistBatch(param_), ctx_->Threads(), page_id,
                                 collective::IsDistributed());
-      evaluator_.reset(
-          new HistEvaluator<CPUExpandEntry>{param_, info, this->ctx_->Threads(), column_sampler_});
+      evaluator_.reset(new HistEvaluator<CPUExpandEntry>{param_, fparam_, info,
+                                                         this->ctx_->Threads(), column_sampler_});
     } else {
       encrypted_histogram_builder_->Reset(n_total_bins, HistBatch(param_), ctx_->Threads(), page_id,
                                           collective::IsDistributed());
       encrypted_evaluator_.reset(new HistEvaluator<CPUExpandEntry, EncryptedType<double>>{
-          param_, info, this->ctx_->Threads(), column_sampler_});
+          param_, fparam_, info, this->ctx_->Threads(), column_sampler_});
     }
 
     if (param_.subsample < 1.0f) {

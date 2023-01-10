@@ -19,6 +19,7 @@
 #include "../param.h"
 #include "../split_evaluator.h"
 #include "comm/grpc/XgbServiceRegistry.h"
+#include "xgboost/federated_param.h"
 
 using namespace google::protobuf;
 
@@ -37,6 +38,7 @@ class HistEvaluator {
 
  private:
   TrainParam param_;
+  FederatedParam fparam_;
   std::shared_ptr<common::ColumnSampler> column_sampler_;
   TreeEvaluator tree_evaluator_;
   int32_t n_threads_{0};
@@ -230,16 +232,14 @@ class HistEvaluator {
       bst_float loss_chg;
       if (d_step > 0) {
         // forward enumeration: split at right bound of each bin
-        loss_chg =
-            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, left_sum, right_sum) -
-                               snode_[nidx].root_gain);
+        loss_chg = evaluator.CalcSplitGain(param_, nidx, fidx, left_sum, right_sum) -
+                   snode_[nidx].root_gain;
 
         return best.Update(loss_chg, fidx, split_pt, default_left, is_cat, left_sum, right_sum);
       } else {
         // backward enumeration: split at left bound of each bin
-        loss_chg =
-            static_cast<float>(evaluator.CalcSplitGain(param_, nidx, fidx, right_sum, left_sum) -
-                               snode_[nidx].root_gain);
+        loss_chg = evaluator.CalcSplitGain(param_, nidx, fidx, right_sum, left_sum) -
+                   snode_[nidx].root_gain;
         return best.Update(loss_chg, fidx, split_pt, default_left, is_cat, right_sum, left_sum);
       }
     }
@@ -310,7 +310,7 @@ class HistEvaluator {
   void SortFeatHistogram(std::vector<size_t> &sorted_idx,
                          common::GHistRow<EncryptedType<double>> &feat_hist,
                          TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) {
-    // TODO: Sort the histogram to get contiguous partitions for host part.
+    // TODO: Sort the histogram to get contiguous partitions for data holder part.
   }
 
   void SortFeatHistogram(std::vector<size_t> &sorted_idx, common::GHistRow<double> &feat_hist,
@@ -395,12 +395,12 @@ class HistEvaluator {
         }
       }
 
-      if (param_.dsplit == DataSplitMode::kCol) {
-        // update expand entry for the other part
+      if (fparam_.dsplit == DataSplitMode::kCol) {
+        // update expand entry for the data holder part
         xgb_server_->UpdateExpandEntry(
             p_entries, [&](unsigned nidx, GradStats<double> &left_sum, GradStats<double> &right_sum,
                            EncryptedSplit &es) {
-              // update grad statistics for the host part
+              // update grad statistics for the data holder part
               auto mask_id = atoi(es.mask_id().c_str());
               this->EnumerateUpdate(-1, mask_id, nidx, 0.0, evaluator, left_sum, right_sum,
                                     entries[nidx].split, nullptr, es.d_step(), es.default_left(),
@@ -496,9 +496,11 @@ class HistEvaluator {
  public:
   // The column sampler must be constructed by caller since we need to preserve the rng
   // for the entire training session.
-  explicit HistEvaluator(TrainParam const &param, MetaInfo const &info, int32_t n_threads,
+  explicit HistEvaluator(TrainParam const &param, FederatedParam const &fparam,
+                         MetaInfo const &info, int32_t n_threads,
                          std::shared_ptr<common::ColumnSampler> sampler)
       : param_{param},
+        fparam_{fparam},
         column_sampler_{std::move(sampler)},
         tree_evaluator_{param, static_cast<bst_feature_t>(info.num_col_), GenericParameter::kCpuId},
         n_threads_{n_threads} {
