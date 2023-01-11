@@ -409,6 +409,7 @@ class HistEvaluator {
                                                    es.default_left(), es.is_cat());
               if (updated) {
                 entries[sr.nidx()].split.part_id = sr.part_id();
+                xgb_server_->UpdateBestMaskId(sr.nidx(), es.mask_id());
               }
             });
       }
@@ -423,7 +424,9 @@ class HistEvaluator {
         xgb_client_->SendEncryptedSplits(splits_requests[nidx_in_set]);
       }
       SplitsRequest empty_req;
-      xgb_client_->SendEncryptedSplits(empty_req);
+      xgb_client_->SendEncryptedSplits(empty_req, [&](bst_feature_t fid, bst_bin_t bin_id) {
+
+      });
     }
   }
 

@@ -8,6 +8,7 @@
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
 
+#include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <memory>
 #include <string>
@@ -84,7 +85,12 @@ class XgbServiceClient {
 
   void GetEncryptedGradPairs(vector<xgboost::EncryptedGradientPair> &encryptedGradPairs);
 
-  void SendEncryptedSplits(SplitsRequest &splits_request);
+  void SendEncryptedSplits(
+      SplitsRequest &splits_request,
+      function<void(xgboost::bst_feature_t, xgboost::bst_bin_t)> record_bin_id_fid =
+          [](xgboost::bst_feature_t fid, xgboost::bst_bin_t bin_id) {
+
+          });
 
   void GetEncryptedSplits(XgbEncryptedSplit *encryptedSplits);
 };

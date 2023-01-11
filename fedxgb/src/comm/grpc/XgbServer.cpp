@@ -207,6 +207,11 @@ void XgbServiceServer::UpdateExpandEntry(
   finish_split_ = false;
 }
 
+void XgbServiceServer::UpdateBestMaskId(uint32_t nidx, const string& mask_id) {
+  lock_guard lk(m);
+  best_mask_ids_.insert({nidx, mask_id});
+}
+
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
                                    PubKeyResponse* response) {
   do { /* do nothing, waiting for data prepared. */
@@ -278,10 +283,14 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
     while (finish_split_) {
     }  // wait for the label part
     // TODO: notify the data holder part: it's split is the best
+    if (best_mask_ids_.count(request->nidx()) != 0) {
+      response->set_nidx(request->nidx());
+      response->set_allocated_mask_id(&(best_mask_ids_[request->nidx()]));
+    }
   } else {
     splits_requests_.insert({request->nidx(), *request});
-    response->set_version(cur_version);
   }
+  response->set_version(cur_version);
 
   if (cur_version == max_version) {
     finished_ = true;

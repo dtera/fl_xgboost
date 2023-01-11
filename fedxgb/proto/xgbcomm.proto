@@ -48,6 +48,8 @@ message SplitsRequest {
 
 message SplitsResponse {
   uint32 version = 1;
+  uint32 nidx = 2;
+  string mask_id = 3;
 }
 
 message EncryptedSplit {

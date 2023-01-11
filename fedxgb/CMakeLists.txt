@@ -18,7 +18,7 @@ file(GLOB RM_SRCS src/comm/grpc/demo/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
 list(REMOVE_ITEM SOURCES ${RM_SRCS})
 
 # brew install grpc googletest helib libomp protobuf xgboost
-foreach (pkg GRPC GTest:CONFIG helib OpenMP Opt@OpenSSL Protobuf Threads)
+foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest:CONFIG helib OpenMP Opt@OpenSSL Protobuf Threads)
     string(REGEX REPLACE "(:(.*)?)|(Opt@)" "" pkg_name ${pkg})
     string(REGEX MATCH ":(.*)?$" f1 ${pkg})
     string(FIND ${pkg} "Opt@" f2)
@@ -74,8 +74,8 @@ include_directories(./include ./src ../src ${PROTO_GENERATED_DIR}
 
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
-target_link_libraries(${PROJECT_NAME}_lib protobuf::libprotobuf protobuf::libprotobuf-lite OpenMP::OpenMP_CXX
-        gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection helib)
+target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES} protobuf::libprotobuf protobuf::libprotobuf-lite
+        OpenMP::OpenMP_CXX gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection helib)
 
 set(EXE_TARGETS)
 

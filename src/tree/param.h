@@ -369,6 +369,7 @@ struct SplitEntryContainer {
   GradientT right_sum;
 
   int32_t part_id{-1};
+  int32_t item_id{-1};
 
   SplitEntryContainer() = default;
 
@@ -382,6 +383,9 @@ struct SplitEntryContainer {
        << "right_sum: " << s.right_sum << std::endl;
     if (s.part_id >= 0) {
       os << "part_id: " << s.part_id << std::endl;
+    }
+    if (s.item_id >= 0) {
+      os << "item_id: " << s.item_id << std::endl;
     }
     return os;
   }
