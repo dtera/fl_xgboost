@@ -102,14 +102,14 @@ class HistEvaluator {
       // missing on left (treat missing as other categories)
       right_sum = GradStats<H>{hist[i]};
       left_sum.SetSubstract(parent.stats, right_sum);
-      EnumerateUpdate(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, splits_request,
-                      1, true, true);
+      EnumerateUpdate(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, 1, true, true,
+                      splits_request);
 
       // missing on right (treat missing as chosen category)
       right_sum.Add(missing);
       left_sum.SetSubstract(parent.stats, right_sum);
-      EnumerateUpdate(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, splits_request,
-                      1, false, true);
+      EnumerateUpdate(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, 1, false, true,
+                      splits_request);
     }
 
     if (best.is_cat) {
@@ -183,7 +183,7 @@ class HistEvaluator {
 
       // TODO We don't have a numeric split point, nan here is a dummy split.
       if (EnumerateUpdate(i, fidx, nidx, std::numeric_limits<float>::quiet_NaN(), evaluator,
-                          left_sum, right_sum, best, splits_request, d_step, d_step == 1, true)) {
+                          left_sum, right_sum, best, d_step, d_step == 1, true, splits_request)) {
         best_thresh = i;
       }
     }
@@ -206,9 +206,10 @@ class HistEvaluator {
   bool EnumerateUpdate(bst_bin_t i, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<EncryptedType<double>> &left_sum,
-                       GradStats<EncryptedType<double>> &right_sum, SplitEntry<> &best,
-                       SplitsRequest *splits_request, int d_step, bool default_left,
-                       bool is_cat = false) const {
+                       GradStats<EncryptedType<double>> &right_sum, SplitEntry<> &best, int d_step,
+                       bool default_left, bool is_cat = false,
+                       SplitsRequest *splits_request = nullptr) const {
+    assert(splits_request != nullptr);
     EncryptedSplit *es = splits_request->mutable_encrypted_splits()->Add();
     // TODO: encrypt the feature id and bin id to mask id
     es->set_mask_id(to_string(fidx) + "_" + to_string(i));
@@ -226,8 +227,8 @@ class HistEvaluator {
   bool EnumerateUpdate(bst_bin_t i, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<double> &left_sum, GradStats<double> &right_sum,
-                       SplitEntry<> &best, SplitsRequest *splits_request, int d_step,
-                       bool default_left, bool is_cat = false) const {
+                       SplitEntry<> &best, int d_step, bool default_left, bool is_cat = false,
+                       SplitsRequest *splits_request = nullptr) const {
     bool updated = false;
     if (IsValid(left_sum, right_sum)) {
       bst_float loss_chg;
@@ -299,8 +300,8 @@ class HistEvaluator {
       } else {
         split_pt = cut.Values()[i - 1];
       }
-      EnumerateUpdate(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, splits_request,
-                      d_step, d_step == -1);
+      EnumerateUpdate(i, fidx, nidx, split_pt, evaluator, left_sum, right_sum, best, d_step,
+                      d_step == -1, false, splits_request);
     }
 
     p_best->Update(best);
@@ -403,10 +404,9 @@ class HistEvaluator {
                            const SplitsRequest &sr) {
               auto es = sr.encrypted_splits()[i];
               // update grad statistics for the data holder part
-              auto mask_id = atoi(es.mask_id().c_str());
               auto updated = this->EnumerateUpdate(-1, 0, sr.nidx(), 0.0, evaluator, left_sum,
-                                                   right_sum, entries[sr.nidx()].split, nullptr,
-                                                   es.d_step(), es.default_left(), es.is_cat());
+                                                   right_sum, entries[sr.nidx()].split, es.d_step(),
+                                                   es.default_left(), es.is_cat());
               if (updated) {
                 entries[sr.nidx()].split.part_id = sr.part_id();
               }
@@ -419,6 +419,7 @@ class HistEvaluator {
               tloc_requests[n_threads_ * nidx_in_set + tidx].encrypted_splits());
         }
         splits_requests[nidx_in_set].set_nidx(nidx_in_set);
+        splits_requests[nidx_in_set].set_part_id(fparam_.fl_part_id);
         xgb_client_->SendEncryptedSplits(splits_requests[nidx_in_set]);
       }
       SplitsRequest empty_req;
