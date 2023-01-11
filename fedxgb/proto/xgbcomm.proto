@@ -50,6 +50,8 @@ message SplitsResponse {
   uint32 version = 1;
   uint32 nidx = 2;
   string mask_id = 3;
+  int32 d_step = 4;
+  bool default_left = 5;
 }
 
 message EncryptedSplit {

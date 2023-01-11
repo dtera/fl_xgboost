@@ -87,7 +87,7 @@ class XgbServiceServer final : public XgbService::Service {
   opt_public_key_t *pub_;
   opt_private_key_t *pri_;
   unordered_map<uint32_t, const SplitsRequest> splits_requests_;
-  unordered_map<uint32_t, string> best_mask_ids_;
+  unordered_map<uint32_t, const EncryptedSplit> best_splits_;
   bool finish_split_ = false;
   bool finished_ = false;
   // shared mutex to control updating the mask id
@@ -124,7 +124,7 @@ class XgbServiceServer final : public XgbService::Service {
       function<void(uint32_t, GradStats<double> &, GradStats<double> &, const SplitsRequest &)>
           update_grad_stats);
 
-  void UpdateBestMaskId(uint32_t nidx, const string &mask_id);
+  void UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSplit &best_split);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;

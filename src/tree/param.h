@@ -416,6 +416,7 @@ struct SplitEntryContainer {
       return !(this->loss_chg > new_loss_chg);
     }
   }
+
   /*!
    * \brief update the split entry, replace it if e is better
    * \param e candidate split solution
@@ -436,6 +437,7 @@ struct SplitEntryContainer {
       return false;
     }
   }
+
   /*!
    * \brief update the split entry, replace it if e is better
    * \param new_loss_chg loss reduction of new candidate
@@ -461,6 +463,23 @@ struct SplitEntryContainer {
     } else {
       return false;
     }
+  }
+
+  /*!
+   * \brief update the split entry, replace it if e is better
+   * \param split_index feature index to split on
+   * \param new_split_value the split point
+   * \param default_left whether the missing value goes to left
+   * \param part_id part id
+   * \return whether the proposed split is better and can replace current split
+   */
+  void Update(unsigned split_index, bst_float new_split_value, bool default_left, int32_t part_id) {
+    if (default_left) {
+      split_index |= (1U << 31);
+    }
+    this->sindex = split_index;
+    this->split_value = new_split_value;
+    this->part_id = part_id;
   }
 
   /*! \brief same as update, used by AllReduce*/

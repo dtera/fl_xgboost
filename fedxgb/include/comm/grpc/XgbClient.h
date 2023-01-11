@@ -87,10 +87,7 @@ class XgbServiceClient {
 
   void SendEncryptedSplits(
       SplitsRequest &splits_request,
-      function<void(xgboost::bst_feature_t, xgboost::bst_bin_t)> record_bin_id_fid =
-          [](xgboost::bst_feature_t fid, xgboost::bst_bin_t bin_id) {
-
-          });
+      function<void(SplitsResponse &)> process_response = [](SplitsResponse &) {});
 
   void GetEncryptedSplits(XgbEncryptedSplit *encryptedSplits);
 };

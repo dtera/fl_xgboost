@@ -185,15 +185,11 @@ void XgbServiceClient::GetEncryptedGradPairs(
              });
 }
 
-void XgbServiceClient::SendEncryptedSplits(
-    SplitsRequest& splits_request,
-    function<void(xgboost::bst_feature_t, xgboost::bst_bin_t)> record_bin_id_fid) {
+void XgbServiceClient::SendEncryptedSplits(SplitsRequest& splits_request,
+                                           function<void(SplitsResponse&)> process_response) {
   RpcRequest_(splits_request, SendEncryptedSplits, SplitsResponse, {
     if (splits_request.encrypted_splits().empty() && !response.mask_id().empty()) {
-      // TODO: decrypt the feature id and bin id from mask id
-      vector<string> ids;
-      boost::split(ids, response.mask_id(), boost::is_any_of("_"));
-      record_bin_id_fid(atoi(ids[0].c_str()), atoi(ids[1].c_str()));
+      process_response(response);
     }
   });
 }
