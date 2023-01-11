@@ -76,6 +76,7 @@ void mpz_type2_mpz_t(EncryptedType<T> &m_t, const xgbcomm::MpzType &mt) {
   }
 }
 
+namespace {
 #define MAX_MESSAGE_LENGTH 10 * 1024 * 1024 * 1024l
 
 #define RpcRequest(Request, RequestFunc, Response, SetRequest, SetResponse)               \
@@ -105,3 +106,4 @@ void mpz_type2_mpz_t(EncryptedType<T> &m_t, const xgbcomm::MpzType &mt) {
   } else {                                                                                \
     ERROR << "code: " << s.error_code() << ", error: " << s.error_message() << std::endl; \
   }
+}  // namespace

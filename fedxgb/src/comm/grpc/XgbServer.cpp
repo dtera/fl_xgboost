@@ -81,6 +81,7 @@ void XgbServiceAsyncServer::setSplitsResponse(SplitsResponse& splitsResponse) {
   cout << "splitsResponse: " << splitsResponse.version() << endl;
 }
 
+namespace {
 #define GrpcThread(t, TYPE)                                                          \
   while (true) {                                                                     \
     void* tag = nullptr;                                                             \
@@ -115,6 +116,7 @@ void XgbServiceAsyncServer::setSplitsResponse(SplitsResponse& splitsResponse) {
       }                                                                              \
     }                                                                                \
   }
+}  // namespace
 
 void XgbServiceAsyncServer::GradThread() { GrpcThread(grad, GRAD) }
 
@@ -240,6 +242,7 @@ Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* reques
   return Status::OK;
 }
 
+namespace {
 #define GetEncryptedData(type, DATATYPE, process_stats)                                  \
   do { /* do nothing, waiting for data prepared. */                                      \
   } while (!type##s_.count(request->version()));                                         \
@@ -257,6 +260,7 @@ Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* reques
     process_stats                                                                        \
   }                                                                                      \
   return Status::OK;
+}  // namespace
 
 Status XgbServiceServer::GetEncryptedGradPairs(ServerContext* context,
                                                const GradPairsRequest* request,
