@@ -188,7 +188,7 @@ void XgbServiceClient::GetEncryptedGradPairs(
 void XgbServiceClient::SendEncryptedSplits(SplitsRequest& splits_request,
                                            function<void(SplitsResponse&)> process_response) {
   RpcRequest_(splits_request, SendEncryptedSplits, SplitsResponse, {
-    if (splits_request.encrypted_splits().empty() && !response.mask_id().empty()) {
+    if (splits_request.encrypted_splits().empty()) {
       process_response(response);
     }
   });

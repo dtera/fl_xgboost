@@ -212,6 +212,10 @@ void XgbServiceServer::UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSp
   best_splits_.insert({nidx, best_split});
 }
 
+void XgbServiceServer::UpdateBestDefaultLeft(uint32_t nidx, const bool default_left) {
+  best_default_left_.insert({nidx, default_left});
+}
+
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
                                    PubKeyResponse* response) {
   do { /* do nothing, waiting for data prepared. */
@@ -282,12 +286,17 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
     finish_split_ = true;
     while (finish_split_) {
     }  // wait for the label part
-    // TODO: notify the data holder part: it's split is the best
     if (best_splits_.count(request->nidx()) != 0) {
+      // notify the data holder part: it's split is the best
       response->set_nidx(request->nidx());
       response->set_mask_id((best_splits_[request->nidx()].mask_id()));
       response->set_d_step(best_splits_[request->nidx()].d_step());
       response->set_default_left(best_splits_[request->nidx()].default_left());
+      response->set_part_id(request->part_id());
+    } else {
+      // notify the data holder part: the label holder is the best
+      response->set_default_left(best_default_left_[request->nidx()]);
+      response->set_part_id(best_part_id);
     }
   } else {
     splits_requests_.insert({request->nidx(), *request});

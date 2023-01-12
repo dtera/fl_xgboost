@@ -88,14 +88,16 @@ class XgbServiceServer final : public XgbService::Service {
   opt_private_key_t *pri_;
   unordered_map<uint32_t, const SplitsRequest> splits_requests_;
   unordered_map<uint32_t, const EncryptedSplit> best_splits_;
+  unordered_map<uint32_t, const bool> best_default_left_;
   bool finish_split_ = false;
   bool finished_ = false;
   // shared mutex to control updating the mask id
   std::shared_timed_mutex m{};
 
  public:
-  uint32_t cur_version = 0;
-  uint32_t max_version = -1;
+  uint32_t cur_version{0};
+  uint32_t max_version{std::numeric_limits<uint32_t>().max()};
+  int32_t best_part_id{-1};
 
   explicit XgbServiceServer() = default;
 
@@ -125,6 +127,8 @@ class XgbServiceServer final : public XgbService::Service {
           update_grad_stats);
 
   void UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSplit &best_split);
+
+  void UpdateBestDefaultLeft(uint32_t nidx, const bool default_left);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;

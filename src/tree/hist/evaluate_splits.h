@@ -44,7 +44,6 @@ class HistEvaluator {
   int32_t n_threads_{0};
   FeatureInteractionConstraintHost interaction_constraints_;
   std::vector<NodeEntry> snode_;
-  unordered_map<uint32_t, const SplitEntry<>> dataholder_best_splits_;
 
   // if sum of statistics for non-missing values in the node
   // is equal to sum of statistics for all values:
@@ -245,9 +244,6 @@ class HistEvaluator {
                    snode_[nidx].root_gain;
         updated = best.Update(loss_chg, fidx, split_pt, default_left, is_cat, right_sum, left_sum);
       }
-      if (updated && bin_id != -1) {
-        best.part_id = fparam_.fl_part_id;
-      }
     }
     return updated;
   }
@@ -394,14 +390,20 @@ class HistEvaluator {
         }
       }
     });
+
     if (is_same<double, H>()) {
       for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {
           entries[nidx_in_set].split.Update(tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
         }
+        if (fparam_.dsplit == DataSplitMode::kCol) {
+          xgb_server_->UpdateBestDefaultLeft(nidx_in_set, entries[nidx_in_set].split.DefaultLeft());
+          entries[nidx_in_set].split.part_id = fparam_.fl_part_id;
+        }
       }
 
-      if (fparam_.dsplit != DataSplitMode::kCol) {
+      if (fparam_.dsplit == DataSplitMode::kCol) {
+        xgb_server_->best_part_id = fparam_.fl_part_id;
         // update expand entry for the data holder part
         xgb_server_->UpdateExpandEntry(
             p_entries, [&](uint32_t bin_id, GradStats<double> &left_sum,
@@ -429,32 +431,35 @@ class HistEvaluator {
       }
       SplitsRequest empty_req;
       xgb_client_->SendEncryptedSplits(empty_req, [&](SplitsResponse &response) {
-        // TODO: decrypt the feature id and bin id from mask id
-        vector<string> ids;
-        boost::split(ids, response.mask_id(), boost::is_any_of("_"));
-        bst_feature_t fidx = atoi(ids[0].c_str());
-        bst_bin_t bin_id = atoi(ids[1].c_str());
-        bool is_cat = common::IsCat(feature_types, fidx);
-        auto n_bins = cut_ptrs.at(fidx + 1) - cut_ptrs[fidx];
-        bst_float split_pt;
-        if (is_cat) {
-          if (common::UseOneHot(n_bins, param_.max_cat_to_onehot)) {
-            split_pt = cut.Values()[bin_id];
+        bst_feature_t fidx = 0;
+        bst_float split_pt = 0;
+        if (!response.mask_id().empty()) {
+          // TODO: decrypt the feature id and bin id from mask id
+          vector<string> ids;
+          boost::split(ids, response.mask_id(), boost::is_any_of("_"));
+          bst_feature_t fidx = atoi(ids[0].c_str());
+          bst_bin_t bin_id = atoi(ids[1].c_str());
+          bool is_cat = common::IsCat(feature_types, fidx);
+          auto n_bins = cut_ptrs.at(fidx + 1) - cut_ptrs[fidx];
+
+          if (is_cat) {
+            if (common::UseOneHot(n_bins, param_.max_cat_to_onehot)) {
+              split_pt = cut.Values()[bin_id];
+            } else {
+              split_pt = std::numeric_limits<float>::quiet_NaN();
+            }
           } else {
-            split_pt = std::numeric_limits<float>::quiet_NaN();
-          }
-        } else {
-          if (response.d_step() > 0) {
-            split_pt = cut.Values()[bin_id];  // not used for partition based
-          } else if (bin_id == static_cast<bst_bin_t>(cut.Ptrs()[fidx])) {
-            split_pt = cut.MinValues()[fidx];
-          } else {
-            split_pt = cut.Values()[bin_id - 1];
+            if (response.d_step() > 0) {
+              split_pt = cut.Values()[bin_id];  // not used for partition based
+            } else if (bin_id == static_cast<bst_bin_t>(cut.Ptrs()[fidx])) {
+              split_pt = cut.MinValues()[fidx];
+            } else {
+              split_pt = cut.Values()[bin_id - 1];
+            }
           }
         }
-        SplitEntry<> best;
-        best.Update(fidx, split_pt, response.default_left(), fparam_.fl_part_id);
-        dataholder_best_splits_.insert({response.nidx(), best});
+        entries[response.nidx()].split.Update(fidx, split_pt, response.default_left(),
+                                              response.part_id());
       });
     }
   }
