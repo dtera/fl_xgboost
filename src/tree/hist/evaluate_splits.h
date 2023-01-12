@@ -401,7 +401,7 @@ class HistEvaluator {
         }
       }
 
-      if (fparam_.dsplit == DataSplitMode::kCol) {
+      if (fparam_.dsplit != DataSplitMode::kCol) {
         // update expand entry for the data holder part
         xgb_server_->UpdateExpandEntry(
             p_entries, [&](uint32_t bin_id, GradStats<double> &left_sum,
@@ -474,17 +474,19 @@ class HistEvaluator {
         evaluator.CalcWeight(candidate.nid, param_, GradStats<H>{candidate.split.right_sum});
 
     if (candidate.split.is_cat) {
-      tree.ExpandCategorical(
-          candidate.nid, candidate.split.SplitIndex(), candidate.split.cat_bits,
-          candidate.split.DefaultLeft(), base_weight, left_weight * param_.learning_rate,
-          right_weight * param_.learning_rate, candidate.split.loss_chg, parent_sum.GetHess(),
-          candidate.split.left_sum.GetHess(), candidate.split.right_sum.GetHess());
+      tree.ExpandCategorical(candidate.nid, candidate.split.SplitIndex(), candidate.split.cat_bits,
+                             candidate.split.DefaultLeft(), base_weight,
+                             left_weight * param_.learning_rate,
+                             right_weight * param_.learning_rate, candidate.split.loss_chg,
+                             parent_sum.GetHess(), candidate.split.left_sum.GetHess(),
+                             candidate.split.right_sum.GetHess(), candidate.split.part_id);
     } else {
       tree.ExpandNode(candidate.nid, candidate.split.SplitIndex(), candidate.split.split_value,
                       candidate.split.DefaultLeft(), base_weight,
                       left_weight * param_.learning_rate, right_weight * param_.learning_rate,
                       candidate.split.loss_chg, parent_sum.GetHess(),
-                      candidate.split.left_sum.GetHess(), candidate.split.right_sum.GetHess());
+                      candidate.split.left_sum.GetHess(), candidate.split.right_sum.GetHess(),
+                      candidate.split.part_id);
     }
 
     // Set up child constraints
