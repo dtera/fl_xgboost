@@ -204,7 +204,7 @@ class HistEvaluator {
     p_best->Update(best);
   }
 
-  bool EnumerateUpdate(bst_bin_t i, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
+  bool EnumerateUpdate(bst_bin_t bin_id, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<EncryptedType<double>> &left_sum,
                        GradStats<EncryptedType<double>> &right_sum, SplitEntry<> &best, int d_step,
@@ -213,7 +213,7 @@ class HistEvaluator {
     assert(splits_request != nullptr);
     EncryptedSplit *es = splits_request->mutable_encrypted_splits()->Add();
     // TODO: encrypt the feature id and bin id to mask id
-    es->set_mask_id(to_string(fidx) + "_" + to_string(i));
+    es->set_mask_id(to_string(fidx) + "_" + to_string(bin_id));
     xgbcomm::GradPair *ls = es->mutable_left_sum();
     xgbcomm::GradPair *rs = es->mutable_right_sum();
     mpz_t2_mpz_type(ls, left_sum);
@@ -225,7 +225,7 @@ class HistEvaluator {
     return true;
   }
 
-  bool EnumerateUpdate(bst_bin_t i, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
+  bool EnumerateUpdate(bst_bin_t bin_id, bst_feature_t fidx, bst_node_t nidx, bst_float split_pt,
                        TreeEvaluator::SplitEvaluator<TrainParam> const &evaluator,
                        GradStats<double> &left_sum, GradStats<double> &right_sum,
                        SplitEntry<> &best, int d_step, bool default_left, bool is_cat = false,
@@ -244,6 +244,9 @@ class HistEvaluator {
         loss_chg = evaluator.CalcSplitGain(param_, nidx, fidx, right_sum, left_sum) -
                    snode_[nidx].root_gain;
         updated = best.Update(loss_chg, fidx, split_pt, default_left, is_cat, right_sum, left_sum);
+      }
+      if (updated && bin_id != -1) {
+        best.part_id = fparam_.fl_part_id;
       }
     }
     return updated;

@@ -16,7 +16,7 @@ save_period = 0
 data = "../../data/a9a.guest.train?format=libsvm"
 eval[test] = "../../data/a9a.guest.test?format=libsvm"
 model_dir = ../../models/
-model_out = ../../models/a9a.json
+model_out = ../../models/a9a.guest.json
 dump_format = json
 
 # federated params
