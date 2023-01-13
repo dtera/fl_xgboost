@@ -13,6 +13,7 @@ service XgbService {
   rpc GetPubKey (Request) returns (PubKeyResponse) {}
   rpc GetEncryptedGradPairs (GradPairsRequest) returns (GradPairsResponse) {}
   rpc SendEncryptedSplits (SplitsRequest) returns (SplitsResponse) {}
+  rpc IsSplitEntryValid (SplitEntryValidRequest) returns (SplitEntryValidResponse) {}
 }
 
 message Request {}
@@ -53,6 +54,17 @@ message SplitsResponse {
   int32 d_step = 4;
   bool default_left = 5;
   uint32 part_id = 6;
+}
+
+message SplitEntryValidRequest {
+  uint32 version = 1;
+  uint32 nidx = 2;
+  int32 num_leaves = 3;
+}
+
+message SplitEntryValidResponse {
+  uint32 version = 1;
+  bool is_valid = 2;
 }
 
 message EncryptedSplit {

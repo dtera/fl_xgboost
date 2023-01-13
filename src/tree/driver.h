@@ -4,8 +4,10 @@
 #ifndef XGBOOST_TREE_DRIVER_H_
 #define XGBOOST_TREE_DRIVER_H_
 #include <xgboost/span.h>
+
 #include <queue>
 #include <vector>
+
 #include "./param.h"
 
 namespace xgboost {
@@ -28,9 +30,8 @@ inline bool LossGuide(const ExpandEntryT& lhs, const ExpandEntryT& rhs) {
 // Drives execution of tree building on device
 template <typename ExpandEntryT>
 class Driver {
-  using ExpandQueue =
-      std::priority_queue<ExpandEntryT, std::vector<ExpandEntryT>,
-                          std::function<bool(ExpandEntryT, ExpandEntryT)>>;
+  using ExpandQueue = std::priority_queue<ExpandEntryT, std::vector<ExpandEntryT>,
+                                          std::function<bool(ExpandEntryT, ExpandEntryT)>>;
 
  public:
   explicit Driver(TrainParam param, std::size_t max_node_batch_size = 256)
@@ -47,14 +48,12 @@ class Driver {
       }
     }
   }
-  void Push(const std::vector<ExpandEntryT> &entries) {
+  void Push(const std::vector<ExpandEntryT>& entries) {
     this->Push(entries.begin(), entries.end());
   }
   void Push(ExpandEntryT const& e) { queue_.push(e); }
 
-  bool IsEmpty() {
-    return queue_.empty();
-  }
+  bool IsEmpty() { return queue_.empty(); }
 
   // Can a child of this entry still be expanded?
   // can be used to avoid extra work
@@ -67,14 +66,17 @@ class Driver {
   // Return the set of nodes to be expanded
   // This set has no dependencies between entries so they may be expanded in
   // parallel or asynchronously
-  std::vector<ExpandEntryT> Pop() {
+  std::vector<ExpandEntryT> Pop(function<bool(ExpandEntryT&, TrainParam&, bst_node_t)> is_valid =
+                                    [](ExpandEntryT& e, TrainParam& param, bst_node_t num_leaves) {
+                                      return e.IsValid(param, num_leaves);
+                                    }) {
     if (queue_.empty()) return {};
     // Return a single entry for loss guided mode
     if (param_.grow_policy == TrainParam::kLossGuide) {
       ExpandEntryT e = queue_.top();
       queue_.pop();
 
-      if (e.IsValid(param_, num_leaves_)) {
+      if (is_valid(e, param_, num_leaves_)) {
         num_leaves_++;
         return {e};
       } else {
@@ -87,7 +89,7 @@ class Driver {
     int level = e.depth;
     while (e.depth == level && !queue_.empty() && result.size() < max_node_batch_size_) {
       queue_.pop();
-      if (e.IsValid(param_, num_leaves_)) {
+      if (is_valid(e, param_, num_leaves_)) {
         num_leaves_++;
         result.emplace_back(e);
       }

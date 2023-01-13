@@ -208,4 +208,15 @@ void XgbServiceClient::GetEncryptedSplits(XgbEncryptedSplit* encryptedSplits) {
                  });*/
              });
 }
+bool XgbServiceClient::IsSplitEntryValid(int nid, xgboost::bst_node_t num_leaves) {
+  RpcRequest(
+      SplitEntryValidRequest, IsSplitEntryValid, SplitEntryValidResponse,
+      {
+        request.set_version(cur_version);
+        request.set_num_leaves(num_leaves);
+      },
+      { return response.is_valid(); });
+
+  return response.is_valid();
+}
 //=================================XgbServiceClient End===================================

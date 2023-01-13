@@ -140,6 +140,9 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
     auto ft = p_fmat->Info().feature_types.ConstHostSpan();
     for (auto const &gmat : p_fmat->GetBatches<GHistIndexMatrix>(HistBatch(param_))) {
       if (is_same<float, T>()) {
+        if (fparam_.dsplit == DataSplitMode::kCol) {
+          xgb_server_->SetTrainParam(&param_);
+        }
         evaluator_->EvaluateSplits(histogram_builder_->Histogram(), gmat.cut, ft, *p_tree,
                                    &entries);
       } else {
@@ -224,7 +227,13 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
   Driver<CPUExpandEntry> driver(param_);
   driver.Push(this->InitRoot<T>(p_fmat, p_tree, gpair_h));
   auto const &tree = *p_tree;
-  auto expand_set = driver.Pop();
+  auto expand_set =
+      is_same<float, T>()
+          ? driver.Pop()
+          : driver.Pop([](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
+              // e.nid;
+              return xgb_client_->IsSplitEntryValid(e.nid, num_leaves);
+            });
 
   while (!expand_set.empty()) {
     // candidates that can be further splited.

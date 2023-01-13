@@ -170,6 +170,8 @@ void XgbServiceServer::SendPubKey(opt_public_key_t* pub) { pub_ = pub; }
 
 void XgbServiceServer::SetPriKey(opt_private_key_t* pri) { pri_ = pri; }
 
+void XgbServiceServer::SetTrainParam(const TrainParam* train_param) { train_param_ = train_param; }
+
 void XgbServiceServer::SendGradPairs(mpz_t* grad_pairs, size_t size) {
   // grad_pairs_.insert({version, {size, encrypted_grad_pairs}});
 }
@@ -187,6 +189,7 @@ void XgbServiceServer::UpdateExpandEntry(
     std::vector<ExpandEntry>* entries,
     function<void(uint32_t, GradStats<double>&, GradStats<double>&, const SplitsRequest&)>
         update_grad_stats) {
+  p_entries = entries;
   while (!finish_split_) {
   }  // wait for the data holder part
   for (unsigned nidx_in_set = 0; nidx_in_set < entries->size(); ++nidx_in_set) {
@@ -210,10 +213,6 @@ void XgbServiceServer::UpdateExpandEntry(
 void XgbServiceServer::UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSplit& best_split) {
   lock_guard lk(m);
   best_splits_.insert({nidx, best_split});
-}
-
-void XgbServiceServer::UpdateBestDefaultLeft(uint32_t nidx, const bool default_left) {
-  best_default_left_.insert({nidx, default_left});
 }
 
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
@@ -295,7 +294,7 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
       response->set_part_id(request->part_id());
     } else {
       // notify the data holder part: the label holder is the best
-      response->set_default_left(best_default_left_[request->nidx()]);
+      response->set_default_left(p_entries->at(request->nidx()).split.DefaultLeft());
       response->set_part_id(best_part_id);
     }
   } else {
@@ -306,6 +305,16 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
   if (cur_version == max_version) {
     finished_ = true;
   }
+
+  return Status::OK;
+}
+
+Status XgbServiceServer::IsSplitEntryValid(ServerContext* context,
+                                           const SplitEntryValidRequest* request,
+                                           SplitEntryValidResponse* response) {
+  response->set_is_valid(
+      p_entries->at(request->nidx()).IsValid(*train_param_, request->num_leaves()));
+  response->set_version(cur_version);
 
   return Status::OK;
 }

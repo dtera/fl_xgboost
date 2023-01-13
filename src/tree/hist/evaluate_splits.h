@@ -331,9 +331,9 @@ class HistEvaluator {
       xgb_server_->best_part_id = fparam_.fl_part_id;
       // update expand entry for the data holder part
       xgb_server_->UpdateExpandEntry(
-          &entries, [&](uint32_t bin_id, GradStats<double> &left_sum, GradStats<double> &right_sum,
+          &entries, [&](uint32_t i, GradStats<double> &left_sum, GradStats<double> &right_sum,
                         const SplitsRequest &sr) {
-            auto es = sr.encrypted_splits()[bin_id];
+            auto es = sr.encrypted_splits()[i];
             // update grad statistics for the data holder part
             auto updated = EnumerateUpdate(-1, 0, sr.nidx(), 0.0, evaluator, left_sum, right_sum,
                                            entries[sr.nidx()].split, es.d_step(), es.default_left(),
@@ -351,6 +351,7 @@ class HistEvaluator {
                         vector<ExpandEntry> &entries) const {
     auto const &cut_ptrs = cut.Ptrs();
     SplitsRequest empty_req;
+    empty_req.set_part_id(fparam_.fl_part_id);
     xgb_client_->SendEncryptedSplits(empty_req, [&](SplitsResponse &response) {
       bst_feature_t fidx = 0;
       bst_float split_pt = 0;
@@ -383,6 +384,7 @@ class HistEvaluator {
                                             response.part_id());
     });
   }
+
   void EvaluateSplits(const common::HistCollection<H> &hist, common::HistogramCuts const &cut,
                       common::Span<FeatureType const> feature_types, const RegTree &tree,
                       std::vector<ExpandEntry> *p_entries) {
@@ -455,7 +457,6 @@ class HistEvaluator {
           entries[nidx_in_set].split.Update(tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
         }
         if (fparam_.dsplit == DataSplitMode::kCol) {
-          xgb_server_->UpdateBestDefaultLeft(nidx_in_set, entries[nidx_in_set].split.DefaultLeft());
           entries[nidx_in_set].split.part_id = fparam_.fl_part_id;
         }
       }

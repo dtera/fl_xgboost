@@ -86,9 +86,11 @@ class XgbServiceServer final : public XgbService::Service {
   unordered_map<uint32_t, pair<size_t, XgbEncryptedSplit *>> splits_;
   opt_public_key_t *pub_;
   opt_private_key_t *pri_;
+
+  const TrainParam *train_param_;
   unordered_map<uint32_t, const SplitsRequest> splits_requests_;
   unordered_map<uint32_t, const EncryptedSplit> best_splits_;
-  unordered_map<uint32_t, const bool> best_default_left_;
+  std::vector<CPUExpandEntry> *p_entries;
   bool finish_split_ = false;
   bool finished_ = false;
   // shared mutex to control updating the mask id
@@ -114,6 +116,8 @@ class XgbServiceServer final : public XgbService::Service {
 
   void SetPriKey(opt_private_key_t *pri);
 
+  void SetTrainParam(const TrainParam *train_param);
+
   void SendGradPairs(mpz_t *grad_pairs, size_t size);
 
   void SendGradPairs(const vector<xgboost::EncryptedGradientPair> &grad_pairs);
@@ -128,8 +132,6 @@ class XgbServiceServer final : public XgbService::Service {
 
   void UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSplit &best_split);
 
-  void UpdateBestDefaultLeft(uint32_t nidx, const bool default_left);
-
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;
 
@@ -138,5 +140,8 @@ class XgbServiceServer final : public XgbService::Service {
 
   Status SendEncryptedSplits(ServerContext *context, const SplitsRequest *request,
                              SplitsResponse *response) override;
+
+  Status IsSplitEntryValid(ServerContext *context, const SplitEntryValidRequest *request,
+                           SplitEntryValidResponse *response) override;
 };
 //=================================XgbServiceServer End===================================

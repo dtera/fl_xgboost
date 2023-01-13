@@ -90,5 +90,7 @@ class XgbServiceClient {
       function<void(SplitsResponse &)> process_response = [](SplitsResponse &) {});
 
   void GetEncryptedSplits(XgbEncryptedSplit *encryptedSplits);
+
+  bool IsSplitEntryValid(int nid, xgboost::bst_node_t num_leaves);
 };
 //=================================XgbServiceClient End===================================
