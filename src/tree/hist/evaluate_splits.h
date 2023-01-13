@@ -325,6 +325,64 @@ class HistEvaluator {
     });
   }
 
+  void UpdateForDataHolder(vector<ExpandEntry> &entries,
+                           const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) const {
+    if (fparam_.dsplit == DataSplitMode::kCol) {
+      xgb_server_->best_part_id = fparam_.fl_part_id;
+      // update expand entry for the data holder part
+      xgb_server_->UpdateExpandEntry(
+          &entries, [&](uint32_t bin_id, GradStats<double> &left_sum, GradStats<double> &right_sum,
+                        const SplitsRequest &sr) {
+            auto es = sr.encrypted_splits()[bin_id];
+            // update grad statistics for the data holder part
+            auto updated = EnumerateUpdate(-1, 0, sr.nidx(), 0.0, evaluator, left_sum, right_sum,
+                                           entries[sr.nidx()].split, es.d_step(), es.default_left(),
+                                           es.is_cat());
+            if (updated) {
+              entries[sr.nidx()].split.part_id = sr.part_id();
+              xgb_server_->UpdateBestEncryptedSplit(sr.nidx(), es);
+            }
+          });
+    }
+  }
+
+  void DataHolderUpdate(const common::HistogramCuts &cut,
+                        common::Span<const FeatureType> &feature_types,
+                        vector<ExpandEntry> &entries) const {
+    auto const &cut_ptrs = cut.Ptrs();
+    SplitsRequest empty_req;
+    xgb_client_->SendEncryptedSplits(empty_req, [&](SplitsResponse &response) {
+      bst_feature_t fidx = 0;
+      bst_float split_pt = 0;
+      if (!response.mask_id().empty()) {
+        // TODO: decrypt the feature id and bin id from mask id
+        vector<string> ids;
+        boost::split(ids, response.mask_id(), boost::is_any_of("_"));
+        bst_feature_t fidx = atoi(ids[0].c_str());
+        bst_bin_t bin_id = atoi(ids[1].c_str());
+        bool is_cat = common::IsCat(feature_types, fidx);
+        auto n_bins = cut_ptrs.at(fidx + 1) - cut_ptrs[fidx];
+
+        if (is_cat) {
+          if (common::UseOneHot(n_bins, param_.max_cat_to_onehot)) {
+            split_pt = cut.Values()[bin_id];
+          } else {
+            split_pt = numeric_limits<float>::quiet_NaN();
+          }
+        } else {
+          if (response.d_step() > 0) {
+            split_pt = cut.Values()[bin_id];  // not used for partition based
+          } else if (bin_id == static_cast<bst_bin_t>(cut.Ptrs()[fidx])) {
+            split_pt = cut.MinValues()[fidx];
+          } else {
+            split_pt = cut.Values()[bin_id - 1];
+          }
+        }
+      }
+      entries[response.nidx()].split.Update(fidx, split_pt, response.default_left(),
+                                            response.part_id());
+    });
+  }
   void EvaluateSplits(const common::HistCollection<H> &hist, common::HistogramCuts const &cut,
                       common::Span<FeatureType const> feature_types, const RegTree &tree,
                       std::vector<ExpandEntry> *p_entries) {
@@ -402,23 +460,7 @@ class HistEvaluator {
         }
       }
 
-      if (fparam_.dsplit == DataSplitMode::kCol) {
-        xgb_server_->best_part_id = fparam_.fl_part_id;
-        // update expand entry for the data holder part
-        xgb_server_->UpdateExpandEntry(
-            p_entries, [&](uint32_t bin_id, GradStats<double> &left_sum,
-                           GradStats<double> &right_sum, const SplitsRequest &sr) {
-              auto es = sr.encrypted_splits()[bin_id];
-              // update grad statistics for the data holder part
-              auto updated = this->EnumerateUpdate(-1, 0, sr.nidx(), 0.0, evaluator, left_sum,
-                                                   right_sum, entries[sr.nidx()].split, es.d_step(),
-                                                   es.default_left(), es.is_cat());
-              if (updated) {
-                entries[sr.nidx()].split.part_id = sr.part_id();
-                xgb_server_->UpdateBestEncryptedSplit(sr.nidx(), es);
-              }
-            });
-      }
+      UpdateForDataHolder(entries, evaluator);
     } else {
       for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {
@@ -429,38 +471,8 @@ class HistEvaluator {
         splits_requests[nidx_in_set].set_part_id(fparam_.fl_part_id);
         xgb_client_->SendEncryptedSplits(splits_requests[nidx_in_set]);
       }
-      SplitsRequest empty_req;
-      xgb_client_->SendEncryptedSplits(empty_req, [&](SplitsResponse &response) {
-        bst_feature_t fidx = 0;
-        bst_float split_pt = 0;
-        if (!response.mask_id().empty()) {
-          // TODO: decrypt the feature id and bin id from mask id
-          vector<string> ids;
-          boost::split(ids, response.mask_id(), boost::is_any_of("_"));
-          bst_feature_t fidx = atoi(ids[0].c_str());
-          bst_bin_t bin_id = atoi(ids[1].c_str());
-          bool is_cat = common::IsCat(feature_types, fidx);
-          auto n_bins = cut_ptrs.at(fidx + 1) - cut_ptrs[fidx];
 
-          if (is_cat) {
-            if (common::UseOneHot(n_bins, param_.max_cat_to_onehot)) {
-              split_pt = cut.Values()[bin_id];
-            } else {
-              split_pt = std::numeric_limits<float>::quiet_NaN();
-            }
-          } else {
-            if (response.d_step() > 0) {
-              split_pt = cut.Values()[bin_id];  // not used for partition based
-            } else if (bin_id == static_cast<bst_bin_t>(cut.Ptrs()[fidx])) {
-              split_pt = cut.MinValues()[fidx];
-            } else {
-              split_pt = cut.Values()[bin_id - 1];
-            }
-          }
-        }
-        entries[response.nidx()].split.Update(fidx, split_pt, response.default_left(),
-                                              response.part_id());
-      });
+      DataHolderUpdate(cut, feature_types, entries);
     }
   }
 
