@@ -325,34 +325,32 @@ class HistEvaluator {
     });
   }
 
-  void UpdateForDataHolder(vector<ExpandEntry> &entries,
+  void UpdateForDataHolder(ExpandEntry &e,
                            const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) const {
     if (fparam_.dsplit == DataSplitMode::kCol) {
-      xgb_server_->best_part_id = fparam_.fl_part_id;
+      e.split.part_id = fparam_.fl_part_id;
+      xgb_server_->UpdateFinishSplits(e.nid, false);
       // update expand entry for the data holder part
-      xgb_server_->UpdateExpandEntry(
-          &entries, [&](uint32_t i, GradStats<double> &left_sum, GradStats<double> &right_sum,
-                        const SplitsRequest &sr) {
-            auto es = sr.encrypted_splits()[i];
-            // update grad statistics for the data holder part
-            auto updated = EnumerateUpdate(-1, 0, sr.nidx(), 0.0, evaluator, left_sum, right_sum,
-                                           entries[sr.nidx()].split, es.d_step(), es.default_left(),
-                                           es.is_cat());
-            if (updated) {
-              entries[sr.nidx()].split.part_id = sr.part_id();
-              xgb_server_->UpdateBestEncryptedSplit(sr.nidx(), es);
-            }
-          });
+      xgb_server_->UpdateExpandEntry(e, [&](uint32_t i, GradStats<double> &left_sum,
+                                            GradStats<double> &right_sum, const SplitsRequest &sr) {
+        auto es = sr.encrypted_splits()[i];
+        // update grad statistics for the data holder part
+        auto updated = EnumerateUpdate(-1, 0, sr.nidx(), 0.0, evaluator, left_sum, right_sum,
+                                       e.split, es.d_step(), es.default_left(), es.is_cat());
+        if (updated) {
+          e.split.part_id = sr.part_id();
+          xgb_server_->UpdateBestEncryptedSplit(sr.nidx(), es);
+        }
+      });
     }
   }
 
   void DataHolderUpdate(const common::HistogramCuts &cut,
-                        common::Span<const FeatureType> &feature_types,
-                        vector<ExpandEntry> &entries) const {
+                        common::Span<const FeatureType> &feature_types, ExpandEntry &e,
+                        SplitsRequest &sr) const {
     auto const &cut_ptrs = cut.Ptrs();
-    SplitsRequest empty_req;
-    empty_req.set_part_id(fparam_.fl_part_id);
-    xgb_client_->SendEncryptedSplits(empty_req, [&](SplitsResponse &response) {
+    sr.set_part_id(fparam_.fl_part_id);
+    xgb_client_->SendEncryptedSplits(sr, [&](SplitsResponse &response) {
       bst_feature_t fidx = 0;
       bst_float split_pt = 0;
       if (!response.mask_id().empty()) {
@@ -380,8 +378,7 @@ class HistEvaluator {
           }
         }
       }
-      entries[response.nidx()].split.Update(fidx, split_pt, response.default_left(),
-                                            response.part_id());
+      e.split.Update(fidx, split_pt, response.default_left(), response.part_id());
     });
   }
 
@@ -456,12 +453,9 @@ class HistEvaluator {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {
           entries[nidx_in_set].split.Update(tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
         }
-        if (fparam_.dsplit == DataSplitMode::kCol) {
-          entries[nidx_in_set].split.part_id = fparam_.fl_part_id;
-        }
+        UpdateForDataHolder(entries[nidx_in_set], evaluator);
       }
 
-      UpdateForDataHolder(entries, evaluator);
     } else {
       for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {
@@ -469,11 +463,8 @@ class HistEvaluator {
               tloc_requests[n_threads_ * nidx_in_set + tidx].encrypted_splits());
         }
         splits_requests[nidx_in_set].set_nidx(nidx_in_set);
-        splits_requests[nidx_in_set].set_part_id(fparam_.fl_part_id);
-        xgb_client_->SendEncryptedSplits(splits_requests[nidx_in_set]);
+        DataHolderUpdate(cut, feature_types, entries[nidx_in_set], splits_requests[nidx_in_set]);
       }
-
-      DataHolderUpdate(cut, feature_types, entries);
     }
   }
 

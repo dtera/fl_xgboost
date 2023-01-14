@@ -186,33 +186,36 @@ void XgbServiceServer::SendSplits(XgbEncryptedSplit* splits, size_t size) {
 
 template <typename ExpandEntry>
 void XgbServiceServer::UpdateExpandEntry(
-    std::vector<ExpandEntry>* entries,
+    ExpandEntry& e,
     function<void(uint32_t, GradStats<double>&, GradStats<double>&, const SplitsRequest&)>
         update_grad_stats) {
-  p_entries = entries;
-  while (!finish_split_) {
+  entries_.insert({e.nid, e});
+  while (!finish_splits_[e.nid]) {
   }  // wait for the data holder part
-  for (unsigned nidx_in_set = 0; nidx_in_set < entries->size(); ++nidx_in_set) {
-    auto encrypted_splits = splits_requests_[nidx_in_set].encrypted_splits();
-    ParallelFor(encrypted_splits.size(), n_threads_, [&](uint32_t i) {
-      GradStats<double> left_sum;
-      GradStats<double> right_sum;
-      GradStats<EncryptedType<double>> encrypted_left_sum;
-      GradStats<EncryptedType<double>> encrypted_right_sum;
-      mpz_type2_mpz_t(encrypted_left_sum, encrypted_splits[i].left_sum());
-      mpz_type2_mpz_t(encrypted_right_sum, encrypted_splits[i].right_sum());
-      opt_paillier_decrypt(left_sum, encrypted_left_sum, pub_, pri_);
-      opt_paillier_decrypt(right_sum, encrypted_right_sum, pub_, pri_);
-      // update grad statistics
-      update_grad_stats(i, left_sum, right_sum, splits_requests_[nidx_in_set]);
-    });
-  }
-  finish_split_ = false;
+  auto encrypted_splits = splits_requests_[e.nid].encrypted_splits();
+  ParallelFor(encrypted_splits.size(), n_threads_, [&](uint32_t i) {
+    GradStats<double> left_sum;
+    GradStats<double> right_sum;
+    GradStats<EncryptedType<double>> encrypted_left_sum;
+    GradStats<EncryptedType<double>> encrypted_right_sum;
+    mpz_type2_mpz_t(encrypted_left_sum, encrypted_splits[i].left_sum());
+    mpz_type2_mpz_t(encrypted_right_sum, encrypted_splits[i].right_sum());
+    opt_paillier_decrypt(left_sum, encrypted_left_sum, pub_, pri_);
+    opt_paillier_decrypt(right_sum, encrypted_right_sum, pub_, pri_);
+    // update grad statistics
+    update_grad_stats(i, left_sum, right_sum, splits_requests_[e.nid]);
+  });
+
+  finish_splits_[e.nid] = false;
 }
 
 void XgbServiceServer::UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSplit& best_split) {
   lock_guard lk(m);
   best_splits_.insert({nidx, best_split});
+}
+
+void XgbServiceServer::UpdateFinishSplits(uint32_t nidx, bool finish_split) {
+  finish_splits_.insert({nidx, finish_split});
 }
 
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
@@ -281,25 +284,24 @@ Status XgbServiceServer::GetEncryptedGradPairs(ServerContext* context,
 
 Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const SplitsRequest* request,
                                              SplitsResponse* response) {
-  if (request->encrypted_splits().empty()) {
-    finish_split_ = true;
-    while (finish_split_) {
-    }  // wait for the label part
-    if (best_splits_.count(request->nidx()) != 0) {
-      // notify the data holder part: it's split is the best
-      response->set_nidx(request->nidx());
-      response->set_mask_id((best_splits_[request->nidx()].mask_id()));
-      response->set_d_step(best_splits_[request->nidx()].d_step());
-      response->set_default_left(best_splits_[request->nidx()].default_left());
-      response->set_part_id(request->part_id());
-    } else {
-      // notify the data holder part: the label holder is the best
-      response->set_default_left(p_entries->at(request->nidx()).split.DefaultLeft());
-      response->set_part_id(best_part_id);
-    }
+  splits_requests_.insert({request->nidx(), *request});
+  finish_splits_[request->nidx()] = true;
+  while (finish_splits_[request->nidx()]) {
+  }  // wait for the label part
+
+  if (best_splits_.count(request->nidx()) != 0) {
+    // notify the data holder part: it's split is the best
+    response->set_nidx(request->nidx());
+    response->set_mask_id((best_splits_[request->nidx()].mask_id()));
+    response->set_d_step(best_splits_[request->nidx()].d_step());
+    response->set_default_left(best_splits_[request->nidx()].default_left());
+    response->set_part_id(request->part_id());
   } else {
-    splits_requests_.insert({request->nidx(), *request});
+    // notify the data holder part: the label holder is the best
+    response->set_default_left(entries_[request->nidx()].split.DefaultLeft());
+    response->set_part_id(entries_[request->nidx()].split.part_id);
   }
+
   response->set_version(cur_version);
 
   if (cur_version == max_version) {
@@ -312,15 +314,14 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
 Status XgbServiceServer::IsSplitEntryValid(ServerContext* context,
                                            const SplitEntryValidRequest* request,
                                            SplitEntryValidResponse* response) {
-  response->set_is_valid(
-      p_entries->at(request->nidx()).IsValid(*train_param_, request->num_leaves()));
+  response->set_is_valid(entries_[request->nidx()].IsValid(*train_param_, request->num_leaves()));
   response->set_version(cur_version);
 
   return Status::OK;
 }
 
 template void XgbServiceServer::UpdateExpandEntry(
-    std::vector<CPUExpandEntry>* entries,
+    CPUExpandEntry& entry,
     function<void(uint32_t, GradStats<double>&, GradStats<double>&, const SplitsRequest&)>
         update_grad_stats);
 //=================================XgbServiceServer End===================================

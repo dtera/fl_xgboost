@@ -88,10 +88,10 @@ class XgbServiceServer final : public XgbService::Service {
   opt_private_key_t *pri_;
 
   const TrainParam *train_param_;
+  unordered_map<uint32_t, bool> finish_splits_;
   unordered_map<uint32_t, const SplitsRequest> splits_requests_;
   unordered_map<uint32_t, const EncryptedSplit> best_splits_;
-  std::vector<CPUExpandEntry> *p_entries;
-  bool finish_split_ = false;
+  unordered_map<uint32_t, const CPUExpandEntry> entries_;
   bool finished_ = false;
   // shared mutex to control updating the mask id
   std::shared_timed_mutex m{};
@@ -99,7 +99,6 @@ class XgbServiceServer final : public XgbService::Service {
  public:
   uint32_t cur_version{0};
   uint32_t max_version{std::numeric_limits<uint32_t>().max()};
-  int32_t best_part_id{-1};
 
   explicit XgbServiceServer() = default;
 
@@ -126,11 +125,13 @@ class XgbServiceServer final : public XgbService::Service {
 
   template <typename ExpandEntry>
   void UpdateExpandEntry(
-      std::vector<ExpandEntry> *entries,
+      ExpandEntry &entry,
       function<void(uint32_t, GradStats<double> &, GradStats<double> &, const SplitsRequest &)>
           update_grad_stats);
 
   void UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSplit &best_split);
+
+  void UpdateFinishSplits(uint32_t nidx, bool finish_split = false);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;

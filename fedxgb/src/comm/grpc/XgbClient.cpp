@@ -188,9 +188,9 @@ void XgbServiceClient::GetEncryptedGradPairs(
 void XgbServiceClient::SendEncryptedSplits(SplitsRequest& splits_request,
                                            function<void(SplitsResponse&)> process_response) {
   RpcRequest_(splits_request, SendEncryptedSplits, SplitsResponse, {
-    if (splits_request.encrypted_splits().empty()) {
-      process_response(response);
-    }
+    // if (splits_request.encrypted_splits().empty()) {
+    process_response(response);
+    //}
   });
 }
 
@@ -208,6 +208,7 @@ void XgbServiceClient::GetEncryptedSplits(XgbEncryptedSplit* encryptedSplits) {
                  });*/
              });
 }
+
 bool XgbServiceClient::IsSplitEntryValid(int nid, xgboost::bst_node_t num_leaves) {
   RpcRequest(
       SplitEntryValidRequest, IsSplitEntryValid, SplitEntryValidResponse,
