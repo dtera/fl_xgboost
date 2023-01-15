@@ -473,14 +473,15 @@ class HistEvaluator {
     auto evaluator = tree_evaluator_.GetEvaluator();
     RegTree &tree = *p_tree;
 
-    GradStats<H> parent_sum = candidate.split.left_sum;
-    parent_sum.Add(candidate.split.right_sum);
-    auto base_weight = evaluator.CalcWeight(candidate.nid, param_, GradStats<H>{parent_sum});
+    float base_weight = 0, left_weight = 0, right_weight = 0;
+    GradStats<> parent_sum = candidate.split.left_sum;
 
-    auto left_weight =
-        evaluator.CalcWeight(candidate.nid, param_, GradStats<H>{candidate.split.left_sum});
-    auto right_weight =
-        evaluator.CalcWeight(candidate.nid, param_, GradStats<H>{candidate.split.right_sum});
+    if (is_same<double, H>()) {
+      parent_sum.Add(candidate.split.right_sum);
+      base_weight = evaluator.CalcWeight(candidate.nid, param_, parent_sum);
+      left_weight = evaluator.CalcWeight(candidate.nid, param_, candidate.split.left_sum);
+      right_weight = evaluator.CalcWeight(candidate.nid, param_, candidate.split.right_sum);
+    }
 
     if (candidate.split.is_cat) {
       tree.ExpandCategorical(candidate.nid, candidate.split.SplitIndex(), candidate.split.cat_bits,
@@ -507,16 +508,27 @@ class HistEvaluator {
     auto max_node = std::max(left_child, tree[candidate.nid].RightChild());
     max_node = std::max(candidate.nid, max_node);
     snode_.resize(tree.GetNodes().size());
-    snode_.at(left_child).stats = candidate.split.left_sum;
-    snode_.at(left_child).root_gain =
-        evaluator.CalcGain(candidate.nid, param_, GradStats<H>{candidate.split.left_sum});
-    snode_.at(right_child).stats = candidate.split.right_sum;
-    snode_.at(right_child).root_gain =
-        evaluator.CalcGain(candidate.nid, param_, GradStats<H>{candidate.split.right_sum});
+
+    H empty;
+    SetNodeEntry(candidate.nid, candidate.split.left_sum, candidate.split.right_sum, evaluator,
+                 left_child, right_child, empty);
 
     interaction_constraints_.Split(candidate.nid, tree[candidate.nid].SplitIndex(), left_child,
                                    right_child);
   }
+
+  void SetNodeEntry(int nid, const GradStats<double> &left_sum, const GradStats<double> &right_sum,
+                    const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator, int left_child,
+                    int right_child, double &empty) {
+    snode_.at(left_child).stats = left_sum;
+    snode_.at(left_child).root_gain = evaluator.CalcGain(nid, param_, left_sum);
+    snode_.at(right_child).stats = right_sum;
+    snode_.at(right_child).root_gain = evaluator.CalcGain(nid, param_, right_sum);
+  }
+
+  void SetNodeEntry(int nid, const GradStats<double> &left_sum, const GradStats<double> &right_sum,
+                    const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator, int left_child,
+                    int right_child, EncryptedType<double> &empty) {}
 
   auto Evaluator() const { return tree_evaluator_.GetEvaluator(); }
   auto const &Stats() const { return snode_; }

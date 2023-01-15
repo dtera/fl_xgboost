@@ -242,7 +242,11 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
     std::vector<CPUExpandEntry> applied;
     int32_t depth = expand_set.front().depth + 1;
     for (auto const &candidate : expand_set) {
-      evaluator_->ApplyTreeSplit(candidate, p_tree);
+      if (is_same<float, T>()) {
+        evaluator_->ApplyTreeSplit(candidate, p_tree);
+      } else {
+        encrypted_evaluator_->ApplyTreeSplit(candidate, p_tree);
+      }
       applied.push_back(candidate);
       if (driver.IsChildValid(candidate)) {
         valid_candidates.emplace_back(candidate);
