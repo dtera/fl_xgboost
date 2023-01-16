@@ -431,7 +431,7 @@ void QuantileHistMaker::Builder::InitData(DMatrix *fmat, const RegTree &tree,
       } else {
         CHECK_EQ(n_total_bins, page.cut.TotalBins());
       }
-      partitioner_.emplace_back(this->ctx_, page.Size(), page.base_rowid);
+      partitioner_.emplace_back(this->ctx_, page.Size(), page.base_rowid, fparam_);
       ++page_id;
     }
     if (is_same<float, T>()) {

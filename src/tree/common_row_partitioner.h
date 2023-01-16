@@ -11,7 +11,8 @@
 
 #include "../common/numeric.h"  // Iota
 #include "../common/partition_builder.h"
-#include "hist/expand_entry.h"           // CPUExpandEntry
+#include "hist/expand_entry.h"  // CPUExpandEntry
+#include "xgboost/federated_param.h"
 #include "xgboost/generic_parameters.h"  // Context
 
 namespace xgboost {
@@ -20,13 +21,16 @@ class CommonRowPartitioner {
   static constexpr size_t kPartitionBlockSize = 2048;
   common::PartitionBuilder<kPartitionBlockSize> partition_builder_;
   common::RowSetCollection row_set_collection_;
+  const FederatedParam* fparam_;
 
  public:
   bst_row_t base_rowid = 0;
 
   CommonRowPartitioner() = default;
-  CommonRowPartitioner(Context const* ctx, bst_row_t num_row, bst_row_t _base_rowid)
-      : base_rowid{_base_rowid} {
+
+  CommonRowPartitioner(Context const* ctx, bst_row_t num_row, bst_row_t _base_rowid,
+                       const FederatedParam& fparam)
+      : base_rowid{_base_rowid}, fparam_(&fparam) {
     row_set_collection_.Clear();
     std::vector<size_t>& row_indices = *row_set_collection_.Data();
     row_indices.resize(num_row);
