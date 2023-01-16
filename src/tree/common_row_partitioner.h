@@ -40,9 +40,16 @@ class CommonRowPartitioner {
     row_set_collection_.Init();
   }
 
+  bool NotUpdate(int32_t part_id) {
+    return fparam_->dsplit == DataSplitMode::kCol && part_id != fparam_->fl_part_id;
+  }
+
   void FindSplitConditions(const std::vector<CPUExpandEntry>& nodes, const RegTree& tree,
                            const GHistIndexMatrix& gmat, std::vector<int32_t>* split_conditions) {
     for (size_t i = 0; i < nodes.size(); ++i) {
+      if (NotUpdate(nodes[i].split.part_id)) {
+        continue;
+      }
       const int32_t nid = nodes[i].nid;
       const bst_uint fid = tree[nid].SplitIndex();
       const bst_float split_pt = tree[nid].SplitCond();
@@ -64,6 +71,9 @@ class CommonRowPartitioner {
   void AddSplitsToRowSet(const std::vector<CPUExpandEntry>& nodes, RegTree const* p_tree) {
     const size_t n_nodes = nodes.size();
     for (unsigned int i = 0; i < n_nodes; ++i) {
+      if (NotUpdate(nodes[i].split.part_id)) {
+        continue;
+      }
       const int32_t nid = nodes[i].nid;
       const size_t n_left = partition_builder_.GetNLeftElems(i);
       const size_t n_right = partition_builder_.GetNRightElems(i);
@@ -161,6 +171,9 @@ class CommonRowPartitioner {
     // 2.3 Split elements of row_set_collection_ to left and right child-nodes for each node
     // Store results in intermediate buffers from partition_builder_
     common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
+      if (NotUpdate(nodes[node_in_set].split.part_id)) {
+        return;
+      }
       size_t begin = r.begin();
       const int32_t nid = nodes[node_in_set].nid;
       const size_t task_id = partition_builder_.GetTaskIdx(node_in_set, begin);
@@ -178,6 +191,9 @@ class CommonRowPartitioner {
     // 4. Copy elements from partition_builder_ to row_set_collection_ back
     // with updated row-indexes for each tree-node
     common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
+      if (nodes[node_in_set].split.part_id != fparam_->fl_part_id) {
+        return;
+      }
       const int32_t nid = nodes[node_in_set].nid;
       partition_builder_.MergeToArray(node_in_set, r.begin(),
                                       const_cast<size_t*>(row_set_collection_[nid].begin));
