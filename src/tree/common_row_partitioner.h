@@ -191,7 +191,7 @@ class CommonRowPartitioner {
     // 4. Copy elements from partition_builder_ to row_set_collection_ back
     // with updated row-indexes for each tree-node
     common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
-      if (nodes[node_in_set].split.part_id != fparam_->fl_part_id) {
+      if (NotUpdate(nodes[node_in_set].split.part_id)) {
         return;
       }
       const int32_t nid = nodes[node_in_set].nid;
