@@ -496,7 +496,7 @@ class HistEvaluator {
                       left_weight * param_.learning_rate, right_weight * param_.learning_rate,
                       candidate.split.loss_chg, parent_sum.GetHess(),
                       candidate.split.left_sum.GetHess(), candidate.split.right_sum.GetHess(),
-                      candidate.split.part_id);
+                      tree.kInvalidNodeId, candidate.split.part_id);
     }
 
     // Set up child constraints
