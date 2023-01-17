@@ -43,12 +43,14 @@ class CommonRowPartitioner {
 
   inline bool IsFederated() { return fparam_->dsplit == DataSplitMode::kCol; }
 
-  inline bool NotUpdate(int32_t part_id) { return IsFederated() && part_id != fparam_->fl_part_id; }
+  inline bool SelfPartNotBest(int32_t part_id) {
+    return IsFederated() && part_id != fparam_->fl_part_id;
+  }
 
   void FindSplitConditions(const std::vector<CPUExpandEntry>& nodes, const RegTree& tree,
                            const GHistIndexMatrix& gmat, std::vector<int32_t>* split_conditions) {
     for (size_t i = 0; i < nodes.size(); ++i) {
-      if (NotUpdate(nodes[i].split.part_id)) {
+      if (SelfPartNotBest(nodes[i].split.part_id)) {
         continue;
       }
       const int32_t nid = nodes[i].nid;
@@ -72,7 +74,7 @@ class CommonRowPartitioner {
   void AddSplitsToRowSet(const std::vector<CPUExpandEntry>& nodes, RegTree const* p_tree) {
     const size_t n_nodes = nodes.size();
     for (unsigned int i = 0; i < n_nodes; ++i) {
-      if (NotUpdate(nodes[i].split.part_id)) {
+      if (SelfPartNotBest(nodes[i].split.part_id)) {
         continue;
       }
       const int32_t nid = nodes[i].nid;
@@ -179,7 +181,7 @@ class CommonRowPartitioner {
         task_id_node_idx_.insert({task_id, node_in_set});
       }
       partition_builder_.AllocateForTask(task_id);
-      if (NotUpdate(nodes[node_in_set].split.part_id)) {
+      if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
         return;
       }
       bst_bin_t split_cond = column_matrix.IsInitialized() ? split_conditions[node_in_set] : 0;
@@ -193,11 +195,19 @@ class CommonRowPartitioner {
     if (IsFederated()) {
       partition_builder_.CalculateRowOffsets(
           [&](size_t task_id) {
-            return NotUpdate(nodes[task_id_node_idx_[task_id]].split.part_id);
+            return SelfPartNotBest(nodes[task_id_node_idx_[task_id]].split.part_id);
           },
           [&](size_t i, size_t n_left, size_t n_right,
               vector<pair<size_t, size_t>>& left_right_nodes_sizes) {
-            left_right_nodes_sizes[i] = {n_left, n_right};
+            if (SelfPartNotBest(nodes[i].split.part_id)) {
+              if (fparam_->fl_role == FedratedRole::Guest) {
+                // label holder get left_right_nodes_sizes from data holder
+              } else {
+                // data holder get left_right_nodes_sizes from label holder
+              }
+            } else {
+              left_right_nodes_sizes[i] = {n_left, n_right};
+            }
           });
     } else {
       partition_builder_.CalculateRowOffsets();
@@ -206,14 +216,14 @@ class CommonRowPartitioner {
     // 4. Copy elements from partition_builder_ to row_set_collection_ back
     // with updated row-indexes for each tree-node
     common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
-      if (NotUpdate(nodes[node_in_set].split.part_id)) {
+      if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
         return;
       }
       const int32_t nid = nodes[node_in_set].nid;
       partition_builder_.MergeToArray(node_in_set, r.begin(),
                                       const_cast<size_t*>(row_set_collection_[nid].begin),
                                       [&](auto task_idx, auto& mem_blocks) {
-                                        if (NotUpdate(nodes[node_in_set].split.part_id)) {
+                                        if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
                                           if (fparam_->fl_role == FedratedRole::Guest) {
                                             // label holder get block info from data holder
                                           } else {
