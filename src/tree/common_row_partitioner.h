@@ -22,6 +22,7 @@ class CommonRowPartitioner {
   common::PartitionBuilder<kPartitionBlockSize> partition_builder_;
   common::RowSetCollection row_set_collection_;
   const FederatedParam* fparam_;
+  map<size_t, size_t> task_id_node_idx_;
 
  public:
   bst_row_t base_rowid = 0;
@@ -40,9 +41,9 @@ class CommonRowPartitioner {
     row_set_collection_.Init();
   }
 
-  bool NotUpdate(int32_t part_id) {
-    return fparam_->dsplit == DataSplitMode::kCol && part_id != fparam_->fl_part_id;
-  }
+  inline bool IsFederated() { return fparam_->dsplit == DataSplitMode::kCol; }
+
+  inline bool NotUpdate(int32_t part_id) { return IsFederated() && part_id != fparam_->fl_part_id; }
 
   void FindSplitConditions(const std::vector<CPUExpandEntry>& nodes, const RegTree& tree,
                            const GHistIndexMatrix& gmat, std::vector<int32_t>* split_conditions) {
@@ -174,10 +175,13 @@ class CommonRowPartitioner {
       size_t begin = r.begin();
       const int32_t nid = nodes[node_in_set].nid;
       const size_t task_id = partition_builder_.GetTaskIdx(node_in_set, begin);
-      partition_builder_.AllocateForTask(task_id);
+      if (IsFederated() && task_id_node_idx_.count(task_id) == 0) {
+        task_id_node_idx_.insert({task_id, node_in_set});
+      }
       if (NotUpdate(nodes[node_in_set].split.part_id)) {
         return;
       }
+      partition_builder_.AllocateForTask(task_id);
       bst_bin_t split_cond = column_matrix.IsInitialized() ? split_conditions[node_in_set] : 0;
       partition_builder_.template Partition<BinIdxType, any_missing, any_cat>(
           node_in_set, nodes, r, split_cond, gmat, column_matrix, *p_tree,
@@ -186,7 +190,13 @@ class CommonRowPartitioner {
 
     // 3. Compute offsets to copy blocks of row-indexes
     // from partition_builder_ to row_set_collection_
-    partition_builder_.CalculateRowOffsets();
+    if (IsFederated()) {
+      partition_builder_.CalculateRowOffsets([&](size_t task_id) {
+        return NotUpdate(nodes[task_id_node_idx_[task_id]].split.part_id);
+      });
+    } else {
+      partition_builder_.CalculateRowOffsets();
+    }
 
     // 4. Copy elements from partition_builder_ to row_set_collection_ back
     // with updated row-indexes for each tree-node

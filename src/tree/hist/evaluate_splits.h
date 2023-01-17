@@ -309,6 +309,8 @@ class HistEvaluator {
   }
 
  public:
+  inline bool IsFederated() const { return fparam_.dsplit == DataSplitMode::kCol; }
+
   void SortFeatHistogram(std::vector<size_t> &sorted_idx,
                          common::GHistRow<EncryptedType<double>> &feat_hist,
                          TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) {
@@ -327,7 +329,7 @@ class HistEvaluator {
 
   void UpdateForDataHolder(ExpandEntry &e,
                            const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) const {
-    if (fparam_.dsplit == DataSplitMode::kCol) {
+    if (IsFederated()) {
       e.split.part_id = fparam_.fl_part_id;
       xgb_server_->UpdateFinishSplits(e.nid, false);
       // update expand entry for the data holder part
