@@ -171,13 +171,13 @@ class CommonRowPartitioner {
     // 2.3 Split elements of row_set_collection_ to left and right child-nodes for each node
     // Store results in intermediate buffers from partition_builder_
     common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
-      if (NotUpdate(nodes[node_in_set].split.part_id)) {
-        return;
-      }
       size_t begin = r.begin();
       const int32_t nid = nodes[node_in_set].nid;
       const size_t task_id = partition_builder_.GetTaskIdx(node_in_set, begin);
       partition_builder_.AllocateForTask(task_id);
+      if (NotUpdate(nodes[node_in_set].split.part_id)) {
+        return;
+      }
       bst_bin_t split_cond = column_matrix.IsInitialized() ? split_conditions[node_in_set] : 0;
       partition_builder_.template Partition<BinIdxType, any_missing, any_cat>(
           node_in_set, nodes, r, split_cond, gmat, column_matrix, *p_tree,
