@@ -31,6 +31,23 @@ namespace common {
 // BlockSize is template to enable memory alignment easily with C++11 'alignas()' feature
 template <size_t BlockSize>
 class PartitionBuilder {
+ protected:
+  struct BlockInfo {
+    size_t n_left;
+    size_t n_right;
+
+    size_t n_offset_left;
+    size_t n_offset_right;
+
+    size_t* Left() { return &left_data_[0]; }
+
+    size_t* Right() { return &right_data_[0]; }
+
+   private:
+    size_t left_data_[BlockSize];
+    size_t right_data_[BlockSize];
+  };
+
  public:
   template <typename Func>
   void Init(const size_t n_tasks, size_t n_nodes, Func funcNTask) {
@@ -255,17 +272,23 @@ class PartitionBuilder {
     }
   }
 
-  void MergeToArray(int nid, size_t begin, size_t* rows_indexes) {
+  void MergeToArray(
+      int nid, size_t begin, size_t* rows_indexes,
+      function<shared_ptr<BlockInfo>(size_t, vector<shared_ptr<BlockInfo>>&)> get_mem_block =
+          [](size_t task_idx, vector<shared_ptr<BlockInfo>>& mem_blocks) {
+            return mem_blocks[task_idx];
+          }) {
     size_t task_idx = GetTaskIdx(nid, begin);
+    shared_ptr<BlockInfo> mem_block = get_mem_block(task_idx, mem_blocks_);
 
-    size_t* left_result = rows_indexes + mem_blocks_[task_idx]->n_offset_left;
-    size_t* right_result = rows_indexes + mem_blocks_[task_idx]->n_offset_right;
+    size_t* left_result = rows_indexes + mem_block->n_offset_left;
+    size_t* right_result = rows_indexes + mem_block->n_offset_right;
 
-    const size_t* left = mem_blocks_[task_idx]->Left();
-    const size_t* right = mem_blocks_[task_idx]->Right();
+    const size_t* left = mem_block->Left();
+    const size_t* right = mem_block->Right();
 
-    std::copy_n(left, mem_blocks_[task_idx]->n_left, left_result);
-    std::copy_n(right, mem_blocks_[task_idx]->n_right, right_result);
+    std::copy_n(left, mem_block->n_left, left_result);
+    std::copy_n(right, mem_block->n_right, right_result);
   }
 
   size_t GetTaskIdx(int nid, size_t begin) { return blocks_offsets_[nid] + begin / BlockSize; }
@@ -295,21 +318,6 @@ class PartitionBuilder {
   }
 
  protected:
-  struct BlockInfo {
-    size_t n_left;
-    size_t n_right;
-
-    size_t n_offset_left;
-    size_t n_offset_right;
-
-    size_t* Left() { return &left_data_[0]; }
-
-    size_t* Right() { return &right_data_[0]; }
-
-   private:
-    size_t left_data_[BlockSize];
-    size_t right_data_[BlockSize];
-  };
   std::vector<std::pair<size_t, size_t>> left_right_nodes_sizes_;
   std::vector<size_t> blocks_offsets_;
   std::vector<std::shared_ptr<BlockInfo>> mem_blocks_;

@@ -76,6 +76,15 @@ message EncryptedSplit {
   bool is_cat = 6;
 }
 
+message BlockInfo {
+  uint32 n_left = 1;
+  uint32 n_right = 2;
+  uint32 n_offset_left = 3;
+  uint32 n_offset_right = 4;
+  repeated uint32 left_data_ = 5;
+  repeated uint32 right_data_ = 6;
+}
+
 message MpzType {
   /* Number of *limbs* allocated and pointed to by the _mp_d field.  */
   int32 _mp_alloc = 1;

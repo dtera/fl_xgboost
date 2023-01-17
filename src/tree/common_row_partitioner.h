@@ -178,10 +178,10 @@ class CommonRowPartitioner {
       if (IsFederated() && task_id_node_idx_.count(task_id) == 0) {
         task_id_node_idx_.insert({task_id, node_in_set});
       }
+      partition_builder_.AllocateForTask(task_id);
       if (NotUpdate(nodes[node_in_set].split.part_id)) {
         return;
       }
-      partition_builder_.AllocateForTask(task_id);
       bst_bin_t split_cond = column_matrix.IsInitialized() ? split_conditions[node_in_set] : 0;
       partition_builder_.template Partition<BinIdxType, any_missing, any_cat>(
           node_in_set, nodes, r, split_cond, gmat, column_matrix, *p_tree,
@@ -206,7 +206,17 @@ class CommonRowPartitioner {
       }
       const int32_t nid = nodes[node_in_set].nid;
       partition_builder_.MergeToArray(node_in_set, r.begin(),
-                                      const_cast<size_t*>(row_set_collection_[nid].begin));
+                                      const_cast<size_t*>(row_set_collection_[nid].begin),
+                                      [&](auto task_idx, auto& mem_blocks) {
+                                        if (NotUpdate(nodes[node_in_set].split.part_id)) {
+                                          if (fparam_->fl_role == FedratedRole::Guest) {
+                                            // label holder get block info from data holder
+                                          } else {
+                                            // data holder get block info from label holder
+                                          }
+                                        }
+                                        return mem_blocks[task_idx];
+                                      });
     });
 
     // 5. Add info about splits into row_set_collection_
