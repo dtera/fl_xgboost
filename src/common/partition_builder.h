@@ -250,7 +250,13 @@ class PartitionBuilder {
 
   // Each thread has partial results for some set of tree-nodes
   // The function decides order of merging partial results into final row set
-  void CalculateRowOffsets(function<bool(size_t)> not_update = [](size_t) { return false; }) {
+  void CalculateRowOffsets(
+      function<bool(size_t)> not_update = [](size_t) { return false; },
+      function<void(size_t, size_t, size_t, vector<pair<size_t, size_t>>&)> set_left_right_node =
+          [](size_t i, size_t n_left, size_t n_right,
+             vector<pair<size_t, size_t>>& left_right_nodes_sizes) {
+            left_right_nodes_sizes[i] = {n_left, n_right};
+          }) {
     for (size_t i = 0; i < blocks_offsets_.size() - 1; ++i) {
       size_t n_left = 0;
       for (size_t j = blocks_offsets_[i]; j < blocks_offsets_[i + 1]; ++j) {
@@ -268,7 +274,8 @@ class PartitionBuilder {
         mem_blocks_[j]->n_offset_right = n_left + n_right;
         n_right += mem_blocks_[j]->n_right;
       }
-      left_right_nodes_sizes_[i] = {n_left, n_right};
+
+      set_left_right_node(i, n_left, n_right, left_right_nodes_sizes_);
     }
   }
 

@@ -191,9 +191,14 @@ class CommonRowPartitioner {
     // 3. Compute offsets to copy blocks of row-indexes
     // from partition_builder_ to row_set_collection_
     if (IsFederated()) {
-      partition_builder_.CalculateRowOffsets([&](size_t task_id) {
-        return NotUpdate(nodes[task_id_node_idx_[task_id]].split.part_id);
-      });
+      partition_builder_.CalculateRowOffsets(
+          [&](size_t task_id) {
+            return NotUpdate(nodes[task_id_node_idx_[task_id]].split.part_id);
+          },
+          [&](size_t i, size_t n_left, size_t n_right,
+              vector<pair<size_t, size_t>>& left_right_nodes_sizes) {
+            left_right_nodes_sizes[i] = {n_left, n_right};
+          });
     } else {
       partition_builder_.CalculateRowOffsets();
     }
