@@ -251,12 +251,13 @@ class PartitionBuilder {
   // Each thread has partial results for some set of tree-nodes
   // The function decides order of merging partial results into final row set
   void CalculateRowOffsets(
-      function<bool(size_t)> not_update = [](size_t) { return false; },
-      function<void(size_t, size_t, size_t, vector<pair<size_t, size_t>>&)> set_left_right_node =
-          [](size_t i, size_t n_left, size_t n_right,
-             vector<pair<size_t, size_t>>& left_right_nodes_sizes) {
-            left_right_nodes_sizes[i] = {n_left, n_right};
-          }) {
+      std::function<bool(size_t)> not_update = [](size_t) { return false; },
+      std::function<void(size_t, size_t, size_t, vector<std::pair<size_t, size_t>>&)>
+          set_left_right_node =
+              [](size_t i, size_t n_left, size_t n_right,
+                 vector<std::pair<size_t, size_t>>& left_right_nodes_sizes) {
+                left_right_nodes_sizes[i] = {n_left, n_right};
+              }) {
     for (size_t i = 0; i < blocks_offsets_.size() - 1; ++i) {
       size_t n_left = 0;
       for (size_t j = blocks_offsets_[i]; j < blocks_offsets_[i + 1]; ++j) {
@@ -281,12 +282,12 @@ class PartitionBuilder {
 
   void MergeToArray(
       int nid, size_t begin, size_t* rows_indexes,
-      function<shared_ptr<BlockInfo>(size_t, vector<shared_ptr<BlockInfo>>&)> get_mem_block =
-          [](size_t task_idx, vector<shared_ptr<BlockInfo>>& mem_blocks) {
+      std::function<shared_ptr<BlockInfo>(size_t, vector<std::shared_ptr<BlockInfo>>&)>
+          get_mem_block = [](size_t task_idx, vector<std::shared_ptr<BlockInfo>>& mem_blocks) {
             return mem_blocks[task_idx];
           }) {
     size_t task_idx = GetTaskIdx(nid, begin);
-    shared_ptr<BlockInfo> mem_block = get_mem_block(task_idx, mem_blocks_);
+    std::shared_ptr<BlockInfo> mem_block = get_mem_block(task_idx, mem_blocks_);
 
     size_t* left_result = rows_indexes + mem_block->n_offset_left;
     size_t* right_result = rows_indexes + mem_block->n_offset_right;
