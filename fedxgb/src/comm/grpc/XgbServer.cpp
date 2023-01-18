@@ -184,6 +184,10 @@ void XgbServiceServer::SendSplits(XgbEncryptedSplit* splits, size_t size) {
   splits_.insert({cur_version, {size, splits}});
 }
 
+void XgbServiceServer::SendLeftRightNodeSize(size_t node_in_set, size_t n_left, size_t n_right) {
+  left_right_nodes_sizes_.insert({node_in_set, {n_left, n_right}});
+}
+
 template <typename ExpandEntry>
 void XgbServiceServer::UpdateExpandEntry(
     ExpandEntry& e,
@@ -216,6 +220,14 @@ void XgbServiceServer::UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSp
 
 void XgbServiceServer::UpdateFinishSplits(uint32_t nidx, bool finish_split) {
   finish_splits_.insert({nidx, finish_split});
+}
+
+void XgbServiceServer::GetLeftRightNodeSize(size_t node_in_set, size_t* n_left, size_t* n_right) {
+  while (left_right_nodes_sizes_.count(node_in_set) == 0) {
+  }  // wait for data holder part
+  auto left_right_node_size = left_right_nodes_sizes_[node_in_set];
+  *n_left = left_right_node_size.first;
+  *n_right = left_right_node_size.second;
 }
 
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
@@ -316,6 +328,27 @@ Status XgbServiceServer::IsSplitEntryValid(ServerContext* context,
                                            SplitEntryValidResponse* response) {
   response->set_is_valid(entries_[request->nidx()].IsValid(*train_param_, request->num_leaves()));
   response->set_version(cur_version);
+
+  return Status::OK;
+}
+
+Status XgbServiceServer::GetLeftRightNodeSize(ServerContext* context,
+                                              const LeftRightNodeSizeRequest* request,
+                                              BlockInfo* response) {
+  while (left_right_nodes_sizes_.count(request->nidx()) == 0) {
+  }  // wait for the label part
+  auto left_right_node_size = left_right_nodes_sizes_[request->nidx()];
+
+  response->set_nidx(request->nidx());
+  response->set_n_left(left_right_node_size.first);
+  response->set_n_right(left_right_node_size.second);
+
+  return Status::OK;
+}
+
+Status XgbServiceServer::SendLeftRightNodeSize(ServerContext* context, const BlockInfo* request,
+                                               Response* response) {
+  left_right_nodes_sizes_.insert({request->nidx(), {request->n_left(), request->n_right()}});
 
   return Status::OK;
 }

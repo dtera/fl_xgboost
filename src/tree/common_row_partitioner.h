@@ -197,16 +197,23 @@ class CommonRowPartitioner {
           [&](size_t task_id) {
             return SelfPartNotBest(nodes[task_id_node_idx_[task_id]].split.part_id);
           },
-          [&](size_t i, size_t n_left, size_t n_right,
-              vector<pair<size_t, size_t>>& left_right_nodes_sizes) {
+          [&](size_t i, size_t* n_left, size_t* n_right) {
             if (SelfPartNotBest(nodes[i].split.part_id)) {
               if (fparam_->fl_role == FedratedRole::Guest) {
                 // label holder get left_right_nodes_sizes from data holder
+                xgb_server_->GetLeftRightNodeSize(i, n_left, n_right);
               } else {
                 // data holder get left_right_nodes_sizes from label holder
+                xgb_client_->GetLeftRightNodeSize(i, n_left, n_right);
               }
             } else {
-              left_right_nodes_sizes[i] = {n_left, n_right};
+              if (fparam_->fl_role == FedratedRole::Guest) {
+                // label holder send left_right_nodes_sizes to data holder
+                xgb_server_->SendLeftRightNodeSize(i, *n_left, *n_right);
+              } else {
+                // data holder send left_right_nodes_sizes to label holder
+                xgb_client_->SendLeftRightNodeSize(i, *n_left, *n_right);
+              }
             }
           });
     } else {

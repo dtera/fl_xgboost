@@ -92,5 +92,9 @@ class XgbServiceClient {
   void GetEncryptedSplits(XgbEncryptedSplit *encryptedSplits);
 
   bool IsSplitEntryValid(int nid, xgboost::bst_node_t num_leaves);
+
+  void GetLeftRightNodeSize(size_t node_in_set, size_t *n_left, size_t *n_right);
+
+  void SendLeftRightNodeSize(size_t node_in_set, size_t n_left, size_t n_right);
 };
 //=================================XgbServiceClient End===================================

@@ -30,6 +30,7 @@ void XgbServiceAsyncClient::AsyncRequestNextMessage(XgbCommType t) {
   }
 }
 
+namespace {
 #define GrpcThread(t, TYPE)                                                                        \
   while (true) {                                                                                   \
     void* got_tag;                                                                                 \
@@ -65,6 +66,7 @@ void XgbServiceAsyncClient::AsyncRequestNextMessage(XgbCommType t) {
       }                                                                                            \
     }                                                                                              \
   }
+}  // namespace
 
 void XgbServiceAsyncClient::GradThread() { GrpcThread(grad, GRAD) }
 
@@ -219,5 +221,24 @@ bool XgbServiceClient::IsSplitEntryValid(int nid, xgboost::bst_node_t num_leaves
       { return response.is_valid(); });
 
   return response.is_valid();
+}
+
+void XgbServiceClient::GetLeftRightNodeSize(size_t node_in_set, size_t* n_left, size_t* n_right) {
+  RpcRequest(
+      LeftRightNodeSizeRequest, GetLeftRightNodeSize, BlockInfo, { request.set_nidx(node_in_set); },
+      {
+        *n_left = response.n_left();
+        *n_right = response.n_right();
+      });
+}
+
+void XgbServiceClient::SendLeftRightNodeSize(size_t node_in_set, size_t n_left, size_t n_right) {
+  RpcRequest(BlockInfo, SendLeftRightNodeSize, Response,
+             {
+               request.set_nidx(node_in_set);
+               request.set_n_left(n_left);
+               request.set_n_right(n_right);
+             },
+             {});
 }
 //=================================XgbServiceClient End===================================

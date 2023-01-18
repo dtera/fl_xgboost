@@ -10,13 +10,18 @@ package xgbcomm;
 service XgbService {
   rpc GetEncryptedGradPairs_ (stream GradPairsRequest) returns (stream GradPairsResponse) {}
   rpc GetEncryptedSplits_ (stream SplitsRequest) returns (stream SplitsResponse) {}
+
   rpc GetPubKey (Request) returns (PubKeyResponse) {}
   rpc GetEncryptedGradPairs (GradPairsRequest) returns (GradPairsResponse) {}
   rpc SendEncryptedSplits (SplitsRequest) returns (SplitsResponse) {}
   rpc IsSplitEntryValid (SplitEntryValidRequest) returns (SplitEntryValidResponse) {}
+  rpc GetLeftRightNodeSize (LeftRightNodeSizeRequest) returns (BlockInfo) {}
+  rpc SendLeftRightNodeSize (BlockInfo) returns (Response) {}
 }
 
 message Request {}
+
+message Response {}
 
 message PubKeyResponse {
   uint32 nbits = 1;
@@ -67,6 +72,10 @@ message SplitEntryValidResponse {
   bool is_valid = 2;
 }
 
+message LeftRightNodeSizeRequest {
+  uint32 nidx = 1;
+}
+
 message EncryptedSplit {
   string mask_id = 1;
   GradPair left_sum = 2;
@@ -77,12 +86,13 @@ message EncryptedSplit {
 }
 
 message BlockInfo {
-  uint32 n_left = 1;
-  uint32 n_right = 2;
-  uint32 n_offset_left = 3;
-  uint32 n_offset_right = 4;
-  repeated uint32 left_data_ = 5;
-  repeated uint32 right_data_ = 6;
+  uint32 nidx = 1;
+  uint32 n_left = 2;
+  uint32 n_right = 3;
+  uint32 n_offset_left = 4;
+  uint32 n_offset_right = 5;
+  repeated uint32 left_data_ = 6;
+  repeated uint32 right_data_ = 7;
 }
 
 message MpzType {
