@@ -82,6 +82,8 @@ class XgbServiceClient {
 
   void ReSizeBlockInfo(size_t n_tasks);
 
+  void SendBlockInfo(size_t task_idx, PositionBlockInfo *block_info);
+
   void GetPubKey(opt_public_key_t **pub);
 
   void GetEncryptedGradPairs(mpz_t *encryptedGradPairs);

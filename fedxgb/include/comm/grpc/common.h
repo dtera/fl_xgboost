@@ -38,10 +38,12 @@ struct XgbEncryptedSplit {
 };
 
 struct PositionBlockInfo {
+  size_t n_left;
+  size_t n_right;
   size_t n_offset_left;
   size_t n_offset_right;
-  std::vector<size_t> left_data_;
-  std::vector<size_t> right_data_;
+  size_t *left_data_;
+  size_t *right_data_;
 };
 
 void mpz_t2_mpz_type(xgbcomm::MpzType *mt, const mpz_t &m_t);

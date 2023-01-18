@@ -277,23 +277,30 @@ class PartitionBuilder {
     }
   }
 
-  void MergeToArray(
-      int nid, size_t begin, size_t* rows_indexes,
-      std::function<shared_ptr<BlockInfo>(size_t, vector<std::shared_ptr<BlockInfo>>&)>
-          get_mem_block = [](size_t task_idx, vector<std::shared_ptr<BlockInfo>>& mem_blocks) {
-            return mem_blocks[task_idx];
-          }) {
+  inline void MergeToRowsIndexes(size_t task_idx, size_t* rows_indexes,
+                                 vector<std::shared_ptr<BlockInfo>>& mem_blocks) {
+    size_t* left_result = rows_indexes + mem_blocks[task_idx]->n_offset_left;
+    size_t* right_result = rows_indexes + mem_blocks[task_idx]->n_offset_right;
+
+    const size_t* left = mem_blocks[task_idx]->Left();
+    const size_t* right = mem_blocks[task_idx]->Right();
+
+    std::copy_n(left, mem_blocks[task_idx]->n_left, left_result);
+    std::copy_n(right, mem_blocks[task_idx]->n_right, right_result);
+  }
+
+  void MergeToArray(int nid, size_t begin, size_t* rows_indexes,
+                    std::function<void(size_t, size_t*, vector<std::shared_ptr<BlockInfo>>&)>
+                        merge_to_rows_indexes) {
     size_t task_idx = GetTaskIdx(nid, begin);
-    std::shared_ptr<BlockInfo> mem_block = get_mem_block(task_idx, mem_blocks_);
+    merge_to_rows_indexes(task_idx, rows_indexes, mem_blocks_);
+  }
 
-    size_t* left_result = rows_indexes + mem_block->n_offset_left;
-    size_t* right_result = rows_indexes + mem_block->n_offset_right;
-
-    const size_t* left = mem_block->Left();
-    const size_t* right = mem_block->Right();
-
-    std::copy_n(left, mem_block->n_left, left_result);
-    std::copy_n(right, mem_block->n_right, right_result);
+  void MergeToArray(int nid, size_t begin, size_t* rows_indexes) {
+    MergeToArray(nid, begin, rows_indexes,
+                 [&](size_t task_idx, size_t* rows_indexes, auto& mem_blocks) {
+                   MergeToRowsIndexes(task_idx, rows_indexes, mem_blocks);
+                 });
   }
 
   size_t GetTaskIdx(int nid, size_t begin) { return blocks_offsets_[nid] + begin / BlockSize; }

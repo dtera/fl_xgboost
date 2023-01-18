@@ -230,31 +230,39 @@ class CommonRowPartitioner {
       }
     }
     common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
-      if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
-        return;
-      }
       const int32_t nid = nodes[node_in_set].nid;
-      partition_builder_.MergeToArray(node_in_set, r.begin(),
-                                      const_cast<size_t*>(row_set_collection_[nid].begin),
-                                      [&](auto task_idx, auto& mem_blocks) {
-                                        if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
-                                          if (fparam_->fl_role == FedratedRole::Guest) {
-                                            // label holder get block info from data holder
-                                          } else {
-                                            // data holder get block info from label holder
-                                          }
-                                        } else {
-                                          if (fparam_->fl_role == FedratedRole::Guest) {
-                                            // label holder send block info to data holder
-                                            new PositionBlockInfo;
-                                            mem_blocks[task_idx];
-                                          } else {
-                                            // data holder send block info to label holder
-                                          }
-                                        }
-
-                                        return mem_blocks[task_idx];
-                                      });
+      if (IsFederated()) {
+        partition_builder_.MergeToArray(
+            node_in_set, r.begin(), const_cast<size_t*>(row_set_collection_[nid].begin),
+            [&](size_t task_idx, size_t* rows_indexes, auto& mem_blocks) {
+              if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
+                if (fparam_->fl_role == FedratedRole::Guest) {
+                  // label holder get block info from data holder
+                } else {
+                  // data holder get block info from label holder
+                }
+              } else {
+                partition_builder_.MergeToRowsIndexes(task_idx, rows_indexes, mem_blocks);
+                auto block_info = new PositionBlockInfo;
+                block_info->n_left = mem_blocks[task_idx]->n_left;
+                block_info->n_right = mem_blocks[task_idx]->n_right;
+                block_info->n_offset_left = mem_blocks[task_idx]->n_offset_left;
+                block_info->n_offset_right = mem_blocks[task_idx]->n_offset_right;
+                block_info->left_data_ = mem_blocks[task_idx]->Left();
+                block_info->right_data_ = mem_blocks[task_idx]->Right();
+                if (fparam_->fl_role == FedratedRole::Guest) {
+                  // label holder send block info to data holder
+                  xgb_server_->SendBlockInfo(task_idx, block_info);
+                } else {
+                  // data holder send block info to label holder
+                  xgb_client_->SendBlockInfo(task_idx, block_info);
+                }
+              }
+            });
+      } else {
+        partition_builder_.MergeToArray(node_in_set, r.begin(),
+                                        const_cast<size_t*>(row_set_collection_[nid].begin));
+      }
     });
 
     // 5. Add info about splits into row_set_collection_

@@ -129,6 +129,8 @@ class XgbServiceServer final : public XgbService::Service {
 
   void ReSizeBlockInfo(size_t n_tasks);
 
+  void SendBlockInfo(size_t task_idx, PositionBlockInfo *block_info);
+
   template <typename ExpandEntry>
   void UpdateExpandEntry(
       ExpandEntry &entry,
@@ -153,10 +155,15 @@ class XgbServiceServer final : public XgbService::Service {
   Status IsSplitEntryValid(ServerContext *context, const SplitEntryValidRequest *request,
                            SplitEntryValidResponse *response) override;
 
-  Status GetLeftRightNodeSize(ServerContext *context, const LeftRightNodeSizeRequest *request,
+  Status GetLeftRightNodeSize(ServerContext *context, const Request *request,
                               BlockInfo *response) override;
 
   Status SendLeftRightNodeSize(ServerContext *context, const BlockInfo *request,
                                Response *response) override;
+
+  Status GetBlockInfo(ServerContext *context, const Request *request, BlockInfo *response) override;
+
+  Status SendBlockInfo(ServerContext *context, const BlockInfo *request,
+                       Response *response) override;
 };
 //=================================XgbServiceServer End===================================

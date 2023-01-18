@@ -124,6 +124,10 @@ void XgbServiceClient::Start(const uint32_t port, const string& host, int32_t n_
 
 void XgbServiceClient::ReSizeBlockInfo(size_t n_tasks) { block_infos_.resize(n_tasks); }
 
+void XgbServiceClient::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_info) {
+  block_infos_[task_idx].reset(block_info);
+}
+
 void XgbServiceClient::GetPubKey(opt_public_key_t** pub) {
   *pub = (opt_public_key_t*)malloc(sizeof(opt_public_key_t));
   RpcRequest(Request, GetPubKey, PubKeyResponse, , {
@@ -227,7 +231,7 @@ bool XgbServiceClient::IsSplitEntryValid(int nid, xgboost::bst_node_t num_leaves
 
 void XgbServiceClient::GetLeftRightNodeSize(size_t node_in_set, size_t* n_left, size_t* n_right) {
   RpcRequest(
-      LeftRightNodeSizeRequest, GetLeftRightNodeSize, BlockInfo, { request.set_nidx(node_in_set); },
+      Request, GetLeftRightNodeSize, BlockInfo, { request.set_idx(node_in_set); },
       {
         *n_left = response.n_left();
         *n_right = response.n_right();

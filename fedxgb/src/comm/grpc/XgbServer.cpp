@@ -190,6 +190,10 @@ void XgbServiceServer::SendLeftRightNodeSize(size_t node_in_set, size_t n_left, 
 
 void XgbServiceServer::ReSizeBlockInfo(size_t n_tasks) { block_infos_.resize(n_tasks); }
 
+void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_info) {
+  block_infos_[task_idx].reset(block_info);
+}
+
 template <typename ExpandEntry>
 void XgbServiceServer::UpdateExpandEntry(
     ExpandEntry& e,
@@ -334,14 +338,13 @@ Status XgbServiceServer::IsSplitEntryValid(ServerContext* context,
   return Status::OK;
 }
 
-Status XgbServiceServer::GetLeftRightNodeSize(ServerContext* context,
-                                              const LeftRightNodeSizeRequest* request,
+Status XgbServiceServer::GetLeftRightNodeSize(ServerContext* context, const Request* request,
                                               BlockInfo* response) {
-  while (left_right_nodes_sizes_.count(request->nidx()) == 0) {
+  while (left_right_nodes_sizes_.count(request->idx()) == 0) {
   }  // wait for the label part
-  auto left_right_node_size = left_right_nodes_sizes_[request->nidx()];
+  auto left_right_node_size = left_right_nodes_sizes_[request->idx()];
 
-  response->set_nidx(request->nidx());
+  response->set_nidx(request->idx());
   response->set_n_left(left_right_node_size.first);
   response->set_n_right(left_right_node_size.second);
 
@@ -352,6 +355,16 @@ Status XgbServiceServer::SendLeftRightNodeSize(ServerContext* context, const Blo
                                                Response* response) {
   left_right_nodes_sizes_.insert({request->nidx(), {request->n_left(), request->n_right()}});
 
+  return Status::OK;
+}
+
+Status XgbServiceServer::GetBlockInfo(ServerContext* context, const Request* request,
+                                      BlockInfo* response) {
+  return Status::OK;
+}
+
+Status XgbServiceServer::SendBlockInfo(ServerContext* context, const BlockInfo* request,
+                                       Response* response) {
   return Status::OK;
 }
 

@@ -15,11 +15,15 @@ service XgbService {
   rpc GetEncryptedGradPairs (GradPairsRequest) returns (GradPairsResponse) {}
   rpc SendEncryptedSplits (SplitsRequest) returns (SplitsResponse) {}
   rpc IsSplitEntryValid (SplitEntryValidRequest) returns (SplitEntryValidResponse) {}
-  rpc GetLeftRightNodeSize (LeftRightNodeSizeRequest) returns (BlockInfo) {}
+  rpc GetLeftRightNodeSize (Request) returns (BlockInfo) {}
   rpc SendLeftRightNodeSize (BlockInfo) returns (Response) {}
+  rpc GetBlockInfo (Request) returns (BlockInfo) {}
+  rpc SendBlockInfo (BlockInfo) returns (Response) {}
 }
 
-message Request {}
+message Request {
+  uint32 idx = 1;
+}
 
 message Response {}
 
@@ -70,10 +74,6 @@ message SplitEntryValidRequest {
 message SplitEntryValidResponse {
   uint32 version = 1;
   bool is_valid = 2;
-}
-
-message LeftRightNodeSizeRequest {
-  uint32 nidx = 1;
 }
 
 message EncryptedSplit {
