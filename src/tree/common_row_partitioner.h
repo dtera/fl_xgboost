@@ -222,6 +222,13 @@ class CommonRowPartitioner {
 
     // 4. Copy elements from partition_builder_ to row_set_collection_ back
     // with updated row-indexes for each tree-node
+    if (IsFederated()) {
+      if (fparam_->fl_role == FedratedRole::Guest) {
+        xgb_server_->ReSizeBlockInfo(space.Size());
+      } else {
+        xgb_client_->ReSizeBlockInfo(space.Size());
+      }
+    }
     common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
       if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
         return;
@@ -236,7 +243,16 @@ class CommonRowPartitioner {
                                           } else {
                                             // data holder get block info from label holder
                                           }
+                                        } else {
+                                          if (fparam_->fl_role == FedratedRole::Guest) {
+                                            // label holder send block info to data holder
+                                            new PositionBlockInfo;
+                                            mem_blocks[task_idx];
+                                          } else {
+                                            // data holder send block info to label holder
+                                          }
                                         }
+
                                         return mem_blocks[task_idx];
                                       });
     });

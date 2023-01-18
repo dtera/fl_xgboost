@@ -68,6 +68,7 @@ class XgbServiceClient {
   std::unique_ptr<XgbService::Stub> stub_;
   int32_t n_threads_;
   grpc::ChannelArguments channel_args_;
+  vector<std::shared_ptr<PositionBlockInfo>> block_infos_;
 
  public:
   uint32_t cur_version = 0;
@@ -78,6 +79,8 @@ class XgbServiceClient {
 
   void Start(const uint32_t port = 50001, const string &host = "0.0.0.0",
              int32_t n_threads = omp_get_num_procs());
+
+  void ReSizeBlockInfo(size_t n_tasks);
 
   void GetPubKey(opt_public_key_t **pub);
 

@@ -188,6 +188,8 @@ void XgbServiceServer::SendLeftRightNodeSize(size_t node_in_set, size_t n_left, 
   left_right_nodes_sizes_.insert({node_in_set, {n_left, n_right}});
 }
 
+void XgbServiceServer::ReSizeBlockInfo(size_t n_tasks) { block_infos_.resize(n_tasks); }
+
 template <typename ExpandEntry>
 void XgbServiceServer::UpdateExpandEntry(
     ExpandEntry& e,

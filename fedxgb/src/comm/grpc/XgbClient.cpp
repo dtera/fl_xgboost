@@ -122,6 +122,8 @@ void XgbServiceClient::Start(const uint32_t port, const string& host, int32_t n_
       host + ":" + to_string(port), grpc::InsecureChannelCredentials(), channel_args_));
 }
 
+void XgbServiceClient::ReSizeBlockInfo(size_t n_tasks) { block_infos_.resize(n_tasks); }
+
 void XgbServiceClient::GetPubKey(opt_public_key_t** pub) {
   *pub = (opt_public_key_t*)malloc(sizeof(opt_public_key_t));
   RpcRequest(Request, GetPubKey, PubKeyResponse, , {
