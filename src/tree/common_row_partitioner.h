@@ -22,7 +22,7 @@ class CommonRowPartitioner {
   common::PartitionBuilder<kPartitionBlockSize> partition_builder_;
   common::RowSetCollection row_set_collection_;
   const FederatedParam* fparam_;
-  map<size_t, size_t> task_id_node_idx_;
+  unordered_map<size_t, size_t> task_id_node_idx_;
 
  public:
   bst_row_t base_rowid = 0;
@@ -74,9 +74,6 @@ class CommonRowPartitioner {
   void AddSplitsToRowSet(const std::vector<CPUExpandEntry>& nodes, RegTree const* p_tree) {
     const size_t n_nodes = nodes.size();
     for (unsigned int i = 0; i < n_nodes; ++i) {
-      if (SelfPartNotBest(nodes[i].split.part_id)) {
-        continue;
-      }
       const int32_t nid = nodes[i].nid;
       const size_t n_left = partition_builder_.GetNLeftElems(i);
       const size_t n_right = partition_builder_.GetNRightElems(i);
@@ -173,12 +170,15 @@ class CommonRowPartitioner {
 
     // 2.3 Split elements of row_set_collection_ to left and right child-nodes for each node
     // Store results in intermediate buffers from partition_builder_
+    mutex m;
     common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
       size_t begin = r.begin();
       const int32_t nid = nodes[node_in_set].nid;
       const size_t task_id = partition_builder_.GetTaskIdx(node_in_set, begin);
       if (IsFederated() && task_id_node_idx_.count(task_id) == 0) {
+        m.lock();
         task_id_node_idx_.insert({task_id, node_in_set});
+        m.unlock();
       }
       partition_builder_.AllocateForTask(task_id);
       if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
