@@ -86,7 +86,7 @@ message EncryptedSplit {
 }
 
 message BlockInfo {
-  uint32 nidx = 1;
+  uint32 idx = 1;
   uint32 n_left = 2;
   uint32 n_right = 3;
   uint32 n_offset_left = 4;

@@ -222,13 +222,6 @@ class CommonRowPartitioner {
 
     // 4. Copy elements from partition_builder_ to row_set_collection_ back
     // with updated row-indexes for each tree-node
-    if (IsFederated()) {
-      if (fparam_->fl_role == FedratedRole::Guest) {
-        xgb_server_->ReSizeBlockInfo(space.Size());
-      } else {
-        xgb_client_->ReSizeBlockInfo(space.Size());
-      }
-    }
     common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
       const int32_t nid = nodes[node_in_set].nid;
       if (IsFederated()) {
@@ -238,8 +231,22 @@ class CommonRowPartitioner {
               if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
                 if (fparam_->fl_role == FedratedRole::Guest) {
                   // label holder get block info from data holder
+                  xgb_server_->GetBlockInfo(task_idx, [&](auto& block_info) {
+                    size_t* left_result = rows_indexes + block_info->n_offset_left;
+                    size_t* right_result = rows_indexes + block_info->n_offset_right;
+                    std::copy_n(block_info->left_data_, block_info->n_left, left_result);
+                    std::copy_n(block_info->right_data_, block_info->n_right, right_result);
+                  });
                 } else {
                   // data holder get block info from label holder
+                  xgb_client_->GetBlockInfo(task_idx, [&](auto& block_info) {
+                    size_t* left_result = rows_indexes + block_info.n_offset_left();
+                    size_t* right_result = rows_indexes + block_info.n_offset_right();
+                    std::copy_n(block_info.mutable_left_data_()->data(), block_info.n_left(),
+                                left_result);
+                    std::copy_n(block_info.mutable_right_data_()->data(), block_info.n_right(),
+                                right_result);
+                  });
                 }
               } else {
                 partition_builder_.MergeToRowsIndexes(task_idx, rows_indexes, mem_blocks);

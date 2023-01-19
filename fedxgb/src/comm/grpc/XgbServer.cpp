@@ -188,10 +188,9 @@ void XgbServiceServer::SendLeftRightNodeSize(size_t node_in_set, size_t n_left, 
   left_right_nodes_sizes_.insert({node_in_set, {n_left, n_right}});
 }
 
-void XgbServiceServer::ReSizeBlockInfo(size_t n_tasks) { block_infos_.resize(n_tasks); }
-
 void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_info) {
-  block_infos_[task_idx].reset(block_info);
+  lock_guard lk(m);
+  block_infos_.insert({task_idx, make_shared<PositionBlockInfo>(*block_info)});
 }
 
 template <typename ExpandEntry>
@@ -234,6 +233,14 @@ void XgbServiceServer::GetLeftRightNodeSize(size_t node_in_set, size_t* n_left, 
   auto left_right_node_size = left_right_nodes_sizes_[node_in_set];
   *n_left = left_right_node_size.first;
   *n_right = left_right_node_size.second;
+}
+
+void XgbServiceServer::GetBlockInfo(
+    size_t task_idx, function<void(shared_ptr<PositionBlockInfo>&)> process_block_info) {
+  while (block_infos_.count(task_idx) == 0) {
+  }  // wait for data holder part
+  auto block_info = block_infos_[task_idx];
+  process_block_info(block_info);
 }
 
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
@@ -344,7 +351,7 @@ Status XgbServiceServer::GetLeftRightNodeSize(ServerContext* context, const Requ
   }  // wait for the label part
   auto left_right_node_size = left_right_nodes_sizes_[request->idx()];
 
-  response->set_nidx(request->idx());
+  response->set_idx(request->idx());
   response->set_n_left(left_right_node_size.first);
   response->set_n_right(left_right_node_size.second);
 
@@ -353,18 +360,49 @@ Status XgbServiceServer::GetLeftRightNodeSize(ServerContext* context, const Requ
 
 Status XgbServiceServer::SendLeftRightNodeSize(ServerContext* context, const BlockInfo* request,
                                                Response* response) {
-  left_right_nodes_sizes_.insert({request->nidx(), {request->n_left(), request->n_right()}});
-
+  left_right_nodes_sizes_.insert({request->idx(), {request->n_left(), request->n_right()}});
   return Status::OK;
 }
 
 Status XgbServiceServer::GetBlockInfo(ServerContext* context, const Request* request,
                                       BlockInfo* response) {
+  while (block_infos_.count(request->idx()) == 0) {
+  }  // wait for the label part
+  auto block_info = block_infos_[request->idx()];
+
+  response->set_idx(request->idx());
+  response->set_n_left(block_info->n_left);
+  response->set_n_right(block_info->n_right);
+  response->set_n_offset_left(block_info->n_offset_left);
+  response->set_n_offset_right(block_info->n_offset_right);
+  auto left_data = response->mutable_left_data_();
+  for (int i = 0; i < block_info->n_left; ++i) {
+    left_data->Add(block_info->left_data_[i]);
+  }
+  auto right_data = response->mutable_right_data_();
+  for (int i = 0; i < block_info->n_right; ++i) {
+    right_data->Add(block_info->right_data_[i]);
+  }
+
   return Status::OK;
 }
 
 Status XgbServiceServer::SendBlockInfo(ServerContext* context, const BlockInfo* request,
                                        Response* response) {
+  PositionBlockInfo* block_info = new PositionBlockInfo;
+  block_info->n_left = request->n_left();
+  block_info->n_right = request->n_right();
+  block_info->n_offset_left = request->n_offset_left();
+  block_info->n_offset_right = request->n_offset_right();
+  block_info->left_data_ = new size_t[request->n_left()];
+  for (int i = 0; i < block_info->n_left; ++i) {
+    block_info->left_data_[i] = request->left_data_(i);
+  }
+  block_info->right_data_ = new size_t[request->n_right()];
+  for (int i = 0; i < block_info->n_right; ++i) {
+    block_info->right_data_[i] = request->right_data_(i);
+  }
+  block_infos_.insert({request->idx(), make_shared<PositionBlockInfo>(*block_info)});
   return Status::OK;
 }
 

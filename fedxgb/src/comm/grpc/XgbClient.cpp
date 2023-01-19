@@ -122,12 +122,6 @@ void XgbServiceClient::Start(const uint32_t port, const string& host, int32_t n_
       host + ":" + to_string(port), grpc::InsecureChannelCredentials(), channel_args_));
 }
 
-void XgbServiceClient::ReSizeBlockInfo(size_t n_tasks) { block_infos_.resize(n_tasks); }
-
-void XgbServiceClient::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_info) {
-  block_infos_[task_idx].reset(block_info);
-}
-
 void XgbServiceClient::GetPubKey(opt_public_key_t** pub) {
   *pub = (opt_public_key_t*)malloc(sizeof(opt_public_key_t));
   RpcRequest(Request, GetPubKey, PubKeyResponse, , {
@@ -241,9 +235,36 @@ void XgbServiceClient::GetLeftRightNodeSize(size_t node_in_set, size_t* n_left, 
 void XgbServiceClient::SendLeftRightNodeSize(size_t node_in_set, size_t n_left, size_t n_right) {
   RpcRequest(BlockInfo, SendLeftRightNodeSize, Response,
              {
-               request.set_nidx(node_in_set);
+               request.set_idx(node_in_set);
                request.set_n_left(n_left);
                request.set_n_right(n_right);
+             },
+             {});
+}
+
+void XgbServiceClient::GetBlockInfo(size_t task_idx,
+                                    function<void(BlockInfo&)> process_block_info) {
+  RpcRequest(
+      Request, GetBlockInfo, BlockInfo, { request.set_idx(task_idx); },
+      { process_block_info(response); });
+}
+
+void XgbServiceClient::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_info) {
+  RpcRequest(BlockInfo, SendBlockInfo, Response,
+             {
+               request.set_idx(task_idx);
+               request.set_n_left(block_info->n_left);
+               request.set_n_right(block_info->n_right);
+               request.set_n_offset_left(block_info->n_offset_left);
+               request.set_n_offset_right(block_info->n_offset_right);
+               auto left_data = request.mutable_left_data_();
+               for (int i = 0; i < block_info->n_left; ++i) {
+                 left_data->Add(block_info->left_data_[i]);
+               }
+               auto right_data = request.mutable_right_data_();
+               for (int i = 0; i < block_info->n_right; ++i) {
+                 right_data->Add(block_info->right_data_[i]);
+               }
              },
              {});
 }

@@ -93,14 +93,14 @@ class XgbServiceServer final : public XgbService::Service {
   unordered_map<uint32_t, const EncryptedSplit> best_splits_;
   unordered_map<uint32_t, const CPUExpandEntry> entries_;
   unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
-  vector<std::shared_ptr<PositionBlockInfo>> block_infos_;
+  unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
   bool finished_ = false;
   // shared mutex to control updating the mask id
-  std::shared_timed_mutex m{};
+  shared_timed_mutex m{};
 
  public:
   uint32_t cur_version{0};
-  uint32_t max_version{std::numeric_limits<uint32_t>().max()};
+  uint32_t max_version{numeric_limits<uint32_t>().max()};
 
   explicit XgbServiceServer() = default;
 
@@ -142,6 +142,9 @@ class XgbServiceServer final : public XgbService::Service {
   void UpdateFinishSplits(uint32_t nidx, bool finish_split = false);
 
   void GetLeftRightNodeSize(size_t node_in_set, size_t *n_left, size_t *n_right);
+
+  void GetBlockInfo(size_t task_idx,
+                    function<void(shared_ptr<PositionBlockInfo> &)> process_block_info);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;
