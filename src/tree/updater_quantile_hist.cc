@@ -273,9 +273,15 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
         best_splits.push_back(r_best);
       }
       auto const &histograms = histogram_builder_->Histogram();
+      auto const &encrypted_histograms = encrypted_histogram_builder_->Histogram();
       auto ft = p_fmat->Info().feature_types.ConstHostSpan();
       for (auto const &gmat : p_fmat->GetBatches<GHistIndexMatrix>(HistBatch(param_))) {
-        evaluator_->EvaluateSplits(histograms, gmat.cut, ft, *p_tree, &best_splits);
+        if (is_same<float, T>()) {
+          evaluator_->EvaluateSplits(histograms, gmat.cut, ft, *p_tree, &best_splits);
+        } else {
+          encrypted_evaluator_->EvaluateSplits(encrypted_histograms, gmat.cut, ft, *p_tree,
+                                               &best_splits);
+        }
         break;
       }
     }
