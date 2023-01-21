@@ -464,7 +464,7 @@ class HistEvaluator {
           splits_requests[nidx_in_set].mutable_encrypted_splits()->MergeFrom(
               tloc_requests[n_threads_ * nidx_in_set + tidx].encrypted_splits());
         }
-        splits_requests[nidx_in_set].set_nidx(nidx_in_set);
+        splits_requests[nidx_in_set].set_nidx(entries[nidx_in_set].nid);
         DataHolderUpdate(cut, feature_types, entries[nidx_in_set], splits_requests[nidx_in_set]);
       }
     }

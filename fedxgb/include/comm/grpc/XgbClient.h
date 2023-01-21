@@ -100,5 +100,7 @@ class XgbServiceClient {
   void GetBlockInfo(size_t task_idx, function<void(BlockInfo &)> process_block_info);
 
   void SendBlockInfo(size_t task_idx, PositionBlockInfo *block_info);
+
+  void Clear();
 };
 //=================================XgbServiceClient End===================================

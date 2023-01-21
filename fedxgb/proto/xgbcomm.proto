@@ -19,6 +19,7 @@ service XgbService {
   rpc SendLeftRightNodeSize (BlockInfo) returns (Response) {}
   rpc GetBlockInfo (Request) returns (BlockInfo) {}
   rpc SendBlockInfo (BlockInfo) returns (Response) {}
+  rpc Clear (Request) returns (Response) {}
 }
 
 message Request {

@@ -168,5 +168,7 @@ class XgbServiceServer final : public XgbService::Service {
 
   Status SendBlockInfo(ServerContext *context, const BlockInfo *request,
                        Response *response) override;
+
+  Status Clear(ServerContext *context, const Request *request, Response *response) override;
 };
 //=================================XgbServiceServer End===================================

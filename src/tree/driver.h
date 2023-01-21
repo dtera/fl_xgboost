@@ -40,17 +40,26 @@ class Driver {
         queue_(param.grow_policy == TrainParam::kDepthWise ? DepthWise<ExpandEntryT>
                                                            : LossGuide<ExpandEntryT>) {}
   template <typename EntryIterT>
-  void Push(EntryIterT begin, EntryIterT end) {
+  void Push(
+      EntryIterT begin, EntryIterT end,
+      function<bool(const ExpandEntryT&)> is_valid = [](const ExpandEntryT& e) {
+        return e.split.loss_chg > kRtEps;
+      }) {
     for (auto it = begin; it != end; ++it) {
       const ExpandEntryT& e = *it;
-      if (e.split.loss_chg > kRtEps) {
+      if (is_valid(e)) {
         queue_.push(e);
       }
     }
   }
-  void Push(const std::vector<ExpandEntryT>& entries) {
-    this->Push(entries.begin(), entries.end());
+  void Push(
+      const std::vector<ExpandEntryT>& entries,
+      function<bool(const ExpandEntryT&)> is_valid = [](const ExpandEntryT& e) {
+        return e.split.loss_chg > kRtEps;
+      }) {
+    this->Push(entries.begin(), entries.end(), is_valid);
   }
+
   void Push(ExpandEntryT const& e) { queue_.push(e); }
 
   bool IsEmpty() { return queue_.empty(); }

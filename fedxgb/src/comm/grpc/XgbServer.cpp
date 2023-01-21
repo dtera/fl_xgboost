@@ -198,9 +198,9 @@ void XgbServiceServer::UpdateExpandEntry(
     ExpandEntry& e,
     function<void(uint32_t, GradStats<double>&, GradStats<double>&, const SplitsRequest&)>
         update_grad_stats) {
-  entries_.insert({e.nid, e});
   while (!finish_splits_[e.nid]) {
   }  // wait for the data holder part
+  entries_.insert({e.nid, e});
   auto encrypted_splits = splits_requests_[e.nid].encrypted_splits();
   ParallelFor(encrypted_splits.size(), n_threads_, [&](uint32_t i) {
     GradStats<double> left_sum;
@@ -339,7 +339,13 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
 Status XgbServiceServer::IsSplitEntryValid(ServerContext* context,
                                            const SplitEntryValidRequest* request,
                                            SplitEntryValidResponse* response) {
-  response->set_is_valid(entries_[request->nidx()].IsValid(*train_param_, request->num_leaves()));
+  bool is_valid;
+  if (request->num_leaves() == -1) {
+    is_valid = entries_[request->nidx()].split.loss_chg > xgboost::kRtEps;
+  } else {
+    is_valid = entries_[request->nidx()].IsValid(*train_param_, request->num_leaves());
+  }
+  response->set_is_valid(is_valid);
   response->set_version(cur_version);
 
   return Status::OK;
@@ -403,6 +409,17 @@ Status XgbServiceServer::SendBlockInfo(ServerContext* context, const BlockInfo* 
     block_info->right_data_[i] = request->right_data_(i);
   }
   block_infos_.insert({request->idx(), make_shared<PositionBlockInfo>(*block_info)});
+  return Status::OK;
+}
+
+Status XgbServiceServer::Clear(ServerContext* context, const Request* request, Response* response) {
+  // finish_splits_.clear();
+  splits_requests_.clear();
+  best_splits_.clear();
+  entries_.clear();
+  left_right_nodes_sizes_.clear();
+  block_infos_.clear();
+
   return Status::OK;
 }
 

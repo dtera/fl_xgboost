@@ -231,7 +231,6 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
       is_same<float, T>()
           ? driver.Pop()
           : driver.Pop([](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
-              // e.nid;
               return xgb_client_->IsSplitEntryValid(e.nid, num_leaves);
             });
 
@@ -279,14 +278,24 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
         if (is_same<float, T>()) {
           evaluator_->EvaluateSplits(histograms, gmat.cut, ft, *p_tree, &best_splits);
         } else {
+          xgb_client_->Clear();
           encrypted_evaluator_->EvaluateSplits(encrypted_histograms, gmat.cut, ft, *p_tree,
                                                &best_splits);
         }
         break;
       }
     }
-    driver.Push(best_splits.begin(), best_splits.end());
-    expand_set = driver.Pop();
+    if (is_same<float, T>()) {
+      driver.Push(best_splits.begin(), best_splits.end());
+      expand_set = driver.Pop();
+    } else {
+      driver.Push(best_splits.begin(), best_splits.end(), [](const CPUExpandEntry &e) {
+        return xgb_client_->IsSplitEntryValid(e.nid, -1);
+      });
+      expand_set = driver.Pop([](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
+        return xgb_client_->IsSplitEntryValid(e.nid, num_leaves);
+      });
+    }
   }
 
   auto &h_out_position = p_out_position->HostVector();

@@ -268,4 +268,7 @@ void XgbServiceClient::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_i
              },
              {});
 }
+
+void XgbServiceClient::Clear() { RpcRequest(Request, Clear, Response, {}, {}); }
+
 //=================================XgbServiceClient End===================================
