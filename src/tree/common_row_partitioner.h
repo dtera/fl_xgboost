@@ -21,7 +21,6 @@ class CommonRowPartitioner {
   static constexpr size_t kPartitionBlockSize = 2048;
   common::PartitionBuilder<kPartitionBlockSize> partition_builder_;
   common::RowSetCollection row_set_collection_;
-  const FederatedParam* fparam_;
   unordered_map<size_t, size_t> task_id_node_idx_;
 
  public:
@@ -29,9 +28,8 @@ class CommonRowPartitioner {
 
   CommonRowPartitioner() = default;
 
-  CommonRowPartitioner(Context const* ctx, bst_row_t num_row, bst_row_t _base_rowid,
-                       const FederatedParam& fparam)
-      : base_rowid{_base_rowid}, fparam_(&fparam) {
+  CommonRowPartitioner(Context const* ctx, bst_row_t num_row, bst_row_t _base_rowid)
+      : base_rowid{_base_rowid} {
     row_set_collection_.Clear();
     std::vector<size_t>& row_indices = *row_set_collection_.Data();
     row_indices.resize(num_row);

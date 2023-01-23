@@ -120,16 +120,14 @@ class QuantileHistMaker : public TreeUpdater {
  protected:
   // training parameter
   TrainParam param_;
-  FederatedParam fparam_;
   // actual builder that runs the algorithm
   struct Builder {
    public:
     // constructor
-    explicit Builder(const size_t n_trees, const TrainParam& param, const FederatedParam& fparam,
-                     DMatrix const* fmat, ObjInfo task, GenericParameter const* ctx)
+    explicit Builder(const size_t n_trees, const TrainParam& param, DMatrix const* fmat,
+                     ObjInfo task, GenericParameter const* ctx)
         : n_trees_(n_trees),
           param_(param),
-          fparam_(fparam),
           p_last_fmat_(fmat),
           histogram_builder_{new HistogramBuilder<CPUExpandEntry>},
           encrypted_histogram_builder_{
@@ -200,7 +198,6 @@ class QuantileHistMaker : public TreeUpdater {
    private:
     const size_t n_trees_;
     const TrainParam& param_;
-    const FederatedParam& fparam_;
     std::shared_ptr<common::ColumnSampler> column_sampler_{
         std::make_shared<common::ColumnSampler>()};
 

@@ -394,7 +394,6 @@ class LearnerConfiguration : public Learner {
   std::vector<std::string> feature_types_;
 
   common::Monitor monitor_;
-  FederatedParam fparam_;
   LearnerModelParamLegacy mparam_;
   LearnerModelParam learner_model_param_;
   LearnerTrainParam tparam_;
@@ -487,7 +486,10 @@ class LearnerConfiguration : public Learner {
     auto old_tparam = tparam_;
     Args args = {cfg_.cbegin(), cfg_.cend()};
 
-    fparam_.UpdateAllowUnknown(args);
+    if (fparam_ == nullptr) {
+      fparam_ = FIND_XGB_SERVICE(FederatedParam);
+      fparam_->UpdateAllowUnknown(args);
+    }
     tparam_.UpdateAllowUnknown(args);
     mparam_.UpdateAllowUnknown(args);
 
@@ -523,20 +525,20 @@ class LearnerConfiguration : public Learner {
 
     // config rpc service for xgb
     if (tparam_.dsplit == DataSplitMode::kCol) {
-      if (fparam_.fl_role == FedratedRole::Guest) {
-        // server_.reset(new XgbServiceServer(fparam_.fl_port));
+      if (fparam_->fl_role == FedratedRole::Guest) {
+        // server_.reset(new XgbServiceServer(fparam_->fl_port));
         xgb_server_ = FIND_XGB_SERVICE(XgbServiceServer);
-        xgb_server_->Start(fparam_.fl_port);
-        opt_paillier_keygen(&pub_, &pri_, fparam_.fl_bit_len);
+        xgb_server_->Start(fparam_->fl_port);
+        opt_paillier_keygen(&pub_, &pri_, fparam_->fl_bit_len);
         xgb_server_->SendPubKey(pub_);
         xgb_server_->SetPriKey(pri_);
         xgb_server_->max_version =
             cfg_.count("num_round") == 0 ? 1 : std::atoi(cfg_["num_round"].c_str());
       } else {
-        auto p = fparam_.fl_address.find(":");
+        auto p = fparam_->fl_address.find(":");
         xgb_client_ = FIND_XGB_SERVICE(XgbServiceClient);
-        xgb_client_->Start(atoi(fparam_.fl_address.substr(p + 1).c_str()),
-                           fparam_.fl_address.substr(0, p), omp_get_num_procs());
+        xgb_client_->Start(atoi(fparam_->fl_address.substr(p + 1).c_str()),
+                           fparam_->fl_address.substr(0, p), omp_get_num_procs());
         xgb_client_->GetPubKey(&pub_);
         cout << "** RPC client connect server success! " << endl;
       }
@@ -652,6 +654,7 @@ class LearnerConfiguration : public Learner {
       cfg_[key] = value;
     }
   }
+
   // Short hand for setting multiple parameters
   void SetParams(std::vector<std::pair<std::string, std::string>> const& args) override {
     for (auto const& kv : args) {
@@ -1341,7 +1344,7 @@ class LearnerImpl : public LearnerIO {
     TrainingObserver::Instance().Observe(predt.predictions, "Predictions");
     monitor_.Stop("PredictRaw");
 
-    if (fparam_.fl_role == FedratedRole::Guest) {
+    if (fparam_->fl_role == FedratedRole::Guest) {
       monitor_.Start("GetGradient");
       obj_->GetGradient(predt.predictions, train->Info(), iter, &gpair_, &encrypted_gpair_, pub_);
       monitor_.Stop("GetGradient");

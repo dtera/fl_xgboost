@@ -39,7 +39,6 @@ auto BatchSpec(TrainParam const &p, common::Span<float> hess) {
 class GloablApproxBuilder {
  protected:
   TrainParam param_;
-  FederatedParam fparam_;
   std::shared_ptr<common::ColumnSampler> col_sampler_;
   HistEvaluator<CPUExpandEntry> evaluator_;
   HistogramBuilder<CPUExpandEntry> histogram_builder_;
@@ -69,7 +68,7 @@ class GloablApproxBuilder {
       } else {
         CHECK_EQ(n_total_bins, page.cut.TotalBins());
       }
-      partitioner_.emplace_back(this->ctx_, page.Size(), page.base_rowid, fparam_);
+      partitioner_.emplace_back(this->ctx_, page.Size(), page.base_rowid);
       n_batches_++;
     }
 
@@ -164,14 +163,12 @@ class GloablApproxBuilder {
   }
 
  public:
-  explicit GloablApproxBuilder(TrainParam param, FederatedParam fparam, MetaInfo const &info,
-                               Context const *ctx,
+  explicit GloablApproxBuilder(TrainParam param, MetaInfo const &info, Context const *ctx,
                                std::shared_ptr<common::ColumnSampler> column_sampler, ObjInfo task,
                                common::Monitor *monitor)
       : param_{std::move(param)},
-        fparam_{std::move(fparam)},
         col_sampler_{std::move(column_sampler)},
-        evaluator_{param_, fparam_, info, ctx->Threads(), col_sampler_},
+        evaluator_{param_, info, ctx->Threads(), col_sampler_},
         ctx_{ctx},
         task_{task},
         monitor_{monitor} {}
@@ -249,7 +246,6 @@ class GloablApproxBuilder {
  */
 class GlobalApproxUpdater : public TreeUpdater {
   TrainParam param_;
-  FederatedParam fparam_;
   common::Monitor monitor_;
   // specializations for different histogram precision.
   std::unique_ptr<GloablApproxBuilder> pimpl_;
@@ -265,10 +261,7 @@ class GlobalApproxUpdater : public TreeUpdater {
     monitor_.Init(__func__);
   }
 
-  void Configure(const Args &args) override {
-    param_.UpdateAllowUnknown(args);
-    fparam_.UpdateAllowUnknown(args);
-  }
+  void Configure(const Args &args) override { param_.UpdateAllowUnknown(args); }
 
   void LoadConfig(Json const &in) override {
     auto const &config = get<Object const>(in);
@@ -309,8 +302,8 @@ class GlobalApproxUpdater : public TreeUpdater {
     float lr = param_.learning_rate;
     param_.learning_rate = lr / trees.size();
 
-    pimpl_ = std::make_unique<GloablApproxBuilder>(param_, fparam_, m->Info(), ctx_,
-                                                   column_sampler_, task_, &monitor_);
+    pimpl_ = std::make_unique<GloablApproxBuilder>(param_, m->Info(), ctx_, column_sampler_, task_,
+                                                   &monitor_);
 
     std::vector<GradientPair> h_gpair;
     InitData(param_, gpair, &h_gpair);

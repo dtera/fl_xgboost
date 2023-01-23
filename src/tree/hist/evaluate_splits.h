@@ -38,7 +38,6 @@ class HistEvaluator {
 
  private:
   TrainParam param_;
-  FederatedParam fparam_;
   std::shared_ptr<common::ColumnSampler> column_sampler_;
   TreeEvaluator tree_evaluator_;
   int32_t n_threads_{0};
@@ -309,7 +308,7 @@ class HistEvaluator {
   }
 
  public:
-  inline bool IsFederated() const { return fparam_.dsplit == DataSplitMode::kCol; }
+  inline bool IsFederated() const { return fparam_->dsplit == DataSplitMode::kCol; }
 
   void SortFeatHistogram(std::vector<size_t> &sorted_idx,
                          common::GHistRow<EncryptedType<double>> &feat_hist,
@@ -330,7 +329,7 @@ class HistEvaluator {
   void UpdateForDataHolder(ExpandEntry &e,
                            const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) const {
     if (IsFederated()) {
-      e.split.part_id = fparam_.fl_part_id;
+      e.split.part_id = fparam_->fl_part_id;
       xgb_server_->UpdateFinishSplits(e.nid, false);
       // update expand entry for the data holder part
       xgb_server_->UpdateExpandEntry(e, [&](uint32_t i, GradStats<double> &left_sum,
@@ -351,7 +350,7 @@ class HistEvaluator {
                         common::Span<const FeatureType> &feature_types, ExpandEntry &e,
                         SplitsRequest &sr) const {
     auto const &cut_ptrs = cut.Ptrs();
-    sr.set_part_id(fparam_.fl_part_id);
+    sr.set_part_id(fparam_->fl_part_id);
     xgb_client_->SendEncryptedSplits(sr, [&](SplitsResponse &response) {
       bst_feature_t fidx = 0;
       bst_float split_pt = 0;
@@ -559,11 +558,9 @@ class HistEvaluator {
  public:
   // The column sampler must be constructed by caller since we need to preserve the rng
   // for the entire training session.
-  explicit HistEvaluator(TrainParam const &param, FederatedParam const &fparam,
-                         MetaInfo const &info, int32_t n_threads,
+  explicit HistEvaluator(TrainParam const &param, MetaInfo const &info, int32_t n_threads,
                          std::shared_ptr<common::ColumnSampler> sampler)
       : param_{param},
-        fparam_{fparam},
         column_sampler_{std::move(sampler)},
         tree_evaluator_{param, static_cast<bst_feature_t>(info.num_col_), GenericParameter::kCpuId},
         n_threads_{n_threads} {
