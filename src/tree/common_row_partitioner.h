@@ -39,12 +39,6 @@ class CommonRowPartitioner {
     row_set_collection_.Init();
   }
 
-  inline bool IsFederated() { return fparam_->dsplit == DataSplitMode::kCol; }
-
-  inline bool SelfPartNotBest(int32_t part_id) {
-    return IsFederated() && part_id != fparam_->fl_part_id;
-  }
-
   void FindSplitConditions(const std::vector<CPUExpandEntry>& nodes, const RegTree& tree,
                            const GHistIndexMatrix& gmat, std::vector<int32_t>* split_conditions) {
     for (size_t i = 0; i < nodes.size(); ++i) {

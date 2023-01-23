@@ -51,3 +51,9 @@ extern std::unique_ptr<FederatedParam> fparam_;
 REGISTER_XGB_SERVEICE(XgbServiceServer, xgb_server_);
 REGISTER_XGB_SERVEICE(XgbServiceClient, xgb_client_);
 REGISTER_XGB_SERVEICE(FederatedParam, fparam_);
+
+inline bool IsFederated() { return fparam_->dsplit == DataSplitMode::kCol; }
+
+inline bool SelfPartNotBest(int32_t part_id) {
+  return IsFederated() && part_id != fparam_->fl_part_id;
+}

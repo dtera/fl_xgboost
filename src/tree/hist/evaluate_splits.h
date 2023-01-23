@@ -308,8 +308,6 @@ class HistEvaluator {
   }
 
  public:
-  inline bool IsFederated() const { return fparam_->dsplit == DataSplitMode::kCol; }
-
   void SortFeatHistogram(std::vector<size_t> &sorted_idx,
                          common::GHistRow<EncryptedType<double>> &feat_hist,
                          TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) {
