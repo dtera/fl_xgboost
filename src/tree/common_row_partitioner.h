@@ -42,7 +42,7 @@ class CommonRowPartitioner {
   void FindSplitConditions(const std::vector<CPUExpandEntry>& nodes, const RegTree& tree,
                            const GHistIndexMatrix& gmat, std::vector<int32_t>* split_conditions) {
     for (size_t i = 0; i < nodes.size(); ++i) {
-      if (SelfPartNotBest(nodes[i].split.part_id)) {
+      if (IsFederatedAndSelfPartNotBest(nodes[i].split.part_id)) {
         continue;
       }
       const int32_t nid = nodes[i].nid;
@@ -173,7 +173,7 @@ class CommonRowPartitioner {
         m.unlock();
       }
       partition_builder_.AllocateForTask(task_id);
-      if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
+      if (IsFederatedAndSelfPartNotBest(nodes[node_in_set].split.part_id)) {
         return;
       }
       bst_bin_t split_cond = column_matrix.IsInitialized() ? split_conditions[node_in_set] : 0;

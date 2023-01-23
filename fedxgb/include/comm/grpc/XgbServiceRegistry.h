@@ -54,6 +54,8 @@ REGISTER_XGB_SERVEICE(FederatedParam, fparam_);
 
 inline bool IsFederated() { return fparam_->dsplit == DataSplitMode::kCol; }
 
-inline bool SelfPartNotBest(int32_t part_id) {
-  return IsFederated() && part_id != fparam_->fl_part_id;
+inline bool SelfPartNotBest(int32_t part_id) { return part_id != fparam_->fl_part_id; }
+
+inline bool IsFederatedAndSelfPartNotBest(int32_t part_id) {
+  return IsFederated() && SelfPartNotBest(part_id);
 }
