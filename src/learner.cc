@@ -524,8 +524,8 @@ class LearnerConfiguration : public Learner {
     this->ConfigureMetrics(args);
 
     // config rpc service for xgb
-    if (tparam_.dsplit == DataSplitMode::kCol) {
-      if (fparam_->fl_role == FedratedRole::Guest) {
+    if (IsFederated()) {
+      if (IsGuest()) {
         // server_.reset(new XgbServiceServer(fparam_->fl_port));
         xgb_server_ = FIND_XGB_SERVICE(XgbServiceServer);
         xgb_server_->Start(fparam_->fl_port);
@@ -1344,7 +1344,7 @@ class LearnerImpl : public LearnerIO {
     TrainingObserver::Instance().Observe(predt.predictions, "Predictions");
     monitor_.Stop("PredictRaw");
 
-    if (fparam_->fl_role == FedratedRole::Guest) {
+    if (IsGuest()) {
       monitor_.Start("GetGradient");
       obj_->GetGradient(predt.predictions, train->Info(), iter, &gpair_, &encrypted_gpair_, pub_);
       monitor_.Stop("GetGradient");
