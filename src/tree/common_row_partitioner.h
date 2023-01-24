@@ -191,7 +191,7 @@ class CommonRowPartitioner {
           },
           [&](size_t i, size_t* n_left, size_t* n_right) {
             if (SelfPartNotBest(nodes[i].split.part_id)) {
-              if (fparam_->fl_role == FedratedRole::Guest) {
+              if (IsGuest()) {
                 // label holder get left_right_nodes_sizes from data holder
                 xgb_server_->GetLeftRightNodeSize(i, n_left, n_right);
               } else {
@@ -199,7 +199,7 @@ class CommonRowPartitioner {
                 xgb_client_->GetLeftRightNodeSize(i, n_left, n_right);
               }
             } else {
-              if (fparam_->fl_role == FedratedRole::Guest) {
+              if (IsGuest()) {
                 // label holder send left_right_nodes_sizes to data holder
                 xgb_server_->SendLeftRightNodeSize(i, *n_left, *n_right);
               } else {
@@ -221,7 +221,7 @@ class CommonRowPartitioner {
             node_in_set, r.begin(), const_cast<size_t*>(row_set_collection_[nid].begin),
             [&](size_t task_idx, size_t* rows_indexes, auto& mem_blocks) {
               if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
-                if (fparam_->fl_role == FedratedRole::Guest) {
+                if (IsGuest()) {
                   // label holder get block info from data holder
                   xgb_server_->GetBlockInfo(task_idx, [&](auto& block_info) {
                     size_t* left_result = rows_indexes + block_info->n_offset_left;
@@ -249,7 +249,7 @@ class CommonRowPartitioner {
                 block_info->n_offset_right = mem_blocks[task_idx]->n_offset_right;
                 block_info->left_data_ = mem_blocks[task_idx]->Left();
                 block_info->right_data_ = mem_blocks[task_idx]->Right();
-                if (fparam_->fl_role == FedratedRole::Guest) {
+                if (IsGuest()) {
                   // label holder send block info to data holder
                   xgb_server_->SendBlockInfo(task_idx, block_info);
                 } else {
