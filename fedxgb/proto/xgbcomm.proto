@@ -19,6 +19,8 @@ service XgbService {
   rpc SendLeftRightNodeSize (BlockInfo) returns (Response) {}
   rpc GetBlockInfo (Request) returns (BlockInfo) {}
   rpc SendBlockInfo (BlockInfo) returns (Response) {}
+  rpc GetNextNode (Request) returns (NextNode) {}
+  rpc SendNextNode (NextNode) returns (Response) {}
   rpc Clear (Request) returns (Response) {}
 }
 
@@ -94,6 +96,11 @@ message BlockInfo {
   uint32 n_offset_right = 5;
   repeated uint32 left_data_ = 6;
   repeated uint32 right_data_ = 7;
+}
+
+message NextNode {
+  int32 nid = 1;
+  int32 next_nid = 2;
 }
 
 message MpzType {

@@ -250,6 +250,12 @@ void XgbServiceClient::GetBlockInfo(size_t task_idx,
       { process_block_info(response); });
 }
 
+void XgbServiceClient::GetNextNode(int32_t nid, function<void(int32_t)> process_next_node) {
+  RpcRequest(
+      Request, GetNextNode, NextNode, { request.set_idx(nid); },
+      { process_next_node(response.next_nid()); });
+}
+
 void XgbServiceClient::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_info) {
   RpcRequest(BlockInfo, SendBlockInfo, Response,
              {
@@ -266,6 +272,15 @@ void XgbServiceClient::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_i
                for (int i = 0; i < block_info->n_right; ++i) {
                  right_data->Add(block_info->right_data_[i]);
                }
+             },
+             {});
+}
+
+void XgbServiceClient::SendNextNode(int32_t nid, int32_t next_nid) {
+  RpcRequest(NextNode, SendNextNode, Response,
+             {
+               request.set_nid(nid);
+               request.set_next_nid(next_nid);
              },
              {});
 }

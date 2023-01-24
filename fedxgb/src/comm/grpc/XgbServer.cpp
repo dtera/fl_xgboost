@@ -193,6 +193,11 @@ void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_i
   block_infos_.insert({task_idx, make_shared<PositionBlockInfo>(*block_info)});
 }
 
+void XgbServiceServer::SendNextNode(int32_t nid, int32_t next_nid) {
+  lock_guard lk(m);
+  next_nodes_.insert({nid, next_nid});
+}
+
 template <typename ExpandEntry>
 void XgbServiceServer::UpdateExpandEntry(
     ExpandEntry& e,
@@ -241,6 +246,12 @@ void XgbServiceServer::GetBlockInfo(
   }  // wait for data holder part
   auto block_info = block_infos_[task_idx];
   process_block_info(block_info);
+}
+
+void XgbServiceServer::GetNextNode(int32_t nid, function<void(int32_t)> process_next_node) {
+  while (next_nodes_.count(nid) == 0) {
+  }  // wait for data holder part
+  process_next_node(next_nodes_[nid]);
 }
 
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
@@ -393,6 +404,16 @@ Status XgbServiceServer::GetBlockInfo(ServerContext* context, const Request* req
   return Status::OK;
 }
 
+Status XgbServiceServer::GetNextNode(ServerContext* context, const Request* request,
+                                     NextNode* response) {
+  while (next_nodes_.count(request->idx()) == 0) {
+  }  // wait for the label part
+  response->set_nid(request->idx());
+  response->set_next_nid(next_nodes_[request->idx()]);
+
+  return Status::OK;
+}
+
 Status XgbServiceServer::SendBlockInfo(ServerContext* context, const BlockInfo* request,
                                        Response* response) {
   PositionBlockInfo* block_info = new PositionBlockInfo;
@@ -409,6 +430,12 @@ Status XgbServiceServer::SendBlockInfo(ServerContext* context, const BlockInfo* 
     block_info->right_data_[i] = request->right_data_(i);
   }
   block_infos_.insert({request->idx(), make_shared<PositionBlockInfo>(*block_info)});
+  return Status::OK;
+}
+
+Status XgbServiceServer::SendNextNode(ServerContext* context, const NextNode* request,
+                                      Response* response) {
+  next_nodes_.insert({request->nid(), request->next_nid()});
   return Status::OK;
 }
 

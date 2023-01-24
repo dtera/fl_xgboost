@@ -94,6 +94,7 @@ class XgbServiceServer final : public XgbService::Service {
   unordered_map<uint32_t, const CPUExpandEntry> entries_;
   unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
   unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
+  unordered_map<int32_t, int32_t> next_nodes_;
   bool finished_ = false;
   // shared mutex to control updating the mask id
   shared_timed_mutex m{};
@@ -131,6 +132,8 @@ class XgbServiceServer final : public XgbService::Service {
 
   void SendBlockInfo(size_t task_idx, PositionBlockInfo *block_info);
 
+  void SendNextNode(int32_t nid, int32_t next_nid);
+
   template <typename ExpandEntry>
   void UpdateExpandEntry(
       ExpandEntry &entry,
@@ -145,6 +148,8 @@ class XgbServiceServer final : public XgbService::Service {
 
   void GetBlockInfo(size_t task_idx,
                     function<void(shared_ptr<PositionBlockInfo> &)> process_block_info);
+
+  void GetNextNode(int32_t nid, function<void(int32_t)> process_next_node);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;
@@ -168,6 +173,10 @@ class XgbServiceServer final : public XgbService::Service {
 
   Status SendBlockInfo(ServerContext *context, const BlockInfo *request,
                        Response *response) override;
+
+  Status GetNextNode(ServerContext *context, const Request *request, NextNode *response) override;
+
+  Status SendNextNode(ServerContext *context, const NextNode *request, Response *response) override;
 
   Status Clear(ServerContext *context, const Request *request, Response *response) override;
 };
