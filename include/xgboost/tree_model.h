@@ -156,6 +156,8 @@ class RegTree : public Model {
     }
     /*! \brief feature index of split condition */
     XGBOOST_DEVICE unsigned SplitIndex() const { return sindex_ & ((1U << 31) - 1U); }
+    /*! \brief part id of the federated participant */
+    XGBOOST_DEVICE unsigned PartId() const { return part_id; }
     /*! \brief when feature is unknown, whether goes to left child */
     XGBOOST_DEVICE bool DefaultLeft() const { return (sindex_ >> 31) != 0; }
     /*! \brief whether current node is leaf node */
