@@ -21,6 +21,7 @@ service XgbService {
   rpc SendBlockInfo (BlockInfo) returns (Response) {}
   rpc GetNextNode (Request) returns (NextNode) {}
   rpc SendNextNode (NextNode) returns (Response) {}
+  rpc GetMetric (Request) returns (MetricResponse) {}
   rpc Clear (Request) returns (Response) {}
 }
 
@@ -77,6 +78,10 @@ message SplitEntryValidRequest {
 message SplitEntryValidResponse {
   uint32 version = 1;
   bool is_valid = 2;
+}
+
+message MetricResponse {
+  double metric = 1;
 }
 
 message EncryptedSplit {

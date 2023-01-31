@@ -1415,7 +1415,16 @@ class LearnerImpl : public LearnerIO {
 
       obj_->EvalTransform(&out);
       for (auto& ev : metrics_) {
-        os << '\t' << data_names[i] << '-' << ev->Name() << ':' << ev->Eval(out, m->Info());
+        double metric;
+        if (IsGuest()) {
+          metric = ev->Eval(out, m->Info());
+          if (IsFederated()) {
+            xgb_server_->SendMetrics_(iter, metric);
+          }
+        } else {
+          xgb_client_->GetMetric(iter, [&metric](double m) { metric = m; });
+        }
+        os << '\t' << data_names[i] << '-' << ev->Name() << ':' << metric;
       }
     }
 

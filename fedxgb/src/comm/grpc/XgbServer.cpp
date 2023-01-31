@@ -198,6 +198,8 @@ void XgbServiceServer::SendNextNode(int32_t nid, int32_t next_nid) {
   next_nodes_.insert({nid, next_nid});
 }
 
+void XgbServiceServer::SendMetrics_(int iter, double metric) { metrics_.insert({iter, metric}); }
+
 template <typename ExpandEntry>
 void XgbServiceServer::UpdateExpandEntry(
     ExpandEntry& e,
@@ -436,6 +438,15 @@ Status XgbServiceServer::SendBlockInfo(ServerContext* context, const BlockInfo* 
 Status XgbServiceServer::SendNextNode(ServerContext* context, const NextNode* request,
                                       Response* response) {
   next_nodes_.insert({request->nid(), request->next_nid()});
+  return Status::OK;
+}
+
+Status XgbServiceServer::GetMetric(ServerContext* context, const Request* request,
+                                   MetricResponse* response) {
+  while (metrics_.count(request->idx()) == 0) {
+  }  // wait for the label part
+  response->set_metric(metrics_[request->idx()]);
+
   return Status::OK;
 }
 
