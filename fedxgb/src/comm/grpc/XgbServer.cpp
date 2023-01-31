@@ -155,13 +155,15 @@ void XgbServiceServer::Run() {
   builder.RegisterService(this);
   // Finally assemble the server.
   server_ = builder.BuildAndStart();
-  cout << "RPC Server listening on " << server_address_ << endl;
+  cout << "RPC Server listening on " << server_address_ << "..." << endl;
   server_->Wait();
 }
 
 void XgbServiceServer::Shutdown() {
+  cout << "RPC Server Shutdown..." << endl;
   while (!finished_) {
   }
+  this_thread::sleep_for(chrono::milliseconds(10));
   server_->Shutdown();
   xgb_thread_->join();
 }
@@ -342,10 +344,6 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
 
   response->set_version(cur_version);
 
-  if (cur_version == max_version) {
-    finished_ = true;
-  }
-
   return Status::OK;
 }
 
@@ -451,12 +449,18 @@ Status XgbServiceServer::GetMetric(ServerContext* context, const Request* reques
 }
 
 Status XgbServiceServer::Clear(ServerContext* context, const Request* request, Response* response) {
-  // finish_splits_.clear();
+  finish_splits_.clear();
   splits_requests_.clear();
   best_splits_.clear();
   entries_.clear();
   left_right_nodes_sizes_.clear();
   block_infos_.clear();
+  next_nodes_.clear();
+
+  if (cur_version == max_iter) {
+    // cout << "cur_version: " << cur_version << ", max_iter: " << max_iter << endl;
+    finished_ = true;
+  }
 
   return Status::OK;
 }

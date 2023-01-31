@@ -532,7 +532,7 @@ class LearnerConfiguration : public Learner {
         opt_paillier_keygen(&pub_, &pri_, fparam_->fl_bit_len);
         xgb_server_->SendPubKey(pub_);
         xgb_server_->SetPriKey(pri_);
-        xgb_server_->max_version =
+        xgb_server_->max_iter =
             cfg_.count("num_round") == 0 ? 1 : std::atoi(cfg_["num_round"].c_str());
       } else {
         auto p = fparam_->fl_address.find(":");
@@ -1262,6 +1262,7 @@ class LearnerImpl : public LearnerIO {
       xgb_server_->Shutdown();
     }
   }
+
   // Configuration before data is known.
   void CheckDataSplitMode() {
     if (collective::IsDistributed()) {
@@ -1350,9 +1351,9 @@ class LearnerImpl : public LearnerIO {
       monitor_.Stop("GetGradient");
       TrainingObserver::Instance().Observe(gpair_, "Gradients");
 
-      if (tparam_.dsplit == DataSplitMode::kCol) {
+      if (IsFederated()) {
+        xgb_server_->cur_version = iter;
         monitor_.Start("SendEncryptedGradient");
-        xgb_server_->cur_version = predt.version;
         xgb_server_->SendGradPairs(encrypted_gpair_.HostVector());
         monitor_.Stop("SendEncryptedGradient");
         TrainingObserver::Instance().Observe(encrypted_gpair_, "EncryptedGradients");
@@ -1361,8 +1362,11 @@ class LearnerImpl : public LearnerIO {
         // pri_);
       }
       gbm_->DoBoost(train.get(), &gpair_, &predt, obj_.get());
+      if (IsFederated()) {
+        xgb_server_->cur_version = iter + 1;
+      }
     } else {
-      xgb_client_->cur_version = predt.version;
+      xgb_client_->cur_version = iter;
       xgb_client_->GetEncryptedGradPairs(encrypted_gpair_.HostVector());
       gbm_->DoBoost(train.get(), &encrypted_gpair_, &predt, obj_.get());
     }
@@ -1426,6 +1430,9 @@ class LearnerImpl : public LearnerIO {
         }
         os << '\t' << data_names[i] << '-' << ev->Name() << ':' << metric;
       }
+    }
+    if (IsFederated() && !IsGuest()) {
+      xgb_client_->Clear();
     }
 
     monitor_.Stop("EvalOneIter");
