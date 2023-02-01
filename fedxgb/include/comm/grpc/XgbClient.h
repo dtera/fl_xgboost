@@ -105,7 +105,7 @@ class XgbServiceClient {
 
   void SendNextNode(int32_t nid, int32_t next_nid);
 
-  void GetMetric(int iter, function<void(double)> process_metric);
+  void GetMetric(int iter, const char *metric_name, function<void(double)> process_metric);
 
   void Clear();
 };

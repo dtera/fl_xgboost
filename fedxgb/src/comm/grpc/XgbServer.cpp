@@ -140,6 +140,9 @@ void XgbServiceServer::Start(const uint32_t port, const string& host, int32_t n_
   n_threads_ = n_threads;
   server_address_ = host + ":" + to_string(port);
   xgb_thread_.reset(new thread((bind(&XgbServiceServer::Run, this))));
+
+  // init for rpc server
+  metrics_.resize(max_iter);
 }
 
 void XgbServiceServer::Run() {
@@ -200,7 +203,9 @@ void XgbServiceServer::SendNextNode(int32_t nid, int32_t next_nid) {
   next_nodes_.insert({nid, next_nid});
 }
 
-void XgbServiceServer::SendMetrics_(int iter, double metric) { metrics_.insert({iter, metric}); }
+void XgbServiceServer::SendMetrics(int iter, const char* metric_name, double metric) {
+  metrics_[iter].insert({metric_name, metric});
+}
 
 template <typename ExpandEntry>
 void XgbServiceServer::UpdateExpandEntry(
@@ -439,11 +444,11 @@ Status XgbServiceServer::SendNextNode(ServerContext* context, const NextNode* re
   return Status::OK;
 }
 
-Status XgbServiceServer::GetMetric(ServerContext* context, const Request* request,
+Status XgbServiceServer::GetMetric(ServerContext* context, const MetricRequest* request,
                                    MetricResponse* response) {
-  while (metrics_.count(request->idx()) == 0) {
+  while (metrics_[request->iter()].count(request->metric_name()) == 0) {
   }  // wait for the label part
-  response->set_metric(metrics_[request->idx()]);
+  response->set_metric(metrics_[request->iter()].at(request->metric_name()));
 
   return Status::OK;
 }

@@ -95,7 +95,7 @@ class XgbServiceServer final : public XgbService::Service {
   unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
   unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
   unordered_map<int32_t, int32_t> next_nodes_;
-  unordered_map<int, double> metrics_;
+  vector<unordered_map<string, double>> metrics_;
   bool finished_ = false;
   // shared mutex to control updating the mask id
   shared_timed_mutex m{};
@@ -129,13 +129,11 @@ class XgbServiceServer final : public XgbService::Service {
 
   void SendLeftRightNodeSize(size_t node_in_set, size_t n_left, size_t n_right);
 
-  void ReSizeBlockInfo(size_t n_tasks);
-
   void SendBlockInfo(size_t task_idx, PositionBlockInfo *block_info);
 
   void SendNextNode(int32_t nid, int32_t next_nid);
 
-  void SendMetrics_(int iter, double metric);
+  void SendMetrics(int iter, const char *metric_name, double metric);
 
   template <typename ExpandEntry>
   void UpdateExpandEntry(
@@ -181,7 +179,7 @@ class XgbServiceServer final : public XgbService::Service {
 
   Status SendNextNode(ServerContext *context, const NextNode *request, Response *response) override;
 
-  Status GetMetric(ServerContext *context, const Request *request,
+  Status GetMetric(ServerContext *context, const MetricRequest *request,
                    MetricResponse *response) override;
 
   Status Clear(ServerContext *context, const Request *request, Response *response) override;

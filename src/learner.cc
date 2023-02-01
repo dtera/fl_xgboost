@@ -528,19 +528,21 @@ class LearnerConfiguration : public Learner {
       if (IsGuest()) {
         // server_.reset(new XgbServiceServer(fparam_->fl_port));
         xgb_server_ = FIND_XGB_SERVICE(XgbServiceServer);
+        xgb_server_->max_iter =
+            cfg_.count("num_round") == 0 ? 1 : std::atoi(cfg_["num_round"].c_str());
         xgb_server_->Start(fparam_->fl_port);
+
         opt_paillier_keygen(&pub_, &pri_, fparam_->fl_bit_len);
         xgb_server_->SendPubKey(pub_);
         xgb_server_->SetPriKey(pri_);
-        xgb_server_->max_iter =
-            cfg_.count("num_round") == 0 ? 1 : std::atoi(cfg_["num_round"].c_str());
       } else {
         auto p = fparam_->fl_address.find(":");
         xgb_client_ = FIND_XGB_SERVICE(XgbServiceClient);
         xgb_client_->Start(atoi(fparam_->fl_address.substr(p + 1).c_str()),
                            fparam_->fl_address.substr(0, p), omp_get_num_procs());
-        xgb_client_->GetPubKey(&pub_);
         cout << "** RPC client connect server success! " << endl;
+
+        xgb_client_->GetPubKey(&pub_);
       }
       EncryptedType<>::pub = pub_;
       EncryptedType<double>::pub = pub_;
@@ -1423,10 +1425,10 @@ class LearnerImpl : public LearnerIO {
         if (IsGuest()) {
           metric = ev->Eval(out, m->Info());
           if (IsFederated()) {
-            xgb_server_->SendMetrics_(iter, metric);
+            xgb_server_->SendMetrics(iter, ev->Name(), metric);
           }
         } else {
-          xgb_client_->GetMetric(iter, [&metric](double m) { metric = m; });
+          xgb_client_->GetMetric(iter, ev->Name(), [&metric](double m) { metric = m; });
         }
         os << '\t' << data_names[i] << '-' << ev->Name() << ':' << metric;
       }

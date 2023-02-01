@@ -285,9 +285,14 @@ void XgbServiceClient::SendNextNode(int32_t nid, int32_t next_nid) {
              {});
 }
 
-void XgbServiceClient::GetMetric(int iter, function<void(double)> process_metric) {
+void XgbServiceClient::GetMetric(int iter, const char* metric_name,
+                                 function<void(double)> process_metric) {
   RpcRequest(
-      Request, GetMetric, MetricResponse, { request.set_idx(iter); },
+      MetricRequest, GetMetric, MetricResponse,
+      {
+        request.set_iter(iter);
+        request.set_metric_name(metric_name);
+      },
       { process_metric(response.metric()); });
 }
 
