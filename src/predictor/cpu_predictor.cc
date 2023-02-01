@@ -40,23 +40,24 @@ void GetNextNode(const RegTree &tree, bst_node_t &nid, const RegTree::FVec &feat
 
 template <bool has_missing, bool has_categorical>
 bst_node_t GetLeafIndex(RegTree const &tree, const RegTree::FVec &feat,
-                        RegTree::CategoricalSplitMatrix const &cats) {
-  bst_node_t nid = 0, prev_nid = nid;
+                        RegTree::CategoricalSplitMatrix const &cats, size_t k) {
+  bst_node_t nid = 0;  // , prev_nid = nid;
   if (IsFederated()) {
     while (!tree[nid].IsLeaf()) {
+      string pid = to_string(k) + "_" + to_string(nid);
       if (SelfPartNotBest(tree[nid].PartId())) {
         if (IsGuest()) {
-          xgb_server_->GetNextNode(nid, [&nid](int32_t next_nid) { nid = next_nid; });
+          xgb_server_->GetNextNode(pid, [&nid](int32_t next_nid) { nid = next_nid; });
         } else {
-          xgb_client_->GetNextNode(nid, [&nid](int32_t next_nid) { nid = next_nid; });
+          xgb_client_->GetNextNode(pid, [&nid](int32_t next_nid) { nid = next_nid; });
         }
       } else {
-        prev_nid = nid;
+        // prev_nid = nid;
         GetNextNode<has_missing, has_categorical>(tree, nid, feat, cats);
         if (IsGuest()) {
-          xgb_server_->SendNextNode(prev_nid, nid);
+          xgb_server_->SendNextNode(pid, nid);
         } else {
-          xgb_client_->SendNextNode(prev_nid, nid);
+          xgb_client_->SendNextNode(pid, nid);
         }
       }
     }
@@ -81,9 +82,9 @@ bst_float PredValue(const SparsePage::Inst &inst,
       auto cats = tree.GetCategoriesMatrix();
       bst_node_t nidx = -1;
       if (has_categorical) {
-        nidx = GetLeafIndex<true, true>(tree, *p_feats, cats);
+        nidx = GetLeafIndex<true, true>(tree, *p_feats, cats, bst_group);
       } else {
-        nidx = GetLeafIndex<true, false>(tree, *p_feats, cats);
+        nidx = GetLeafIndex<true, false>(tree, *p_feats, cats, bst_group);
       }
       psum += (*trees[i])[nidx].LeafValue();
     }
@@ -94,10 +95,10 @@ bst_float PredValue(const SparsePage::Inst &inst,
 
 template <bool has_categorical>
 bst_float PredValueByOneTree(const RegTree::FVec &p_feats, RegTree const &tree,
-                             RegTree::CategoricalSplitMatrix const &cats) {
+                             RegTree::CategoricalSplitMatrix const &cats, size_t k) {
   const bst_node_t leaf = p_feats.HasMissing()
-                              ? GetLeafIndex<true, has_categorical>(tree, p_feats, cats)
-                              : GetLeafIndex<false, has_categorical>(tree, p_feats, cats);
+                              ? GetLeafIndex<true, has_categorical>(tree, p_feats, cats, k)
+                              : GetLeafIndex<false, has_categorical>(tree, p_feats, cats, k);
   return tree[leaf].LeafValue();
 }
 
@@ -115,13 +116,13 @@ void PredictByAllTrees(gbm::GBTreeModel const &model, const size_t tree_begin,
 
     if (has_categorical) {
       for (size_t i = 0; i < block_size; ++i) {
-        preds[(predict_offset + i) * num_group + gid] +=
-            PredValueByOneTree<true>(thread_temp[offset + i], tree, cats);
+        size_t k = (predict_offset + i) * num_group + gid;
+        preds[k] += PredValueByOneTree<true>(thread_temp[offset + i], tree, cats, k);
       }
     } else {
       for (size_t i = 0; i < block_size; ++i) {
-        preds[(predict_offset + i) * num_group + gid] +=
-            PredValueByOneTree<false>(thread_temp[offset + i], tree, cats);
+        size_t k = (predict_offset + i) * num_group + gid;
+        preds[k] += PredValueByOneTree<false>(thread_temp[offset + i], tree, cats, k);
       }
     }
   }
@@ -483,8 +484,9 @@ class CPUPredictor : public Predictor {
         for (unsigned j = 0; j < ntree_limit; ++j) {
           auto const &tree = *model.trees[j];
           auto const &cats = tree.GetCategoriesMatrix();
-          bst_node_t tid = GetLeafIndex<true, true>(tree, feats, cats);
-          preds[ridx * ntree_limit + j] = static_cast<bst_float>(tid);
+          std::size_t k = ridx * ntree_limit + j;
+          bst_node_t tid = GetLeafIndex<true, true>(tree, feats, cats, k);
+          preds[k] = static_cast<bst_float>(tid);
         }
         feats.Drop(page[i]);
       });

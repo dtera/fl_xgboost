@@ -198,7 +198,7 @@ void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_i
   block_infos_.insert({task_idx, make_shared<PositionBlockInfo>(*block_info)});
 }
 
-void XgbServiceServer::SendNextNode(int32_t nid, int32_t next_nid) {
+void XgbServiceServer::SendNextNode(string nid, int32_t next_nid) {
   lock_guard lk(m);
   next_nodes_.insert({nid, next_nid});
 }
@@ -257,7 +257,7 @@ void XgbServiceServer::GetBlockInfo(
   process_block_info(block_info);
 }
 
-void XgbServiceServer::GetNextNode(int32_t nid, function<void(int32_t)> process_next_node) {
+void XgbServiceServer::GetNextNode(string nid, function<void(int32_t)> process_next_node) {
   while (next_nodes_.count(nid) == 0) {
   }  // wait for data holder part
   process_next_node(next_nodes_[nid]);
@@ -409,12 +409,12 @@ Status XgbServiceServer::GetBlockInfo(ServerContext* context, const Request* req
   return Status::OK;
 }
 
-Status XgbServiceServer::GetNextNode(ServerContext* context, const Request* request,
+Status XgbServiceServer::GetNextNode(ServerContext* context, const NextNode* request,
                                      NextNode* response) {
-  while (next_nodes_.count(request->idx()) == 0) {
+  while (next_nodes_.count(request->nid()) == 0) {
   }  // wait for the label part
-  response->set_nid(request->idx());
-  response->set_next_nid(next_nodes_[request->idx()]);
+  // response->set_nid(request->nid());
+  response->set_next_nid(next_nodes_[request->nid()]);
 
   return Status::OK;
 }

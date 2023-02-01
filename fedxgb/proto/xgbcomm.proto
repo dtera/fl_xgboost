@@ -19,7 +19,7 @@ service XgbService {
   rpc SendLeftRightNodeSize (BlockInfo) returns (Response) {}
   rpc GetBlockInfo (Request) returns (BlockInfo) {}
   rpc SendBlockInfo (BlockInfo) returns (Response) {}
-  rpc GetNextNode (Request) returns (NextNode) {}
+  rpc GetNextNode (NextNode) returns (NextNode) {}
   rpc SendNextNode (NextNode) returns (Response) {}
   rpc GetMetric (MetricRequest) returns (MetricResponse) {}
   rpc Clear (Request) returns (Response) {}
@@ -109,7 +109,7 @@ message BlockInfo {
 }
 
 message NextNode {
-  int32 nid = 1;
+  string nid = 1;
   int32 next_nid = 2;
 }
 
