@@ -296,6 +296,8 @@ void XgbServiceClient::GetMetric(int iter, const char* metric_name,
       { process_metric(response.metric()); });
 }
 
-void XgbServiceClient::Clear() { RpcRequest(Request, Clear, Response, {}, {}); }
+void XgbServiceClient::Clear(int idx) {
+  RpcRequest(Request, Clear, Response, { request.set_idx(idx); }, {});
+}
 
 //=================================XgbServiceClient End===================================

@@ -26,7 +26,7 @@ service XgbService {
 }
 
 message Request {
-  uint32 idx = 1;
+  int32 idx = 1;
 }
 
 message Response {}

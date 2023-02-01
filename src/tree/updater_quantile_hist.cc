@@ -295,6 +295,10 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
     }
   }
 
+  if (!is_same<float, T>()) {
+    xgb_client_->Clear();
+  }
+
   auto &h_out_position = p_out_position->HostVector();
   this->LeafPartition(tree, gpair_h, &h_out_position);
   monitor_->Stop(__func__);

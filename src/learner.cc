@@ -1434,7 +1434,7 @@ class LearnerImpl : public LearnerIO {
       }
     }
     if (IsFederated() && !IsGuest()) {
-      xgb_client_->Clear();
+      xgb_client_->Clear(-1);
     }
 
     monitor_.Stop("EvalOneIter");

@@ -107,6 +107,6 @@ class XgbServiceClient {
 
   void GetMetric(int iter, const char *metric_name, function<void(double)> process_metric);
 
-  void Clear();
+  void Clear(int idx = 0);
 };
 //=================================XgbServiceClient End===================================

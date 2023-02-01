@@ -454,17 +454,20 @@ Status XgbServiceServer::GetMetric(ServerContext* context, const MetricRequest* 
 }
 
 Status XgbServiceServer::Clear(ServerContext* context, const Request* request, Response* response) {
-  finish_splits_.clear();
-  splits_requests_.clear();
-  best_splits_.clear();
-  entries_.clear();
-  left_right_nodes_sizes_.clear();
-  block_infos_.clear();
-  next_nodes_.clear();
+  if (request->idx() == 0) {
+    finish_splits_.clear();
+    splits_requests_.clear();
+    best_splits_.clear();
+    entries_.clear();
+    left_right_nodes_sizes_.clear();
+    block_infos_.clear();
+  } else {
+    next_nodes_.clear();
 
-  if (cur_version == max_iter) {
-    // cout << "cur_version: " << cur_version << ", max_iter: " << max_iter << endl;
-    finished_ = true;
+    if (cur_version == max_iter) {
+      cout << "cur_version: " << cur_version << ", max_iter: " << max_iter << endl;
+      finished_ = true;
+    }
   }
 
   return Status::OK;
