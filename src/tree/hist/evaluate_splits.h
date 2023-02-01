@@ -356,7 +356,7 @@ class HistEvaluator {
         // TODO: decrypt the feature id and bin id from mask id
         vector<string> ids;
         boost::split(ids, response.mask_id(), boost::is_any_of("_"));
-        bst_feature_t fidx = atoi(ids[0].c_str());
+        fidx = atoi(ids[0].c_str());
         bst_bin_t bin_id = atoi(ids[1].c_str());
         bool is_cat = common::IsCat(feature_types, fidx);
         auto n_bins = cut_ptrs.at(fidx + 1) - cut_ptrs[fidx];

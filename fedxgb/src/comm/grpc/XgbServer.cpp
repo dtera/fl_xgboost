@@ -462,6 +462,8 @@ Status XgbServiceServer::Clear(ServerContext* context, const Request* request, R
     left_right_nodes_sizes_.clear();
     block_infos_.clear();
   } else {
+    grad_pairs_.clear();
+    splits_.clear();
     next_nodes_.clear();
 
     if (cur_version == max_iter) {
