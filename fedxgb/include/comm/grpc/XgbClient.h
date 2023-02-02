@@ -11,6 +11,7 @@
 #include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <memory>
+#include <shared_mutex>
 #include <string>
 #include <thread>
 
@@ -68,6 +69,8 @@ class XgbServiceClient {
   std::unique_ptr<XgbService::Stub> stub_;
   int32_t n_threads_;
   grpc::ChannelArguments channel_args_;
+  unordered_map<string, EncryptedSplit *> encrypted_splits_;
+  shared_timed_mutex m{};
 
  public:
   uint32_t cur_version = 0;
@@ -78,6 +81,10 @@ class XgbServiceClient {
 
   void Start(const uint32_t port = 50001, const string &host = "0.0.0.0",
              int32_t n_threads = omp_get_num_procs());
+
+  void CacheEncryptedSplit(string mask_id, EncryptedSplit *es);
+
+  EncryptedSplit *GetEncryptedSplit(string mask_id);
 
   void GetPubKey(opt_public_key_t **pub);
 

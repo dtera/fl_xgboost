@@ -220,6 +220,8 @@ class HistEvaluator {
     es->set_default_left(default_left);
     es->set_is_cat(is_cat);
 
+    xgb_client_->CacheEncryptedSplit(es->mask_id(), es);
+
     return true;
   }
 
@@ -352,6 +354,9 @@ class HistEvaluator {
     xgb_client_->SendEncryptedSplits(sr, [&](SplitsResponse &response) {
       bst_feature_t fidx = 0;
       bst_float split_pt = 0;
+
+      GradStats<EncryptedType<double>> left_sum;
+      GradStats<EncryptedType<double>> right_sum;
       if (!response.mask_id().empty()) {
         // TODO: decrypt the feature id and bin id from mask id
         vector<string> ids;
@@ -376,8 +381,14 @@ class HistEvaluator {
             split_pt = cut.Values()[bin_id - 1];
           }
         }
+
+        // find best split
+        auto es = xgb_client_->GetEncryptedSplit(response.mask_id());
+        mpz_type2_mpz_t(left_sum, es->left_sum());
+        mpz_type2_mpz_t(right_sum, es->right_sum());
       }
-      e.split.Update(fidx, split_pt, response.default_left(), response.part_id());
+      e.split.Update(fidx, split_pt, response.default_left(), response.part_id(), left_sum,
+                     right_sum, !response.mask_id().empty());
     });
   }
 
@@ -509,44 +520,51 @@ class HistEvaluator {
     snode_.resize(tree.GetNodes().size());
 
     H empty;
-    SetNodeEntry(candidate.nid, candidate.split.left_sum, candidate.split.right_sum, evaluator,
-                 left_child, right_child, empty);
+    SetNodeEntry(candidate.nid, candidate.split, evaluator, left_child, right_child, empty);
 
     interaction_constraints_.Split(candidate.nid, tree[candidate.nid].SplitIndex(), left_child,
                                    right_child);
   }
 
-  void SetNodeEntry(int nid, const GradStats<double> &left_sum, const GradStats<double> &right_sum,
+  void SetNodeEntry(int nid, const SplitEntry<> &split,
                     const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator, int left_child,
                     int right_child, double &empty) {
-    snode_.at(left_child).stats = left_sum;
-    snode_.at(left_child).root_gain = evaluator.CalcGain(nid, param_, left_sum);
-    snode_.at(right_child).stats = right_sum;
-    snode_.at(right_child).root_gain = evaluator.CalcGain(nid, param_, right_sum);
+    snode_.at(left_child).stats = split.left_sum;
+    snode_.at(left_child).root_gain = evaluator.CalcGain(nid, param_, split.left_sum);
+    snode_.at(right_child).stats = split.right_sum;
+    snode_.at(right_child).root_gain = evaluator.CalcGain(nid, param_, split.right_sum);
   }
 
-  void SetNodeEntry(int nid, const GradStats<double> &left_sum, const GradStats<double> &right_sum,
+  void SetNodeEntry(int nid, const SplitEntry<> &split,
                     const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator, int left_child,
-                    int right_child, EncryptedType<double> &empty) {}
+                    int right_child, EncryptedType<double> &empty) {
+    auto *ls = split.encrypted_left_sum.get();
+    auto *rs = split.encrypted_right_sum.get();
+    if (ls != nullptr) {
+      snode_.at(left_child).stats = *ls;
+    }
+    if (rs != nullptr) {
+      snode_.at(right_child).stats = *rs;
+    }
+  }
 
   auto Evaluator() const { return tree_evaluator_.GetEvaluator(); }
+
   auto const &Stats() const { return snode_; }
 
-  float InitRoot(GradStats<EncryptedType<double>> const &root_sum) {
-    snode_.resize(1);
-    auto root_evaluator = tree_evaluator_.GetEvaluator();
+  void InitNodeStat(GradStats<H> const &stat_sum, bst_node_t i = 0) {
+    if (i == 0) {
+      snode_.resize(1);
+    }
 
-    snode_[0].stats = GradStats<H>{root_sum.GetGrad(), root_sum.GetHess()};
-
-    return 0;
+    snode_[i].stats = GradStats<H>{stat_sum.GetGrad(), stat_sum.GetHess()};
   }
 
-  float InitRoot(GradStats<double> const &root_sum) {
-    snode_.resize(1);
-    auto root_evaluator = tree_evaluator_.GetEvaluator();
+  float InitSplitNode(GradStats<double> const &stat_sum, bst_node_t i = 0) {
+    InitNodeStat(stat_sum, i);
 
-    snode_[0].stats = GradStats<H>{root_sum.GetGrad(), root_sum.GetHess()};
-    snode_[0].root_gain =
+    auto root_evaluator = tree_evaluator_.GetEvaluator();
+    snode_[i].root_gain =
         root_evaluator.CalcGain(RegTree::kRoot, param_, GradStats<H>{snode_[0].stats});
     auto weight = root_evaluator.CalcWeight(RegTree::kRoot, param_, GradStats<H>{snode_[0].stats});
 

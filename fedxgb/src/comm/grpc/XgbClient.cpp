@@ -122,6 +122,15 @@ void XgbServiceClient::Start(const uint32_t port, const string& host, int32_t n_
       host + ":" + to_string(port), grpc::InsecureChannelCredentials(), channel_args_));
 }
 
+void XgbServiceClient::CacheEncryptedSplit(string mask_id, EncryptedSplit* es) {
+  lock_guard lk(m);
+  encrypted_splits_.insert({mask_id, es});
+}
+
+EncryptedSplit* XgbServiceClient::GetEncryptedSplit(string mask_id) {
+  return encrypted_splits_[mask_id];
+}
+
 void XgbServiceClient::GetPubKey(opt_public_key_t** pub) {
   *pub = (opt_public_key_t*)malloc(sizeof(opt_public_key_t));
   RpcRequest(Request, GetPubKey, PubKeyResponse, , {

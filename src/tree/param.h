@@ -367,6 +367,8 @@ struct SplitEntryContainer {
 
   GradientT left_sum;
   GradientT right_sum;
+  std::shared_ptr<GradStats<EncryptedType<double>>> encrypted_left_sum;
+  std::shared_ptr<GradStats<EncryptedType<double>>> encrypted_right_sum;
 
   int32_t part_id{-1};
 
@@ -469,13 +471,21 @@ struct SplitEntryContainer {
    * \param part_id part id
    * \return whether the proposed split is better and can replace current split
    */
-  void Update(unsigned split_index, bst_float new_split_value, bool default_left, int32_t part_id) {
-    if (default_left) {
-      split_index |= (1U << 31);
-    }
-    this->sindex = split_index;
-    this->split_value = new_split_value;
+  void Update(unsigned split_index, bst_float new_split_value, bool default_left, int32_t part_id,
+              GradStats<EncryptedType<double>> &ls, GradStats<EncryptedType<double>> &rs,
+              bool is_best) {
     this->part_id = part_id;
+    if (is_best) {
+      if (default_left) {
+        split_index |= (1U << 31);
+      }
+      this->sindex = split_index;
+      this->split_value = new_split_value;
+      this->encrypted_left_sum.reset(
+          new GradStats<EncryptedType<double>>(ls.sum_grad, ls.sum_hess));
+      this->encrypted_right_sum.reset(
+          new GradStats<EncryptedType<double>>(rs.sum_grad, rs.sum_hess));
+    }
   }
 
   /*! \brief same as update, used by AllReduce*/

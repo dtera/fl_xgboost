@@ -97,7 +97,7 @@ class GloablApproxBuilder {
       i++;
     }
 
-    auto weight = evaluator_.InitRoot(root_sum);
+    auto weight = evaluator_.InitSplitNode(root_sum);
     p_tree->Stat(RegTree::kRoot).sum_hess = root_sum.GetHess();
     p_tree->Stat(RegTree::kRoot).base_weight = weight;
     (*p_tree)[RegTree::kRoot].SetLeaf(param_.learning_rate * weight);

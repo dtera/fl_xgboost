@@ -124,12 +124,12 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
     }
 
     if (is_same<float, T>()) {
-      auto weight = evaluator_->InitRoot(GradStats<>{grad_stat});
+      auto weight = evaluator_->InitSplitNode(GradStats<>{grad_stat});
       p_tree->Stat(RegTree::kRoot).sum_hess = grad_stat.GetHess();
       p_tree->Stat(RegTree::kRoot).base_weight = weight;
       (*p_tree)[RegTree::kRoot].SetLeaf(param_.learning_rate * weight);
     } else {
-      encrypted_evaluator_->InitRoot(GradStats<EncryptedType<double>>{encrypted_grad_stat});
+      encrypted_evaluator_->InitNodeStat(GradStats<EncryptedType<double>>{encrypted_grad_stat});
     }
 
     std::vector<CPUExpandEntry> entries{node};
