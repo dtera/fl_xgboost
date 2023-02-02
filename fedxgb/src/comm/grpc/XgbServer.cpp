@@ -409,16 +409,6 @@ Status XgbServiceServer::GetBlockInfo(ServerContext* context, const Request* req
   return Status::OK;
 }
 
-Status XgbServiceServer::GetNextNode(ServerContext* context, const NextNode* request,
-                                     NextNode* response) {
-  while (next_nodes_.count(request->nid()) == 0) {
-  }  // wait for the label part
-  // response->set_nid(request->nid());
-  response->set_next_nid(next_nodes_[request->nid()]);
-
-  return Status::OK;
-}
-
 Status XgbServiceServer::SendBlockInfo(ServerContext* context, const BlockInfo* request,
                                        Response* response) {
   PositionBlockInfo* block_info = new PositionBlockInfo;
@@ -438,8 +428,19 @@ Status XgbServiceServer::SendBlockInfo(ServerContext* context, const BlockInfo* 
   return Status::OK;
 }
 
+Status XgbServiceServer::GetNextNode(ServerContext* context, const NextNode* request,
+                                     NextNode* response) {
+  while (next_nodes_.count(request->nid()) == 0) {
+  }  // wait for the label part
+  // response->set_nid(request->nid());
+  response->set_next_nid(next_nodes_[request->nid()]);
+
+  return Status::OK;
+}
+
 Status XgbServiceServer::SendNextNode(ServerContext* context, const NextNode* request,
                                       Response* response) {
+  lock_guard lk(m);
   next_nodes_.insert({request->nid(), request->next_nid()});
   return Status::OK;
 }
