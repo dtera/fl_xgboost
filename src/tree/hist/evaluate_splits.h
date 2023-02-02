@@ -355,12 +355,11 @@ class HistEvaluator {
       bst_feature_t fidx = 0;
       bst_float split_pt = 0;
 
-      GradStats<EncryptedType<double>> left_sum;
-      GradStats<EncryptedType<double>> right_sum;
-      if (!response.mask_id().empty()) {
+      auto es = response.encrypted_split();
+      if (!es.mask_id().empty()) {
         // TODO: decrypt the feature id and bin id from mask id
         vector<string> ids;
-        boost::split(ids, response.mask_id(), boost::is_any_of("_"));
+        boost::split(ids, es.mask_id(), boost::is_any_of("_"));
         fidx = atoi(ids[0].c_str());
         bst_bin_t bin_id = atoi(ids[1].c_str());
         bool is_cat = common::IsCat(feature_types, fidx);
@@ -373,7 +372,7 @@ class HistEvaluator {
             split_pt = numeric_limits<float>::quiet_NaN();
           }
         } else {
-          if (response.d_step() > 0) {
+          if (es.d_step() > 0) {
             split_pt = cut.Values()[bin_id];  // not used for partition based
           } else if (bin_id == static_cast<bst_bin_t>(cut.Ptrs()[fidx])) {
             split_pt = cut.MinValues()[fidx];
@@ -381,14 +380,13 @@ class HistEvaluator {
             split_pt = cut.Values()[bin_id - 1];
           }
         }
-
-        // find best split
-        auto es = xgb_client_->GetEncryptedSplit(response.mask_id());
-        mpz_type2_mpz_t(left_sum, es->left_sum());
-        mpz_type2_mpz_t(right_sum, es->right_sum());
       }
-      e.split.Update(fidx, split_pt, response.default_left(), response.part_id(), left_sum,
-                     right_sum, !response.mask_id().empty());
+
+      GradStats<EncryptedType<double>> left_sum;
+      GradStats<EncryptedType<double>> right_sum;
+      mpz_type2_mpz_t(left_sum, es.left_sum());
+      mpz_type2_mpz_t(right_sum, es.right_sum());
+      e.split.Update(fidx, split_pt, es.default_left(), response.part_id(), left_sum, right_sum);
     });
   }
 

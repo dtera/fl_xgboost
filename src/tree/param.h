@@ -341,6 +341,15 @@ struct XGBOOST_ALIGNAS(16) GradStats {
 };
 
 template <typename T>
+void opt_paillier_encrypt(xgboost::tree::GradStats<EncryptedType<T>> &res,
+                          const xgboost::tree::GradStats<T> &plaintext, const opt_public_key_t *pub,
+                          const opt_private_key_t *pri = nullptr, int precision = 8, int radix = 10,
+                          const bool is_fb = true) {
+  opt_paillier_encrypt_t(res.sum_grad.data_, plaintext.sum_grad, pub, pri, precision, radix, is_fb);
+  opt_paillier_encrypt_t(res.sum_hess.data_, plaintext.sum_hess, pub, pri, precision, radix, is_fb);
+}
+
+template <typename T>
 void opt_paillier_decrypt(xgboost::tree::GradStats<T> &res,
                           const xgboost::tree::GradStats<EncryptedType<T>> &ciphertext,
                           const opt_public_key_t *pub, const opt_private_key_t *pri,
@@ -469,23 +478,20 @@ struct SplitEntryContainer {
    * \param new_split_value the split point
    * \param default_left whether the missing value goes to left
    * \param part_id part id
+   * \param ls left sum
+   * \param rs right sum
    * \return whether the proposed split is better and can replace current split
    */
   void Update(unsigned split_index, bst_float new_split_value, bool default_left, int32_t part_id,
-              GradStats<EncryptedType<double>> &ls, GradStats<EncryptedType<double>> &rs,
-              bool is_best) {
-    this->part_id = part_id;
-    if (is_best) {
-      if (default_left) {
-        split_index |= (1U << 31);
-      }
-      this->sindex = split_index;
-      this->split_value = new_split_value;
-      this->encrypted_left_sum.reset(
-          new GradStats<EncryptedType<double>>(ls.sum_grad, ls.sum_hess));
-      this->encrypted_right_sum.reset(
-          new GradStats<EncryptedType<double>>(rs.sum_grad, rs.sum_hess));
+              GradStats<EncryptedType<double>> &ls, GradStats<EncryptedType<double>> &rs) {
+    if (default_left) {
+      split_index |= (1U << 31);
     }
+    this->sindex = split_index;
+    this->split_value = new_split_value;
+    this->encrypted_left_sum.reset(new GradStats<EncryptedType<double>>(ls.sum_grad, ls.sum_hess));
+    this->encrypted_right_sum.reset(new GradStats<EncryptedType<double>>(rs.sum_grad, rs.sum_hess));
+    this->part_id = part_id;
   }
 
   /*! \brief same as update, used by AllReduce*/

@@ -334,17 +334,29 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
   while (finish_splits_[request->nidx()]) {
   }  // wait for the label part
 
+  auto es = response->mutable_encrypted_split();
+  auto left_sum = es->mutable_left_sum();
+  auto right_sum = es->mutable_right_sum();
   if (best_splits_.count(request->nidx()) != 0) {
     // notify the data holder part: it's split is the best
-    response->set_nidx(request->nidx());
-    response->set_mask_id((best_splits_[request->nidx()].mask_id()));
-    response->set_d_step(best_splits_[request->nidx()].d_step());
-    response->set_default_left(best_splits_[request->nidx()].default_left());
+    auto best_split = best_splits_[request->nidx()];
+    es->set_mask_id(best_split.mask_id());
+    es->set_d_step(best_split.d_step());
+    es->set_default_left(best_split.default_left());
+    left_sum = best_split.mutable_left_sum();
+    right_sum = best_split.mutable_right_sum();
     response->set_part_id(request->part_id());
   } else {
     // notify the data holder part: the label holder is the best
-    response->set_default_left(entries_[request->nidx()].split.DefaultLeft());
-    response->set_part_id(entries_[request->nidx()].split.part_id);
+    auto entry = entries_[request->nidx()];
+    es->set_default_left(entry.split.DefaultLeft());
+    response->set_part_id(entry.split.part_id);
+    GradStats<EncryptedType<double>> encrypted_left_sum;
+    GradStats<EncryptedType<double>> encrypted_right_sum;
+    opt_paillier_encrypt(encrypted_left_sum, entry.split.left_sum, pub_);
+    opt_paillier_encrypt(encrypted_right_sum, entry.split.right_sum, pub_);
+    mpz_t2_mpz_type(left_sum, encrypted_left_sum);
+    mpz_t2_mpz_type(right_sum, encrypted_right_sum);
   }
 
   response->set_version(cur_version);
