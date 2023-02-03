@@ -14,7 +14,8 @@ service XgbService {
   rpc GetPubKey (Request) returns (PubKeyResponse) {}
   rpc GetEncryptedGradPairs (GradPairsRequest) returns (GradPairsResponse) {}
   rpc SendEncryptedSplits (SplitsRequest) returns (SplitsResponse) {}
-  rpc IsSplitEntryValid (SplitEntryValidRequest) returns (SplitEntryValidResponse) {}
+  rpc IsSplitEntryValid (SplitEntryValidRequest) returns (ValidResponse) {}
+  rpc IsSplitContainsMissingValues (MissingValuesRequest) returns (ValidResponse) {}
   rpc GetLeftRightNodeSize (Request) returns (BlockInfo) {}
   rpc SendLeftRightNodeSize (BlockInfo) returns (Response) {}
   rpc GetBlockInfo (Request) returns (BlockInfo) {}
@@ -72,9 +73,8 @@ message SplitEntryValidRequest {
   int32 num_leaves = 3;
 }
 
-message SplitEntryValidResponse {
-  uint32 version = 1;
-  bool is_valid = 2;
+message ValidResponse {
+  bool is_valid = 1;
 }
 
 message MetricRequest {
@@ -84,6 +84,11 @@ message MetricRequest {
 
 message MetricResponse {
   double metric = 1;
+}
+
+message MissingValuesRequest {
+  GradPair grad_stats = 1;
+  GradPair snode_stats = 2;
 }
 
 message EncryptedSplit {

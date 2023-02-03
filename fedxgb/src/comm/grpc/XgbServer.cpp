@@ -366,7 +366,7 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
 
 Status XgbServiceServer::IsSplitEntryValid(ServerContext* context,
                                            const SplitEntryValidRequest* request,
-                                           SplitEntryValidResponse* response) {
+                                           ValidResponse* response) {
   bool is_valid;
   if (request->num_leaves() == -1) {
     is_valid = entries_[request->nidx()].split.loss_chg > xgboost::kRtEps;
@@ -374,7 +374,25 @@ Status XgbServiceServer::IsSplitEntryValid(ServerContext* context,
     is_valid = entries_[request->nidx()].IsValid(*train_param_, request->num_leaves());
   }
   response->set_is_valid(is_valid);
-  response->set_version(cur_version);
+
+  return Status::OK;
+}
+
+Status XgbServiceServer::IsSplitContainsMissingValues(ServerContext* context,
+                                                      const MissingValuesRequest* request,
+                                                      ValidResponse* response) {
+  GradStats<EncryptedType<double>> encrypted_grad_stats;
+  GradStats<EncryptedType<double>> encrypted_snode_stats;
+  mpz_type2_mpz_t(encrypted_grad_stats, request->grad_stats());
+  mpz_type2_mpz_t(encrypted_snode_stats, request->snode_stats());
+
+  GradStats<double> grad_stats;
+  GradStats<double> snode_stats;
+  opt_paillier_decrypt(grad_stats, encrypted_grad_stats, pub_, pri_);
+  opt_paillier_decrypt(snode_stats, encrypted_snode_stats, pub_, pri_);
+
+  response->set_is_valid(grad_stats.GetGrad() == snode_stats.GetGrad() &&
+                         grad_stats.GetHess() == snode_stats.GetHess());
 
   return Status::OK;
 }

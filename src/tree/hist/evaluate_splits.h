@@ -49,7 +49,13 @@ class HistEvaluator {
   // then - there are no missing values
   // else - there are missing values
   bool static SplitContainsMissingValues(const GradStats<H> e, const NodeEntry &snode) {
-    if (e.GetGrad() == snode.stats.GetGrad() && e.GetHess() == snode.stats.GetHess()) {
+    bool flag;
+    if (is_same<double, H>()) {
+      flag = e.GetGrad() == snode.stats.GetGrad() && e.GetHess() == snode.stats.GetHess();
+    } else {
+      flag = xgb_client_->IsSplitContainsMissingValues(e, snode.stats);
+    }
+    if (flag) {
       return false;
     } else {
       return true;

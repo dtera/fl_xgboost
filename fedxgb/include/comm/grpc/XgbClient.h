@@ -100,6 +100,12 @@ class XgbServiceClient {
 
   bool IsSplitEntryValid(int nid, xgboost::bst_node_t num_leaves);
 
+  bool IsSplitContainsMissingValues(const xgboost::tree::GradStats<EncryptedType<double>> &e,
+                                    const xgboost::tree::GradStats<EncryptedType<double>> &n);
+
+  bool IsSplitContainsMissingValues(const xgboost::tree::GradStats<double> &e,
+                                    const xgboost::tree::GradStats<double> &n) {}
+
   void GetLeftRightNodeSize(size_t node_in_set, size_t *n_left, size_t *n_right);
 
   void SendLeftRightNodeSize(size_t node_in_set, size_t n_left, size_t n_right);

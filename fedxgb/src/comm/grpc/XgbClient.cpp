@@ -222,11 +222,27 @@ void XgbServiceClient::GetEncryptedSplits(XgbEncryptedSplit* encryptedSplits) {
 
 bool XgbServiceClient::IsSplitEntryValid(int nid, xgboost::bst_node_t num_leaves) {
   RpcRequest(
-      SplitEntryValidRequest, IsSplitEntryValid, SplitEntryValidResponse,
+      SplitEntryValidRequest, IsSplitEntryValid, ValidResponse,
       {
         request.set_version(cur_version);
         request.set_nidx(nid);
         request.set_num_leaves(num_leaves);
+      },
+      { return response.is_valid(); });
+
+  return response.is_valid();
+}
+
+bool XgbServiceClient::IsSplitContainsMissingValues(
+    const xgboost::tree::GradStats<EncryptedType<double>>& e,
+    const xgboost::tree::GradStats<EncryptedType<double>>& n) {
+  RpcRequest(
+      MissingValuesRequest, IsSplitContainsMissingValues, ValidResponse,
+      {
+        auto grad_stats = request.mutable_grad_stats();
+        auto snode_stats = request.mutable_snode_stats();
+        mpz_t2_mpz_type(grad_stats, e);
+        mpz_t2_mpz_type(snode_stats, n);
       },
       { return response.is_valid(); });
 

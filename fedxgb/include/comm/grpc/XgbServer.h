@@ -162,7 +162,10 @@ class XgbServiceServer final : public XgbService::Service {
                              SplitsResponse *response) override;
 
   Status IsSplitEntryValid(ServerContext *context, const SplitEntryValidRequest *request,
-                           SplitEntryValidResponse *response) override;
+                           ValidResponse *response) override;
+
+  Status IsSplitContainsMissingValues(ServerContext *context, const MissingValuesRequest *request,
+                                      ValidResponse *response) override;
 
   Status GetLeftRightNodeSize(ServerContext *context, const Request *request,
                               BlockInfo *response) override;
