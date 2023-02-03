@@ -343,8 +343,8 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
     es->set_mask_id(best_split.mask_id());
     es->set_d_step(best_split.d_step());
     es->set_default_left(best_split.default_left());
-    left_sum = best_split.mutable_left_sum();
-    right_sum = best_split.mutable_right_sum();
+    left_sum->CopyFrom(best_split.left_sum());
+    right_sum->CopyFrom(best_split.right_sum());
     response->set_part_id(request->part_id());
   } else {
     // notify the data holder part: the label holder is the best
