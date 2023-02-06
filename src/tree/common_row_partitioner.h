@@ -21,7 +21,6 @@ class CommonRowPartitioner {
   static constexpr size_t kPartitionBlockSize = 2048;
   common::PartitionBuilder<kPartitionBlockSize> partition_builder_;
   common::RowSetCollection row_set_collection_;
-  unordered_map<size_t, size_t> task_id_node_idx_;
 
  public:
   bst_row_t base_rowid = 0;
@@ -162,16 +161,10 @@ class CommonRowPartitioner {
 
     // 2.3 Split elements of row_set_collection_ to left and right child-nodes for each node
     // Store results in intermediate buffers from partition_builder_
-    mutex m;
     common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
       size_t begin = r.begin();
       const int32_t nid = nodes[node_in_set].nid;
       const size_t task_id = partition_builder_.GetTaskIdx(node_in_set, begin);
-      if (IsFederated() && task_id_node_idx_.count(task_id) == 0) {
-        m.lock();
-        task_id_node_idx_.insert({task_id, node_in_set});
-        m.unlock();
-      }
       partition_builder_.AllocateForTask(task_id);
       if (IsFederatedAndSelfPartNotBest(nodes[node_in_set].split.part_id)) {
         return;
@@ -185,29 +178,25 @@ class CommonRowPartitioner {
     // 3. Compute offsets to copy blocks of row-indexes
     // from partition_builder_ to row_set_collection_
     if (IsFederated()) {
-      partition_builder_.CalculateRowOffsets(
-          [&](size_t task_id) {
-            return SelfPartNotBest(nodes[task_id_node_idx_[task_id]].split.part_id);
-          },
-          [&](size_t i, size_t* n_left, size_t* n_right) {
-            if (SelfPartNotBest(nodes[i].split.part_id)) {
-              if (IsGuest()) {
-                // label holder get left_right_nodes_sizes from data holder
-                xgb_server_->GetLeftRightNodeSize(i, n_left, n_right);
-              } else {
-                // data holder get left_right_nodes_sizes from label holder
-                xgb_client_->GetLeftRightNodeSize(i, n_left, n_right);
-              }
-            } else {
-              if (IsGuest()) {
-                // label holder send left_right_nodes_sizes to data holder
-                xgb_server_->SendLeftRightNodeSize(i, *n_left, *n_right);
-              } else {
-                // data holder send left_right_nodes_sizes to label holder
-                xgb_client_->SendLeftRightNodeSize(i, *n_left, *n_right);
-              }
-            }
-          });
+      partition_builder_.CalculateRowOffsets([&](size_t i, size_t* n_left, size_t* n_right) {
+        if (SelfPartNotBest(nodes[i].split.part_id)) {
+          if (IsGuest()) {
+            // label holder get left_right_nodes_sizes from data holder
+            xgb_server_->GetLeftRightNodeSize(i, n_left, n_right);
+          } else {
+            // data holder get left_right_nodes_sizes from label holder
+            xgb_client_->GetLeftRightNodeSize(i, n_left, n_right);
+          }
+        } else {
+          if (IsGuest()) {
+            // label holder send left_right_nodes_sizes to data holder
+            xgb_server_->SendLeftRightNodeSize(i, *n_left, *n_right);
+          } else {
+            // data holder send left_right_nodes_sizes to label holder
+            xgb_client_->SendLeftRightNodeSize(i, *n_left, *n_right);
+          }
+        }
+      });
     } else {
       partition_builder_.CalculateRowOffsets();
     }
