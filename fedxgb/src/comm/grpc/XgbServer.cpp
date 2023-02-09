@@ -199,7 +199,7 @@ void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_i
 }
 
 void XgbServiceServer::SendNextNode(string nid, int32_t next_nid) {
-  lock_guard lk(m);
+  // lock_guard lk(m);
   next_nodes_.insert({nid, next_nid});
 }
 
@@ -214,7 +214,7 @@ void XgbServiceServer::UpdateExpandEntry(
         update_grad_stats) {
   while (!finish_splits_[e.nid]) {
   }  // wait for the data holder part
-  entries_.insert({e.nid, e});
+
   auto encrypted_splits = splits_requests_[e.nid].encrypted_splits();
   ParallelFor(encrypted_splits.size(), n_threads_, [&](uint32_t i) {
     GradStats<double> left_sum;
@@ -229,6 +229,7 @@ void XgbServiceServer::UpdateExpandEntry(
     update_grad_stats(i, left_sum, right_sum, splits_requests_[e.nid]);
   });
 
+  entries_.insert({e.nid, e});
   finish_splits_[e.nid] = false;
 }
 
