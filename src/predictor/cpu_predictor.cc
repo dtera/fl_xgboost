@@ -44,20 +44,20 @@ bst_node_t GetLeafIndex(RegTree const &tree, const RegTree::FVec &feat,
   bst_node_t nid = 0;  // , prev_nid = nid;
   if (IsFederated()) {
     while (!tree[nid].IsLeaf()) {
-      int64_t pid = (k << 32) | nid;
+      int64_t pid = nid;  // (k << 32) | nid;
       if (SelfPartNotBest(tree[nid].PartId())) {
         if (IsGuest()) {
-          xgb_server_->GetNextNode(pid, [&nid](int32_t next_nid) { nid = next_nid; });
+          xgb_server_->GetNextNode(k, pid, [&nid](int32_t next_nid) { nid = next_nid; });
         } else {
-          xgb_client_->GetNextNode(pid, [&nid](int32_t next_nid) { nid = next_nid; });
+          xgb_client_->GetNextNode(k, pid, [&nid](int32_t next_nid) { nid = next_nid; });
         }
       } else {
         // prev_nid = nid;
         GetNextNode<has_missing, has_categorical>(tree, nid, feat, cats);
         if (IsGuest()) {
-          xgb_server_->SendNextNode(pid, nid);
+          xgb_server_->SendNextNode(k, pid, nid);
         } else {
-          xgb_client_->SendNextNode(pid, nid);
+          xgb_client_->SendNextNode(k, pid, nid);
         }
       }
     }
@@ -356,6 +356,9 @@ class CPUPredictor : public Predictor {
 
     std::vector<RegTree::FVec> feat_vecs;
     InitThreadTemp(n_threads * (blocked ? kBlockOfRowsSize : 1), &feat_vecs);
+    if (IsFederated() && IsGuest()) {
+      xgb_server_->ResizeNextNode(out_preds->size());
+    }
     for (auto const &batch : p_fmat->GetBatches<SparsePage>()) {
       CHECK_EQ(out_preds->size(),
                p_fmat->Info().num_row_ * model.learner_model_param->num_output_group);

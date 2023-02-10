@@ -94,8 +94,8 @@ class XgbServiceServer final : public XgbService::Service {
   unordered_map<uint32_t, const CPUExpandEntry> entries_;
   unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
   unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
-  unordered_map<int64_t, int32_t> next_nodes_;
-  vector<unordered_map<string, double>> metrics_;
+  vector<unordered_map<int32_t, const int32_t>> next_nodes_;
+  vector<unordered_map<string, const double>> metrics_;
   bool finished_ = false;
   // shared mutex to control updating the mask id
   shared_timed_mutex m{};
@@ -115,6 +115,8 @@ class XgbServiceServer final : public XgbService::Service {
 
   void Shutdown();
 
+  void ResizeNextNode(size_t n);
+
   void SendPubKey(opt_public_key_t *pub);
 
   void SetPriKey(opt_private_key_t *pri);
@@ -131,7 +133,7 @@ class XgbServiceServer final : public XgbService::Service {
 
   void SendBlockInfo(size_t task_idx, PositionBlockInfo *block_info);
 
-  void SendNextNode(int64_t nid, int32_t next_nid);
+  void SendNextNode(size_t k, int32_t nid, int32_t next_nid);
 
   void SendMetrics(int iter, const char *metric_name, double metric);
 
@@ -150,7 +152,7 @@ class XgbServiceServer final : public XgbService::Service {
   void GetBlockInfo(size_t task_idx,
                     function<void(shared_ptr<PositionBlockInfo> &)> process_block_info);
 
-  void GetNextNode(int64_t nid, function<void(int32_t)> process_next_node);
+  void GetNextNode(size_t k, int32_t nid, function<void(int32_t)> process_next_node);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;

@@ -111,8 +111,9 @@ message BlockInfo {
 }
 
 message NextNode {
-  int64 nid = 1;
-  int32 next_nid = 2;
+  uint32 k = 1;
+  int32 nid = 2;
+  int32 next_nid = 3;
 }
 
 message MpzType {

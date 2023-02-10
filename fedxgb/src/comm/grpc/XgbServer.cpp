@@ -171,6 +171,11 @@ void XgbServiceServer::Shutdown() {
   xgb_thread_->join();
 }
 
+void XgbServiceServer::ResizeNextNode(size_t n) {
+  next_nodes_.clear();
+  next_nodes_.resize(n);
+}
+
 void XgbServiceServer::SendPubKey(opt_public_key_t* pub) { pub_ = pub; }
 
 void XgbServiceServer::SetPriKey(opt_private_key_t* pri) { pri_ = pri; }
@@ -198,9 +203,9 @@ void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_i
   block_infos_.insert({task_idx, make_shared<PositionBlockInfo>(*block_info)});
 }
 
-void XgbServiceServer::SendNextNode(int64_t nid, int32_t next_nid) {
-  lock_guard lk(m);
-  next_nodes_.insert({nid, next_nid});
+void XgbServiceServer::SendNextNode(size_t k, int32_t nid, int32_t next_nid) {
+  // lock_guard lk(m);
+  next_nodes_[k].insert({nid, next_nid});
 }
 
 void XgbServiceServer::SendMetrics(int iter, const char* metric_name, double metric) {
@@ -258,10 +263,11 @@ void XgbServiceServer::GetBlockInfo(
   process_block_info(block_info);
 }
 
-void XgbServiceServer::GetNextNode(int64_t nid, function<void(int32_t)> process_next_node) {
-  while (next_nodes_.count(nid) == 0) {
+void XgbServiceServer::GetNextNode(size_t k, int32_t nid,
+                                   function<void(int32_t)> process_next_node) {
+  while (next_nodes_[k].count(nid) == 0) {
   }  // wait for data holder part
-  process_next_node(next_nodes_[nid]);
+  process_next_node(next_nodes_[k][nid]);
 }
 
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
@@ -461,10 +467,10 @@ Status XgbServiceServer::SendBlockInfo(ServerContext* context, const BlockInfo* 
 
 Status XgbServiceServer::GetNextNode(ServerContext* context, const NextNode* request,
                                      NextNode* response) {
-  while (next_nodes_.count(request->nid()) == 0) {
+  while (next_nodes_[request->k()].count(request->nid()) == 0) {
   }  // wait for the label part
   // response->set_nid(request->nid());
-  response->set_next_nid(next_nodes_[request->nid()]);
+  response->set_next_nid(next_nodes_[request->k()][request->nid()]);
 
   return Status::OK;
 }
@@ -472,7 +478,7 @@ Status XgbServiceServer::GetNextNode(ServerContext* context, const NextNode* req
 Status XgbServiceServer::SendNextNode(ServerContext* context, const NextNode* request,
                                       Response* response) {
   lock_guard lk(m);
-  next_nodes_.insert({request->nid(), request->next_nid()});
+  next_nodes_[request->k()].insert({request->nid(), request->next_nid()});
   return Status::OK;
 }
 
@@ -496,7 +502,7 @@ Status XgbServiceServer::Clear(ServerContext* context, const Request* request, R
   } else {
     grad_pairs_.clear();
     splits_.clear();
-    next_nodes_.clear();
+    // next_nodes_.clear();
 
     if (cur_version == max_iter) {
       cout << "cur_version: " << cur_version << ", max_iter: " << max_iter << endl;

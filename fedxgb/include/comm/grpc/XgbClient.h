@@ -114,9 +114,9 @@ class XgbServiceClient {
 
   void SendBlockInfo(size_t task_idx, PositionBlockInfo *block_info);
 
-  void GetNextNode(int64_t nid, function<void(int32_t)> process_next_node);
+  void GetNextNode(size_t k, int32_t nid, function<void(int32_t)> process_next_node);
 
-  void SendNextNode(int64_t nid, int32_t next_nid);
+  void SendNextNode(size_t k, int32_t nid, int32_t next_nid);
 
   void GetMetric(int iter, const char *metric_name, function<void(double)> process_metric);
 
