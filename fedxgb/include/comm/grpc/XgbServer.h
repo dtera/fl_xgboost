@@ -94,7 +94,7 @@ class XgbServiceServer final : public XgbService::Service {
   unordered_map<uint32_t, const CPUExpandEntry> entries_;
   unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
   unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
-  unordered_map<string, int32_t> next_nodes_;
+  unordered_map<int64_t, int32_t> next_nodes_;
   vector<unordered_map<string, double>> metrics_;
   bool finished_ = false;
   // shared mutex to control updating the mask id
@@ -131,7 +131,7 @@ class XgbServiceServer final : public XgbService::Service {
 
   void SendBlockInfo(size_t task_idx, PositionBlockInfo *block_info);
 
-  void SendNextNode(string nid, int32_t next_nid);
+  void SendNextNode(int64_t nid, int32_t next_nid);
 
   void SendMetrics(int iter, const char *metric_name, double metric);
 
@@ -150,7 +150,7 @@ class XgbServiceServer final : public XgbService::Service {
   void GetBlockInfo(size_t task_idx,
                     function<void(shared_ptr<PositionBlockInfo> &)> process_block_info);
 
-  void GetNextNode(string nid, function<void(int32_t)> process_next_node);
+  void GetNextNode(int64_t nid, function<void(int32_t)> process_next_node);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;

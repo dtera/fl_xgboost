@@ -198,8 +198,8 @@ void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_i
   block_infos_.insert({task_idx, make_shared<PositionBlockInfo>(*block_info)});
 }
 
-void XgbServiceServer::SendNextNode(string nid, int32_t next_nid) {
-  // lock_guard lk(m);
+void XgbServiceServer::SendNextNode(int64_t nid, int32_t next_nid) {
+  lock_guard lk(m);
   next_nodes_.insert({nid, next_nid});
 }
 
@@ -258,7 +258,7 @@ void XgbServiceServer::GetBlockInfo(
   process_block_info(block_info);
 }
 
-void XgbServiceServer::GetNextNode(string nid, function<void(int32_t)> process_next_node) {
+void XgbServiceServer::GetNextNode(int64_t nid, function<void(int32_t)> process_next_node) {
   while (next_nodes_.count(nid) == 0) {
   }  // wait for data holder part
   process_next_node(next_nodes_[nid]);

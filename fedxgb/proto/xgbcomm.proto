@@ -111,7 +111,7 @@ message BlockInfo {
 }
 
 message NextNode {
-  string nid = 1;
+  int64 nid = 1;
   int32 next_nid = 2;
 }
 
