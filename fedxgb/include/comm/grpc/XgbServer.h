@@ -93,7 +93,7 @@ class XgbServiceServer final : public XgbService::Service {
   unordered_map<uint32_t, const EncryptedSplit> best_splits_;
   unordered_map<uint32_t, const CPUExpandEntry> entries_;
   unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
-  unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
+  unordered_map<size_t, const PositionBlockInfo> block_infos_;
   vector<unordered_map<int32_t, const bool>> next_nodes_;
   vector<unordered_map<string, const double>> metrics_;
   bool finished_ = false;
@@ -149,8 +149,7 @@ class XgbServiceServer final : public XgbService::Service {
 
   void GetLeftRightNodeSize(size_t node_in_set, size_t *n_left, size_t *n_right);
 
-  void GetBlockInfo(size_t task_idx,
-                    function<void(shared_ptr<PositionBlockInfo> &)> process_block_info);
+  void GetBlockInfo(size_t task_idx, function<void(PositionBlockInfo &)> process_block_info);
 
   void GetNextNode(size_t k, int32_t nid, function<void(bool)> process_next_node);
 
