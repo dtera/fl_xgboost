@@ -195,6 +195,7 @@ void XgbServiceServer::SendSplits(XgbEncryptedSplit* splits, size_t size) {
 }
 
 void XgbServiceServer::SendLeftRightNodeSize(size_t node_in_set, size_t n_left, size_t n_right) {
+  lock_guard lk(m);
   left_right_nodes_sizes_.insert({node_in_set, {n_left, n_right}});
 }
 
@@ -204,7 +205,7 @@ void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_i
 }
 
 void XgbServiceServer::SendNextNode(size_t k, int32_t nid, bool flow_left) {
-  // lock_guard lk(m);
+  lock_guard lk(m);
   next_nodes_[k].insert({nid, flow_left});
 }
 
@@ -239,7 +240,7 @@ void XgbServiceServer::UpdateExpandEntry(
 }
 
 void XgbServiceServer::UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSplit& best_split) {
-  lock_guard lk(m);
+  // lock_guard lk(m);
   best_splits_.insert({nidx, best_split});
 }
 
@@ -436,7 +437,7 @@ Status XgbServiceServer::GetLeftRightNodeSize(ServerContext* context, const Requ
 
 Status XgbServiceServer::SendLeftRightNodeSize(ServerContext* context, const BlockInfo* request,
                                                Response* response) {
-  left_right_nodes_sizes_.insert({request->idx(), {request->n_left(), request->n_right()}});
+  SendLeftRightNodeSize(request->idx(), request->n_left(), request->n_right());
   return Status::OK;
 }
 
@@ -478,7 +479,8 @@ Status XgbServiceServer::SendBlockInfo(ServerContext* context, const BlockInfo* 
   for (int i = 0; i < block_info->n_right; ++i) {
     block_info->right_data_[i] = request->right_data_(i);
   }
-  block_infos_.insert({request->idx(), make_shared<PositionBlockInfo>(*block_info)});
+
+  SendBlockInfo(request->idx(), block_info);
   return Status::OK;
 }
 
@@ -494,8 +496,7 @@ Status XgbServiceServer::GetNextNode(ServerContext* context, const NextNode* req
 
 Status XgbServiceServer::SendNextNode(ServerContext* context, const NextNode* request,
                                       Response* response) {
-  lock_guard lk(m);
-  next_nodes_[request->k()].insert({request->nid(), request->flow_left()});
+  SendNextNode(request->k(), request->nid(), request->flow_left());
   return Status::OK;
 }
 

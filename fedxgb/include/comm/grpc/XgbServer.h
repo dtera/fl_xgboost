@@ -8,6 +8,7 @@
 #include <grpcpp/grpcpp.h>
 #include <grpcpp/health_check_service_interface.h>
 
+#include <boost/unordered_map.hpp>
 #include <iostream>
 #include <memory>
 #include <shared_mutex>
@@ -92,9 +93,9 @@ class XgbServiceServer final : public XgbService::Service {
   unordered_map<uint32_t, const SplitsRequest> splits_requests_;
   unordered_map<uint32_t, const EncryptedSplit> best_splits_;
   unordered_map<uint32_t, const CPUExpandEntry> entries_;
-  unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
-  unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
-  vector<unordered_map<int32_t, const bool>> next_nodes_;
+  boost::unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
+  boost::unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
+  vector<boost::unordered_map<int32_t, const bool>> next_nodes_;
   vector<unordered_map<string, const double>> metrics_;
   bool finished_ = false;
   // shared mutex to control updating the mask id
