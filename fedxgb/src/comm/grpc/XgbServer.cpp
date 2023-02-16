@@ -336,6 +336,24 @@ Status XgbServiceServer::GetEncryptedGradPairs(ServerContext* context,
 
 Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const SplitsRequest* request,
                                              SplitsResponse* response) {
+  // test histogram
+  /*if (request->part_id() == -2) {
+    auto encrypted_splits = request->encrypted_splits();
+    for (int i = 0; i < encrypted_splits.size(); ++i) {
+      GradStats<double> left_sum;
+      GradStats<double> right_sum;
+      GradStats<EncryptedType<double>> encrypted_left_sum;
+      GradStats<EncryptedType<double>> encrypted_right_sum;
+      mpz_type2_mpz_t(encrypted_left_sum, encrypted_splits[i].left_sum());
+      mpz_type2_mpz_t(encrypted_right_sum, encrypted_splits[i].right_sum());
+      opt_paillier_decrypt(left_sum, encrypted_left_sum, pub_, pri_);
+      opt_paillier_decrypt(right_sum, encrypted_right_sum, pub_, pri_);
+      cout << "==nid: " << request->nidx() << ", mask_id: " << encrypted_splits[i].mask_id()
+           << ", left_sum: " << left_sum << ", right_sum: --" << endl;
+    }
+    return Status::OK;
+  }*/
+
   splits_requests_.insert({request->nidx(), *request});
   finish_splits_[request->nidx()] = true;
   while (finish_splits_[request->nidx()]) {

@@ -99,7 +99,7 @@ void LibSVMParser<IndexType, DType>::ParseBlock(const char *begin, const char *e
     std::ptrdiff_t advanced = IgnoreCommentAndBlank(p, lend);
     p += advanced;
     while (isspace(*p)) ++p;
-    // parse @SAMPLE_ID
+    // parse [@SAMPLE_ID]
     uint64_t sid;
     if (p != lend && (*p == '@')) {
       ++p;
@@ -107,10 +107,10 @@ void LibSVMParser<IndexType, DType>::ParseBlock(const char *begin, const char *e
       while (p != lend && isdigitchars(*p)) ++p;
       out->sid.push_back(sid);
     }
-    // parse label[:weight]
+    // parse [LABEL[#WEIGHT]]
     real_t label;
     real_t weight;
-    int r = ParsePair<real_t, real_t>(p, lend, &q, label, weight);
+    int r = ParsePair<real_t, real_t>(p, lend, &q, label, weight, '#');
     if (r < 1) {
       // empty line
       lbegin = lend;

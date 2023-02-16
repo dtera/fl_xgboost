@@ -74,7 +74,7 @@ void InitilizeHistByZeroes(GHistRow<H> hist, size_t begin, size_t end) {
   if (is_same<double, H>()) {
     memset(hist.data() + begin, '\0', (end - begin) * sizeof(xgboost::GradientPairT<H>));
   } else {
-    // std::fill(hist.begin() + begin, hist.begin() + end, xgboost::GradientPairT<H>());
+    std::for_each(hist.begin() + begin, hist.begin() + end, [&](auto &gp) { gp.Clear(); });
   }
 #endif  // defined(XGBOOST_STRICT_R_MODE) && XGBOOST_STRICT_R_MODE == 1
 }

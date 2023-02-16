@@ -136,6 +136,14 @@ class HistogramBuilder {
     } else {
       this->SyncHistogramLocal(p_tree, nodes_for_explicit_hist_build, nodes_for_subtraction_trick);
     }
+
+    // test histogram
+    /*auto nid = nodes_for_explicit_hist_build[0].nid;
+    if (nid == 0) {
+      for (int i = 0; i < hist_[nid].size(); ++i) {
+        test_hist(nid, i, hist_[nid][i].GetGrad(), hist_[nid][i].GetHess());
+      }
+    }*/
   }
 
   /** same as the other build hist but handles only single batch data (in-core) */
