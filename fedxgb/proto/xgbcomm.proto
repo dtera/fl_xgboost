@@ -113,7 +113,8 @@ message BlockInfo {
 message NextNode {
   uint32 k = 1;
   int32 nid = 2;
-  int32 next_nid = 3;
+  bool flow_left = 3;
+  //int32 next_nid = 3;
 }
 
 message MpzType {

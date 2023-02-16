@@ -30,12 +30,21 @@ namespace predictor {
 DMLC_REGISTRY_FILE_TAG(cpu_predictor);
 
 template <bool has_missing, bool has_categorical>
-void GetNextNode(const RegTree &tree, bst_node_t &nid, const RegTree::FVec &feat,
-                 const RegTree::CategoricalSplitMatrix &cats) {
+bst_node_t GetNextNode(const RegTree &tree, bst_node_t nid, const RegTree::FVec &feat,
+                       const RegTree::CategoricalSplitMatrix &cats) {
   unsigned split_index = tree[nid].SplitIndex();
   auto fvalue = feat.GetFvalue(split_index);
-  nid = GetNextNode<has_missing, has_categorical>(tree[nid], nid, fvalue,
-                                                  has_missing && feat.IsMissing(split_index), cats);
+  return GetNextNode<has_missing, has_categorical>(
+      tree[nid], nid, fvalue, has_missing && feat.IsMissing(split_index), cats);
+}
+
+template <bool has_missing, bool has_categorical>
+bool FlowLeft(const RegTree &tree, bst_node_t nid, const RegTree::FVec &feat,
+              const RegTree::CategoricalSplitMatrix &cats) {
+  unsigned split_index = tree[nid].SplitIndex();
+  auto fvalue = feat.GetFvalue(split_index);
+  return FlowLeft<has_missing, has_categorical>(tree[nid], nid, fvalue,
+                                                has_missing && feat.IsMissing(split_index), cats);
 }
 
 template <bool has_missing, bool has_categorical>
@@ -47,23 +56,25 @@ bst_node_t GetLeafIndex(RegTree const &tree, const RegTree::FVec &feat,
       int64_t pid = nid;  // (k << 32) | nid;
       if (SelfPartNotBest(tree[nid].PartId())) {
         if (IsGuest()) {
-          xgb_server_->GetNextNode(k, pid, [&nid](int32_t next_nid) { nid = next_nid; });
+          xgb_server_->GetNextNode(
+              k, pid, [&](bool flow_left) { nid = tree[nid].LeftChild() + !flow_left; });
         } else {
-          xgb_client_->GetNextNode(k, pid, [&nid](int32_t next_nid) { nid = next_nid; });
+          xgb_client_->GetNextNode(
+              k, pid, [&](bool flow_left) { nid = tree[nid].LeftChild() + !flow_left; });
         }
       } else {
-        // prev_nid = nid;
-        GetNextNode<has_missing, has_categorical>(tree, nid, feat, cats);
+        auto flow_left = FlowLeft<has_missing, has_categorical>(tree, nid, feat, cats);
+        nid = GetNextNode<has_missing, has_categorical>(tree, nid, feat, cats);
         if (IsGuest()) {
-          xgb_server_->SendNextNode(k, pid, nid);
+          xgb_server_->SendNextNode(k, pid, flow_left);
         } else {
-          xgb_client_->SendNextNode(k, pid, nid);
+          xgb_client_->SendNextNode(k, pid, flow_left);
         }
       }
     }
   } else {
     while (!tree[nid].IsLeaf()) {
-      GetNextNode<has_missing, has_categorical>(tree, nid, feat, cats);
+      nid = GetNextNode<has_missing, has_categorical>(tree, nid, feat, cats);
     }
   }
   return nid;

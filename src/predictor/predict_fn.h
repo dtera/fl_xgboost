@@ -26,6 +26,22 @@ inline XGBOOST_DEVICE bst_node_t GetNextNode(const RegTree::Node &node, const bs
     }
   }
 }
-}      // namespace predictor
-}      // namespace xgboost
+
+template <bool has_missing, bool has_categorical>
+inline XGBOOST_DEVICE bool FlowLeft(const RegTree::Node &node, const bst_node_t nid, float fvalue,
+                                    bool is_missing, RegTree::CategoricalSplitMatrix const &cats) {
+  if (has_missing && is_missing) {
+    return node.DefaultLeft();
+  } else {
+    if (has_categorical && common::IsCat(cats.split_type, nid)) {
+      auto node_categories =
+          cats.categories.subspan(cats.node_ptr[nid].beg, cats.node_ptr[nid].size);
+      return common::Decision<true>(node_categories, fvalue, node.DefaultLeft());
+    } else {
+      return fvalue < node.SplitCond();
+    }
+  }
+}
+}  // namespace predictor
+}  // namespace xgboost
 #endif  // XGBOOST_PREDICTOR_PREDICT_FN_H_
