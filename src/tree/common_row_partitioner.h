@@ -213,10 +213,10 @@ class CommonRowPartitioner {
                 if (IsGuest()) {
                   // label holder get block info from data holder
                   xgb_server_->GetBlockInfo(task_idx, [&](auto& block_info) {
-                    size_t* left_result = rows_indexes + block_info.n_offset_left;
-                    size_t* right_result = rows_indexes + block_info.n_offset_right;
-                    std::copy_n(block_info.left_data_, block_info.n_left, left_result);
-                    std::copy_n(block_info.right_data_, block_info.n_right, right_result);
+                    size_t* left_result = rows_indexes + block_info->n_offset_left;
+                    size_t* right_result = rows_indexes + block_info->n_offset_right;
+                    std::copy_n(block_info->left_data_, block_info->n_left, left_result);
+                    std::copy_n(block_info->right_data_, block_info->n_right, right_result);
                   });
                 } else {
                   // data holder get block info from label holder
