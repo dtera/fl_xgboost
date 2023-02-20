@@ -249,6 +249,21 @@ bool XgbServiceClient::IsSplitContainsMissingValues(
   return response.is_valid();
 }
 
+bool XgbServiceClient::IsFewerRight(const EncryptedType<double>& left_sum_hess,
+                                    const EncryptedType<double>& right_sum_hess) {
+  RpcRequest(
+      IsFewerRightRequest, IsFewerRight, ValidResponse,
+      {
+        auto lsh = request.mutable_left_sum_hess();
+        auto rsh = request.mutable_right_sum_hess();
+        mpz_t2_mpz_type(lsh, left_sum_hess);
+        mpz_t2_mpz_type(rsh, right_sum_hess);
+      },
+      { return response.is_valid(); });
+
+  return response.is_valid();
+}
+
 void XgbServiceClient::GetLeftRightNodeSize(size_t node_in_set, size_t* n_left, size_t* n_right) {
   RpcRequest(
       Request, GetLeftRightNodeSize, BlockInfo, { request.set_idx(node_in_set); },

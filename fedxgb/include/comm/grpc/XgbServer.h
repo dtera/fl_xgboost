@@ -170,6 +170,9 @@ class XgbServiceServer final : public XgbService::Service {
   Status IsSplitContainsMissingValues(ServerContext *context, const MissingValuesRequest *request,
                                       ValidResponse *response) override;
 
+  Status IsFewerRight(ServerContext *context, const IsFewerRightRequest *request,
+                      ValidResponse *response) override;
+
   Status GetLeftRightNodeSize(ServerContext *context, const Request *request,
                               BlockInfo *response) override;
 

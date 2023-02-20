@@ -16,6 +16,7 @@ service XgbService {
   rpc SendEncryptedSplits (SplitsRequest) returns (SplitsResponse) {}
   rpc IsSplitEntryValid (SplitEntryValidRequest) returns (ValidResponse) {}
   rpc IsSplitContainsMissingValues (MissingValuesRequest) returns (ValidResponse) {}
+  rpc IsFewerRight (IsFewerRightRequest) returns (ValidResponse) {}
   rpc GetLeftRightNodeSize (Request) returns (BlockInfo) {}
   rpc SendLeftRightNodeSize (BlockInfo) returns (Response) {}
   rpc GetBlockInfo (Request) returns (BlockInfo) {}
@@ -89,6 +90,11 @@ message MetricResponse {
 message MissingValuesRequest {
   GradPair grad_stats = 1;
   GradPair snode_stats = 2;
+}
+
+message IsFewerRightRequest {
+  MpzType left_sum_hess = 1;
+  MpzType right_sum_hess = 2;
 }
 
 message EncryptedSplit {

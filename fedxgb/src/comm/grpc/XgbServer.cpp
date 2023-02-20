@@ -337,7 +337,7 @@ Status XgbServiceServer::GetEncryptedGradPairs(ServerContext* context,
 Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const SplitsRequest* request,
                                              SplitsResponse* response) {
   // test histogram
-  /*if (request->part_id() == -2) {
+  if (request->part_id() == -2) {
     auto encrypted_splits = request->encrypted_splits();
     for (int i = 0; i < encrypted_splits.size(); ++i) {
       GradStats<double> left_sum;
@@ -352,7 +352,7 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
            << ", left_sum: " << left_sum << ", right_sum: --" << endl;
     }
     return Status::OK;
-  }*/
+  }
 
   splits_requests_.insert({request->nidx(), *request});
   finish_splits_[request->nidx()] = true;
@@ -418,6 +418,23 @@ Status XgbServiceServer::IsSplitContainsMissingValues(ServerContext* context,
 
   response->set_is_valid(grad_stats.GetGrad() == snode_stats.GetGrad() &&
                          grad_stats.GetHess() == snode_stats.GetHess());
+
+  return Status::OK;
+}
+
+Status XgbServiceServer::IsFewerRight(ServerContext* context, const IsFewerRightRequest* request,
+                                      ValidResponse* response) {
+  EncryptedType<double> encrypted_left_sum_hess;
+  EncryptedType<double> encrypted_right_sum_hess;
+  mpz_type2_mpz_t(encrypted_left_sum_hess, request->left_sum_hess());
+  mpz_type2_mpz_t(encrypted_right_sum_hess, request->right_sum_hess());
+
+  double left_sum_hess;
+  double right_sum_hess;
+  opt_paillier_decrypt_t(left_sum_hess, encrypted_left_sum_hess.data_, pub_, pri_);
+  opt_paillier_decrypt_t(right_sum_hess, encrypted_right_sum_hess.data_, pub_, pri_);
+
+  response->set_is_valid(right_sum_hess < left_sum_hess);
 
   return Status::OK;
 }

@@ -167,7 +167,10 @@ void QuantileHistMaker::Builder::BuildHistogram(DMatrix *p_fmat, RegTree *p_tree
   for (auto const &c : valid_candidates) {
     auto left_nidx = (*p_tree)[c.nid].LeftChild();
     auto right_nidx = (*p_tree)[c.nid].RightChild();
-    auto fewer_right = c.split.right_sum.GetHess() < c.split.left_sum.GetHess();
+    auto fewer_right = is_same<float, T>()
+                           ? (c.split.right_sum.GetHess() < c.split.left_sum.GetHess())
+                           : xgb_client_->IsFewerRight(c.split.encrypted_left_sum->sum_hess,
+                                                       c.split.encrypted_right_sum->sum_hess);
 
     auto build_nidx = left_nidx;
     auto subtract_nidx = right_nidx;
@@ -302,6 +305,16 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
   auto &h_out_position = p_out_position->HostVector();
   this->LeafPartition(tree, gpair_h, &h_out_position);
   monitor_->Stop(__func__);
+
+  /*cout << endl;
+  tree.WalkTree([&](bst_node_t nid) {
+    cout << "nid: " << nid  // << ", part_id: " << tree[nid].PartId()
+         << ", parent_nid: " << tree[nid].Parent() << ", left_child: " << tree[nid].LeftChild()
+         << ", right_child: " << tree[nid].RightChild() << ", depth: " << tree.GetDepth(nid)
+         << ", loss_chg: " << tree.Stat(nid).loss_chg << ", sum_hess: " << tree.Stat(nid).sum_hess
+         << endl;
+    return true;
+  });*/
 }
 
 template <typename T>
