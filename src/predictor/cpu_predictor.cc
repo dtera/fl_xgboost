@@ -54,7 +54,7 @@ bst_node_t GetLeafIndex(RegTree const &tree, const RegTree::FVec &feat,
   if (IsFederated()) {
     while (!tree[nid].IsLeaf()) {
       int64_t pid = nid;  // (k << 32) | nid;
-      if (SelfPartNotBest(tree[nid].PartId())) {
+      if (NotSelfPart(tree[nid].PartId())) {
         if (IsGuest()) {
           xgb_server_->GetNextNode(
               k, pid, [&](bool flow_left) { nid = tree[nid].LeftChild() + !flow_left; });

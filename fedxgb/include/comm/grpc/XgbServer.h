@@ -91,8 +91,8 @@ class XgbServiceServer final : public XgbService::Service {
   const TrainParam *train_param_;
   unordered_map<uint32_t, bool> finish_splits_;
   unordered_map<uint32_t, const SplitsRequest> splits_requests_;
-  unordered_map<uint32_t, const EncryptedSplit> best_splits_;
   unordered_map<uint32_t, const CPUExpandEntry> entries_;
+  boost::unordered_map<uint32_t, EncryptedSplit> best_splits_;
   boost::unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
   boost::unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
   vector<boost::unordered_map<int32_t, const bool>> next_nodes_;

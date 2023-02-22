@@ -195,13 +195,13 @@ void XgbServiceServer::SendSplits(XgbEncryptedSplit* splits, size_t size) {
 }
 
 void XgbServiceServer::SendLeftRightNodeSize(size_t node_in_set, size_t n_left, size_t n_right) {
-  lock_guard lk(m);
+  // lock_guard lk(m);
   left_right_nodes_sizes_.insert({node_in_set, {n_left, n_right}});
 }
 
 void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_info) {
   lock_guard lk(m);
-  block_infos_.insert({task_idx, make_shared<PositionBlockInfo>(*block_info)});
+  block_infos_.insert_or_assign(task_idx, make_shared<PositionBlockInfo>(*block_info));
 }
 
 void XgbServiceServer::SendNextNode(size_t k, int32_t nid, bool flow_left) {
@@ -241,11 +241,11 @@ void XgbServiceServer::UpdateExpandEntry(
 
 void XgbServiceServer::UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSplit& best_split) {
   // lock_guard lk(m);
-  best_splits_.insert({nidx, best_split});
+  best_splits_.insert_or_assign(nidx, best_split);
 }
 
 void XgbServiceServer::UpdateFinishSplits(uint32_t nidx, bool finish_split) {
-  finish_splits_.insert({nidx, finish_split});
+  finish_splits_.insert_or_assign(nidx, finish_split);
 }
 
 void XgbServiceServer::GetLeftRightNodeSize(size_t node_in_set, size_t* n_left, size_t* n_right) {
@@ -337,7 +337,7 @@ Status XgbServiceServer::GetEncryptedGradPairs(ServerContext* context,
 Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const SplitsRequest* request,
                                              SplitsResponse* response) {
   // test histogram
-  if (request->part_id() == -2) {
+  /*if (request->part_id() == -2) {
     auto encrypted_splits = request->encrypted_splits();
     for (int i = 0; i < encrypted_splits.size(); ++i) {
       GradStats<double> left_sum;
@@ -352,7 +352,7 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
            << ", left_sum: " << left_sum << ", right_sum: --" << endl;
     }
     return Status::OK;
-  }
+  }*/
 
   splits_requests_.insert({request->nidx(), *request});
   finish_splits_[request->nidx()] = true;

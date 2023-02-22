@@ -411,13 +411,18 @@ struct SplitEntryContainer {
    *
    * \param new_loss_chg the loss reduction get through the split
    * \param split_index the feature index where the split is on
+   * \param default_rep whether replace by default
    */
-  bool NeedReplace(bst_float new_loss_chg, unsigned split_index) const {
+  bool NeedReplace(bst_float new_loss_chg, unsigned split_index,
+                   const bool default_rep = false) const {
     if (std::isinf(new_loss_chg)) {  // in some cases new_loss_chg can be NaN or Inf,
                                      // for example when lambda = 0 & min_child_weight = 0
                                      // skip value in this case
       return false;
     } else if (this->SplitIndex() <= split_index) {
+      if (default_rep) {
+        return !(this->loss_chg > new_loss_chg);
+      }
       return new_loss_chg > this->loss_chg;
     } else {
       return !(this->loss_chg > new_loss_chg);
@@ -451,12 +456,13 @@ struct SplitEntryContainer {
    * \param split_index feature index to split on
    * \param new_split_value the split point
    * \param default_left whether the missing value goes to left
+   * \param default_rep whether replace by default
    * \return whether the proposed split is better and can replace current split
    */
   bool Update(bst_float new_loss_chg, unsigned split_index, bst_float new_split_value,
-              bool default_left, bool is_cat, const GradientT &left_sum,
-              const GradientT &right_sum) {
-    if (this->NeedReplace(new_loss_chg, split_index)) {
+              bool default_left, bool is_cat, const GradientT &left_sum, const GradientT &right_sum,
+              const bool default_rep = false) {
+    if (this->NeedReplace(new_loss_chg, split_index, default_rep)) {
       this->loss_chg = new_loss_chg;
       if (default_left) {
         split_index |= (1U << 31);

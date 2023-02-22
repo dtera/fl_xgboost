@@ -179,7 +179,7 @@ class CommonRowPartitioner {
     // from partition_builder_ to row_set_collection_
     if (IsFederated()) {
       partition_builder_.CalculateRowOffsets([&](size_t i, size_t* n_left, size_t* n_right) {
-        if (SelfPartNotBest(nodes[i].split.part_id)) {
+        if (NotSelfPart(nodes[i].split.part_id)) {
           if (IsGuest()) {
             // label holder get left_right_nodes_sizes from data holder
             xgb_server_->GetLeftRightNodeSize(i, n_left, n_right);
@@ -209,7 +209,7 @@ class CommonRowPartitioner {
         partition_builder_.MergeToArray(
             node_in_set, r.begin(), const_cast<size_t*>(row_set_collection_[nid].begin),
             [&](size_t task_idx, size_t* rows_indexes, auto& mem_blocks) {
-              if (SelfPartNotBest(nodes[node_in_set].split.part_id)) {
+              if (NotSelfPart(nodes[node_in_set].split.part_id)) {
                 if (IsGuest()) {
                   // label holder get block info from data holder
                   xgb_server_->GetBlockInfo(task_idx, [&](auto& block_info) {

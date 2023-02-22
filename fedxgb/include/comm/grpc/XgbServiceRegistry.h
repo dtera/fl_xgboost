@@ -56,10 +56,10 @@ inline bool IsGuest() { return fparam_->fl_role == FedratedRole::Guest; }
 
 inline bool IsFederated() { return fparam_->dsplit == DataSplitMode::kCol; }
 
-inline bool SelfPartNotBest(int32_t part_id) { return part_id != fparam_->fl_part_id; }
+inline bool NotSelfPart(int32_t part_id) { return part_id != fparam_->fl_part_id; }
 
 inline bool IsFederatedAndSelfPartNotBest(int32_t part_id) {
-  return IsFederated() && SelfPartNotBest(part_id);
+  return IsFederated() && NotSelfPart(part_id);
 }
 
 //==========================================test to debug==========================================
