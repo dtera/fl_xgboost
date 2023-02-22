@@ -244,8 +244,7 @@ class HistEvaluator {
         loss_chg = evaluator.CalcSplitGain(param_, nidx, fidx, left_sum, right_sum) -
                    snode_[nidx].root_gain;
 
-        updated = best.Update(loss_chg, fidx, split_pt, default_left, is_cat, left_sum, right_sum,
-                              bin_id == -1 && NotSelfPart(best.part_id));
+        updated = best.Update(loss_chg, fidx, split_pt, default_left, is_cat, left_sum, right_sum);
       } else {
         // backward enumeration: split at left bound of each bin
         loss_chg = evaluator.CalcSplitGain(param_, nidx, fidx, right_sum, left_sum) -
@@ -393,10 +392,10 @@ class HistEvaluator {
       GradStats<EncryptedType<double>> right_sum;
       mpz_type2_mpz_t(left_sum, es.left_sum());
       mpz_type2_mpz_t(right_sum, es.right_sum());
-      if (es.d_step() > 0) {
-        e.split.Update(fidx, split_pt, es.default_left(), response.part_id(), left_sum, right_sum);
-      } else {
+      if (!es.mask_id().empty() && es.d_step() < 0) {
         e.split.Update(fidx, split_pt, es.default_left(), response.part_id(), right_sum, left_sum);
+      } else {
+        e.split.Update(fidx, split_pt, es.default_left(), response.part_id(), left_sum, right_sum);
       }
     });
   }
