@@ -18,14 +18,19 @@ file(GLOB RM_SRCS src/comm/grpc/demo/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
 list(REMOVE_ITEM SOURCES ${RM_SRCS})
 
 # external project
+if (APPLE)
+    execute_process(COMMAND brew install tbb)
+endif ()
 include(ExternalProject)
-set(tbb_INSTALL_DIR "${CMAKE_CURRENT_BINARY_DIR}/oneTBB")
-set(tbb_CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${tbb_INSTALL_DIR})
-ExternalProject_Add(oneTBB
+set(TBB_PREFIX_DIR "${CMAKE_CURRENT_BINARY_DIR}/tbb")
+set(TBB_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${TBB_PREFIX_DIR}")
+ExternalProject_Add(tbb
         GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
         GIT_TAG v2021.8.0
-        INSTALL_DIR ${tbb_INSTALL_DIR}
-        CMAKE_ARGS ${tbb_CMAKE_ARGS}
+        GIT_SUBMODULES_RECURSE ON
+        GIT_REMOTE_UPDATE_STRATEGY CHECKOUT
+        PREFIX ${TBB_PREFIX_DIR}
+        CMAKE_ARGS ${TBB_CMAKE_ARGS}
         )
 
 # brew install grpc googletest helib libomp protobuf xgboost
@@ -84,9 +89,9 @@ protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 
 # include directories and link libraries
-include_directories(./include ./src ../src ${PROTO_GENERATED_DIR} ${tbb_INSTALL_DIR}/include
+include_directories(./include ./src ../src ${PROTO_GENERATED_DIR} ${TBB_PREFIX_DIR}/include
         ${xgboost_SOURCE_DIR}/include ${xgboost_SOURCE_DIR}/dmlc-core/include ${xgboost_SOURCE_DIR}/rabit/include)
-link_directories(${tbb_INSTALL_DIR}/lib)
+link_directories(${TBB_PREFIX_DIR}/lib)
 link_libraries(libtbb.${LIB_SUFFIX})
 
 # link libraries for the target
@@ -94,7 +99,7 @@ add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
 target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES} protobuf::libprotobuf protobuf::libprotobuf-lite
         OpenMP::OpenMP_CXX gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection helib)
-add_dependencies(${PROJECT_NAME}_lib oneTBB)
+add_dependencies(${PROJECT_NAME}_lib tbb)
 
 set(EXE_TARGETS)
 

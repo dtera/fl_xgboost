@@ -200,12 +200,12 @@ void XgbServiceServer::SendLeftRightNodeSize(size_t node_in_set, size_t n_left, 
 }
 
 void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_info) {
-  lock_guard lk(m);
-  block_infos_.insert_or_assign(task_idx, make_shared<PositionBlockInfo>(*block_info));
+  // lock_guard lk(m);
+  block_infos_.insert({task_idx, make_shared<PositionBlockInfo>(*block_info)});
 }
 
 void XgbServiceServer::SendNextNode(size_t k, int32_t nid, bool flow_left) {
-  lock_guard lk(m);
+  // lock_guard lk(m);
   next_nodes_[k].insert({nid, flow_left});
 }
 
