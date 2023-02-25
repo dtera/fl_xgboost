@@ -275,7 +275,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
   const int num_feature = model.learner_model_param->num_feature;
   omp_ulong n_blocks = common::DivRoundUp(nsize, block_of_rows_size);
 
-  common::ParallelFor(n_blocks, n_threads, [&](bst_omp_uint block_id) {
+  auto pred_block = [&](bst_omp_uint block_id) {
     const size_t batch_offset = block_id * block_of_rows_size;
     const size_t block_size = std::min(nsize - batch_offset, block_of_rows_size);
     const size_t fvec_offset = omp_get_thread_num() * block_of_rows_size;
@@ -285,7 +285,15 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
     PredictByAllTrees(model, tree_begin, tree_end, out_preds, batch_offset + batch.base_rowid,
                       num_group, thread_temp, fvec_offset, block_size);
     FVecDrop(block_size, batch_offset, &batch, fvec_offset, p_thread_temp);
-  });
+  };
+
+  if (IsFederated()) {
+    for (int i = 0; i < n_blocks; ++i) {
+      pred_block(i);
+    }
+  } else {
+    common::ParallelFor(n_blocks, n_threads, pred_block);
+  }
 }
 
 float FillNodeMeanValues(RegTree const *tree, bst_node_t nidx, std::vector<float> *mean_values) {
