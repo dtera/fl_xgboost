@@ -199,6 +199,10 @@ void XgbServiceServer::SendLeftRightNodeSize(size_t node_in_set, size_t n_left, 
   left_right_nodes_sizes_.insert({node_in_set, {n_left, n_right}});
 }
 
+void XgbServiceServer::SendFewerRight(int32_t nid, bool fewer_right) {
+  fewer_right_.insert({nid, fewer_right});
+}
+
 void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_info) {
   // lock_guard lk(m);
   block_infos_.insert({task_idx, make_shared<PositionBlockInfo>(*block_info)});
@@ -439,6 +443,16 @@ Status XgbServiceServer::IsFewerRight(ServerContext* context, const IsFewerRight
   return Status::OK;
 }
 
+Status XgbServiceServer::FewerRight(ServerContext* context, const Request* request,
+                                    ValidResponse* response) {
+  while (fewer_right_.count(request->idx()) == 0) {
+  }  // wait for the label part
+
+  response->set_is_valid(fewer_right_[request->idx()]);
+
+  return Status::OK;
+}
+
 Status XgbServiceServer::GetLeftRightNodeSize(ServerContext* context, const Request* request,
                                               BlockInfo* response) {
   while (left_right_nodes_sizes_.count(request->idx()) == 0) {
@@ -529,6 +543,7 @@ Status XgbServiceServer::GetMetric(ServerContext* context, const MetricRequest* 
 Status XgbServiceServer::Clear(ServerContext* context, const Request* request, Response* response) {
   if (request->idx() == 0) {
     finish_splits_.clear();
+    fewer_right_.clear();
     splits_requests_.clear();
     best_splits_.clear();
     entries_.clear();

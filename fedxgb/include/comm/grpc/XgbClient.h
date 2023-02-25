@@ -109,6 +109,8 @@ class XgbServiceClient {
   bool IsFewerRight(const EncryptedType<double> &left_sum_hess,
                     const EncryptedType<double> &right_sum_hess);
 
+  bool FewerRight(int32_t nid);
+
   void GetLeftRightNodeSize(size_t node_in_set, size_t *n_left, size_t *n_right);
 
   void SendLeftRightNodeSize(size_t node_in_set, size_t n_left, size_t n_right);

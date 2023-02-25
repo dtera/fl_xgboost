@@ -167,10 +167,15 @@ void QuantileHistMaker::Builder::BuildHistogram(DMatrix *p_fmat, RegTree *p_tree
   for (auto const &c : valid_candidates) {
     auto left_nidx = (*p_tree)[c.nid].LeftChild();
     auto right_nidx = (*p_tree)[c.nid].RightChild();
-    auto fewer_right = is_same<float, T>()
-                           ? (c.split.right_sum.GetHess() < c.split.left_sum.GetHess())
-                           : xgb_client_->IsFewerRight(c.split.encrypted_left_sum->sum_hess,
-                                                       c.split.encrypted_right_sum->sum_hess);
+    bool fewer_right = false;
+    if (is_same<float, T>()) {
+      fewer_right = c.split.right_sum.GetHess() < c.split.left_sum.GetHess();
+      xgb_server_->SendFewerRight(c.nid, fewer_right);
+    } else {
+      /*fewer_right = xgb_client_->IsFewerRight(c.split.encrypted_left_sum->sum_hess,
+                                              c.split.encrypted_right_sum->sum_hess);*/
+      fewer_right = xgb_client_->FewerRight(c.nid);
+    }
 
     auto build_nidx = left_nidx;
     auto subtract_nidx = right_nidx;

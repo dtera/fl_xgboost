@@ -17,6 +17,7 @@ service XgbService {
   rpc IsSplitEntryValid (SplitEntryValidRequest) returns (ValidResponse) {}
   rpc IsSplitContainsMissingValues (MissingValuesRequest) returns (ValidResponse) {}
   rpc IsFewerRight (IsFewerRightRequest) returns (ValidResponse) {}
+  rpc FewerRight (Request) returns (ValidResponse) {}
   rpc GetLeftRightNodeSize (Request) returns (BlockInfo) {}
   rpc SendLeftRightNodeSize (BlockInfo) returns (Response) {}
   rpc GetBlockInfo (Request) returns (BlockInfo) {}

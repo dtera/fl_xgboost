@@ -264,6 +264,14 @@ bool XgbServiceClient::IsFewerRight(const EncryptedType<double>& left_sum_hess,
   return response.is_valid();
 }
 
+bool XgbServiceClient::FewerRight(int32_t nid) {
+  RpcRequest(
+      Request, FewerRight, ValidResponse, { request.set_idx(nid); },
+      { return response.is_valid(); });
+
+  return response.is_valid();
+}
+
 void XgbServiceClient::GetLeftRightNodeSize(size_t node_in_set, size_t* n_left, size_t* n_right) {
   RpcRequest(
       Request, GetLeftRightNodeSize, BlockInfo, { request.set_idx(node_in_set); },

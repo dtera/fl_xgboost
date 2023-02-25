@@ -90,10 +90,11 @@ class XgbServiceServer final : public XgbService::Service {
   opt_private_key_t *pri_;
 
   const TrainParam *train_param_;
-  unordered_map<uint32_t, bool> finish_splits_;
-  unordered_map<uint32_t, const SplitsRequest> splits_requests_;
-  unordered_map<uint32_t, const CPUExpandEntry> entries_;
-  unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
+  boost::unordered_map<uint32_t, bool> finish_splits_;
+  boost::unordered_map<uint32_t, bool> fewer_right_;
+  boost::unordered_map<uint32_t, const SplitsRequest> splits_requests_;
+  boost::unordered_map<uint32_t, const CPUExpandEntry> entries_;
+  boost::unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
   boost::unordered_map<uint32_t, EncryptedSplit> best_splits_;
   oneapi::tbb::concurrent_unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
   vector<boost::unordered_map<int32_t, const bool>> next_nodes_;
@@ -132,6 +133,8 @@ class XgbServiceServer final : public XgbService::Service {
   void SendSplits(XgbEncryptedSplit *splits, size_t size);
 
   void SendLeftRightNodeSize(size_t node_in_set, size_t n_left, size_t n_right);
+
+  void SendFewerRight(int32_t nid, bool fewer_right);
 
   void SendBlockInfo(size_t task_idx, PositionBlockInfo *block_info);
 
@@ -173,6 +176,9 @@ class XgbServiceServer final : public XgbService::Service {
 
   Status IsFewerRight(ServerContext *context, const IsFewerRightRequest *request,
                       ValidResponse *response) override;
+
+  Status FewerRight(ServerContext *context, const Request *request,
+                    ValidResponse *response) override;
 
   Status GetLeftRightNodeSize(ServerContext *context, const Request *request,
                               BlockInfo *response) override;
