@@ -170,7 +170,9 @@ void QuantileHistMaker::Builder::BuildHistogram(DMatrix *p_fmat, RegTree *p_tree
     bool fewer_right = false;
     if (is_same<float, T>()) {
       fewer_right = c.split.right_sum.GetHess() < c.split.left_sum.GetHess();
-      xgb_server_->SendFewerRight(c.nid, fewer_right);
+      if (IsFederated()) {
+        xgb_server_->SendFewerRight(c.nid, fewer_right);
+      }
     } else {
       /*fewer_right = xgb_client_->IsFewerRight(c.split.encrypted_left_sum->sum_hess,
                                               c.split.encrypted_right_sum->sum_hess);*/
