@@ -19,6 +19,7 @@
 #include "../param.h"
 #include "../split_evaluator.h"
 #include "comm/grpc/XgbServiceRegistry.h"
+#include "ssl_util.h"
 #include "xgboost/federated_param.h"
 
 using namespace google::protobuf;
@@ -43,6 +44,7 @@ class HistEvaluator {
   int32_t n_threads_{0};
   FeatureInteractionConstraintHost interaction_constraints_;
   std::vector<NodeEntry> snode_;
+  std::string key_;
 
   // if sum of statistics for non-missing values in the node
   // is equal to sum of statistics for all values:
@@ -216,8 +218,8 @@ class HistEvaluator {
                        SplitsRequest *splits_request = nullptr) const {
     assert(splits_request != nullptr);
     EncryptedSplit *es = splits_request->mutable_encrypted_splits()->Add();
-    // TODO: encrypt the feature id and bin id to mask id
-    es->set_mask_id(to_string(fidx) + "_" + to_string(bin_id));
+    // encrypt the feature id and bin id to mask id
+    es->set_mask_id(xor_encrypt(to_string(fidx) + "_" + to_string(bin_id), key_));
     xgbcomm::GradPair *ls = es->mutable_left_sum();
     xgbcomm::GradPair *rs = es->mutable_right_sum();
     mpz_t2_mpz_type(ls, left_sum);
@@ -363,9 +365,9 @@ class HistEvaluator {
 
       auto es = response.encrypted_split();
       if (!es.mask_id().empty()) {
-        // TODO: decrypt the feature id and bin id from mask id
+        // decrypt the feature id and bin id from mask id
         vector<string> ids;
-        boost::split(ids, es.mask_id(), boost::is_any_of("_"));
+        boost::split(ids, xor_decrypt(es.mask_id(), key_), boost::is_any_of("_"));
         fidx = atoi(ids[0].c_str());
         bst_bin_t bin_id = atoi(ids[1].c_str());
         bool is_cat = common::IsCat(feature_types, fidx);
@@ -591,6 +593,9 @@ class HistEvaluator {
     interaction_constraints_.Configure(param, info.num_col_);
     column_sampler_->Init(info.num_col_, info.feature_weights.HostVector(), param_.colsample_bynode,
                           param_.colsample_bylevel, param_.colsample_bytree);
+    if (!is_same<double, H>()) {
+      key_ = generate_key();
+    }
   }
 };
 

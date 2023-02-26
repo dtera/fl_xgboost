@@ -104,7 +104,9 @@ class XgbServiceClient {
                                     const xgboost::tree::GradStats<EncryptedType<double>> &n);
 
   bool IsSplitContainsMissingValues(const xgboost::tree::GradStats<double> &e,
-                                    const xgboost::tree::GradStats<double> &n) {}
+                                    const xgboost::tree::GradStats<double> &n) {
+    return false;
+  }
 
   bool IsFewerRight(const EncryptedType<double> &left_sum_hess,
                     const EncryptedType<double> &right_sum_hess);
