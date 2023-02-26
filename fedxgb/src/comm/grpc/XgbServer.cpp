@@ -555,7 +555,7 @@ Status XgbServiceServer::Clear(ServerContext* context, const Request* request, R
     // next_nodes_.clear();
 
     if (cur_version == max_iter) {
-      cout << "cur_version: " << cur_version << ", max_iter: " << max_iter << endl;
+      // cout << "cur_version: " << cur_version << ", max_iter: " << max_iter << endl;
       finished_ = true;
     }
   }

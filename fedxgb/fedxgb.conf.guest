@@ -24,3 +24,4 @@ fl_port = 50002
 fl_role = guest
 fl_bit_len = 1024
 fl_part_id = 0
+fl_on = 1

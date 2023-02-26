@@ -23,6 +23,7 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
   uint32_t fl_port;        // for label part
   uint32_t fl_bit_len;
   uint32_t fl_part_id;
+  uint32_t fl_on;
 
   DMLC_DECLARE_PARAMETER(FederatedParam) {
     DMLC_DECLARE_FIELD(dsplit)
@@ -49,6 +50,10 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
         .set_default(0)
         .set_lower_bound(0)
         .describe("Part id for federated learning.");
+    DMLC_DECLARE_FIELD(fl_on)
+        .set_default(0)
+        .set_lower_bound(0)
+        .describe("Whether run with federated learning.");
   }
 };
 }  // namespace xgboost

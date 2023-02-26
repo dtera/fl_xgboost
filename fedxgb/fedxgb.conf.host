@@ -23,3 +23,4 @@ dump_format = json
 fl_address = 0.0.0.0:50002
 fl_role = host
 fl_part_id = 1
+fl_on = 1

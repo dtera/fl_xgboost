@@ -54,7 +54,10 @@ REGISTER_XGB_SERVEICE(FederatedParam, fparam_);
 
 inline bool IsGuest() { return fparam_->fl_role == FedratedRole::Guest; }
 
-inline bool IsFederated() { return fparam_->dsplit == DataSplitMode::kCol; }
+inline bool IsFederated() {
+  // return fparam_->dsplit == DataSplitMode::kCol;
+  return fparam_->fl_on == 1;
+}
 
 inline bool NotSelfPart(int32_t part_id) { return part_id != fparam_->fl_part_id; }
 
