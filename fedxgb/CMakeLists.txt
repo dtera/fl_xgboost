@@ -18,23 +18,23 @@ file(GLOB RM_SRCS src/comm/grpc/demo/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
 list(REMOVE_ITEM SOURCES ${RM_SRCS})
 
 # external project
-if (APPLE)
-    execute_process(COMMAND brew install tbb)
-endif ()
-include(ExternalProject)
-set(TBB_PREFIX_DIR "${CMAKE_CURRENT_BINARY_DIR}/tbb")
-set(TBB_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${TBB_PREFIX_DIR}")
-ExternalProject_Add(tbb
-        GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
-        GIT_TAG v2021.8.0
-        GIT_SUBMODULES_RECURSE ON
-        GIT_REMOTE_UPDATE_STRATEGY CHECKOUT
-        PREFIX ${TBB_PREFIX_DIR}
-        CMAKE_ARGS ${TBB_CMAKE_ARGS}
-        )
+#include(ExternalProject)
+#set(TBB_PREFIX_DIR "${CMAKE_CURRENT_BINARY_DIR}/tbb")
+#set(TBB_CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${TBB_PREFIX_DIR}")
+#ExternalProject_Add(tbb
+#        GIT_REPOSITORY https://github.com/oneapi-src/oneTBB.git
+#        GIT_TAG v2021.8.0
+#        GIT_SUBMODULES_RECURSE ON
+#        GIT_REMOTE_UPDATE_STRATEGY CHECKOUT
+#        PREFIX ${TBB_PREFIX_DIR}
+#        CMAKE_ARGS ${TBB_CMAKE_ARGS}
+#        )
 
-# brew install grpc googletest helib libomp protobuf xgboost
-foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest:CONFIG helib OpenMP Opt@OpenSSL Protobuf Threads)
+# brew install grpc googletest helib libomp protobuf xgboost tbb
+#if (APPLE)
+#    execute_process(COMMAND brew install grpc googletest helib libomp protobuf xgboost tbb)
+#endif ()
+foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest:CONFIG helib OpenMP Opt@OpenSSL Protobuf TBB Threads)
     string(REGEX REPLACE "(:(.*)?)|(Opt@)" "" pkg_name ${pkg})
     string(REGEX MATCH ":(.*)?$" f1 ${pkg})
     string(FIND ${pkg} "Opt@" f2)
@@ -89,17 +89,17 @@ protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 
 # include directories and link libraries
-include_directories(./include ./src ../src ${PROTO_GENERATED_DIR} ${TBB_PREFIX_DIR}/include
+include_directories(./include ./src ../src ${PROTO_GENERATED_DIR}  # ${TBB_PREFIX_DIR}/include
         ${xgboost_SOURCE_DIR}/include ${xgboost_SOURCE_DIR}/dmlc-core/include ${xgboost_SOURCE_DIR}/rabit/include)
-link_directories(${TBB_PREFIX_DIR}/lib)
-link_libraries(libtbb.${LIB_SUFFIX})
+#link_directories(${TBB_PREFIX_DIR}/lib)
+#link_libraries(libtbb.${LIB_SUFFIX})
 
 # link libraries for the target
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
 target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES} protobuf::libprotobuf protobuf::libprotobuf-lite
-        OpenMP::OpenMP_CXX gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection helib)
-add_dependencies(${PROJECT_NAME}_lib tbb)
+        OpenMP::OpenMP_CXX gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection helib TBB::tbb)
+#add_dependencies(${PROJECT_NAME}_lib tbb)
 
 set(EXE_TARGETS)
 
