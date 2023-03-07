@@ -188,6 +188,7 @@ void XgbServiceServer::SendGradPairs(mpz_t* grad_pairs, size_t size) {
 
 void XgbServiceServer::SendGradPairs(const vector<xgboost::EncryptedGradientPair>& grad_pairs) {
   grad_pairs_.insert({cur_version, {grad_pairs.size(), grad_pairs}});
+  cv.notify_one();
 }
 
 void XgbServiceServer::SendSplits(XgbEncryptedSplit* splits, size_t size) {
@@ -197,24 +198,29 @@ void XgbServiceServer::SendSplits(XgbEncryptedSplit* splits, size_t size) {
 void XgbServiceServer::SendLeftRightNodeSize(size_t node_in_set, size_t n_left, size_t n_right) {
   // lock_guard lk(m);
   left_right_nodes_sizes_.insert({node_in_set, {n_left, n_right}});
+  cv.notify_one();
 }
 
 void XgbServiceServer::SendFewerRight(int32_t nid, bool fewer_right) {
   fewer_right_.insert({nid, fewer_right});
+  // cv.notify_one();
 }
 
 void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_info) {
   // lock_guard lk(m);
   block_infos_.insert({task_idx, make_shared<PositionBlockInfo>(*block_info)});
+  cv.notify_all();
 }
 
 void XgbServiceServer::SendNextNode(size_t k, int32_t nid, bool flow_left) {
   // lock_guard lk(m);
   next_nodes_[k].insert({nid, flow_left});
+  cv.notify_all();
 }
 
 void XgbServiceServer::SendMetrics(int iter, const char* metric_name, double metric) {
   metrics_[iter].insert({metric_name, metric});
+  // cv.notify_one();
 }
 
 template <typename ExpandEntry>
@@ -222,7 +228,9 @@ void XgbServiceServer::UpdateExpandEntry(
     ExpandEntry& e,
     function<void(uint32_t, GradStats<double>&, GradStats<double>&, const SplitsRequest&)>
         update_grad_stats) {
+  std::unique_lock<std::mutex> lk(mtx);
   while (!finish_splits_[e.nid]) {
+    cv.wait(lk);
   }  // wait for the data holder part
 
   auto encrypted_splits = splits_requests_[e.nid].encrypted_splits();
@@ -241,6 +249,7 @@ void XgbServiceServer::UpdateExpandEntry(
 
   entries_.insert({e.nid, e});
   finish_splits_[e.nid] = false;
+  cv.notify_one();
 }
 
 void XgbServiceServer::UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSplit& best_split) {
@@ -253,7 +262,9 @@ void XgbServiceServer::UpdateFinishSplits(uint32_t nidx, bool finish_split) {
 }
 
 void XgbServiceServer::GetLeftRightNodeSize(size_t node_in_set, size_t* n_left, size_t* n_right) {
+  std::unique_lock<std::mutex> lk(mtx);
   while (left_right_nodes_sizes_.count(node_in_set) == 0) {
+    cv.wait(lk);
   }  // wait for data holder part
   auto left_right_node_size = left_right_nodes_sizes_[node_in_set];
   *n_left = left_right_node_size.first;
@@ -262,14 +273,18 @@ void XgbServiceServer::GetLeftRightNodeSize(size_t node_in_set, size_t* n_left, 
 
 void XgbServiceServer::GetBlockInfo(
     size_t task_idx, function<void(shared_ptr<PositionBlockInfo>&)> process_block_info) {
+  std::unique_lock<std::mutex> lk(mtx);
   while (block_infos_.count(task_idx) == 0) {
+    cv.wait(lk);
   }  // wait for data holder part
   auto block_info = block_infos_[task_idx];
   process_block_info(block_info);
 }
 
 void XgbServiceServer::GetNextNode(size_t k, int32_t nid, function<void(bool)> process_next_node) {
+  std::unique_lock<std::mutex> lk(mtx);
   while (next_nodes_[k].count(nid) == 0) {
+    cv.wait(lk);
   }  // wait for data holder part
   process_next_node(next_nodes_[k][nid]);
 }
@@ -310,22 +325,24 @@ Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* reques
 }
 
 namespace {
-#define GetEncryptedData(type, DATATYPE, process_stats)                                  \
-  do { /* do nothing, waiting for data prepared. */                                      \
-  } while (!type##s_.count(request->version()));                                         \
-  if (type##s_.count(request->version() - 1)) { /* remove the last version if exists. */ \
-    type##s_.erase(request->version() - 1);                                              \
-  }                                                                                      \
-  response->set_version(request->version());                                             \
-  DEBUG << "response.version: " << response->version() << endl;                          \
-  size_t size;                                                                           \
-  DATATYPE type##s;                                                                      \
-  tie(size, type##s) = type##s_[request->version()];                                     \
-  auto encrypted_##type##s = response->mutable_encrypted_##type##s();                    \
-  for (int i = 0; i < size; ++i) {                                                       \
-    auto encrypted_##type = encrypted_##type##s->Add();                                  \
-    process_stats                                                                        \
-  }                                                                                      \
+#define GetEncryptedData(type, DATATYPE, process_stats)                                      \
+  std::unique_lock<std::mutex> lk(mtx);                                                      \
+  while (!type##s_.count(request->version())) { /* do nothing, waiting for data prepared. */ \
+    cv.wait(lk);                                                                             \
+  }                                                                                          \
+  if (type##s_.count(request->version() - 1)) { /* remove the last version if exists. */     \
+    type##s_.erase(request->version() - 1);                                                  \
+  }                                                                                          \
+  response->set_version(request->version());                                                 \
+  DEBUG << "response.version: " << response->version() << endl;                              \
+  size_t size;                                                                               \
+  DATATYPE type##s;                                                                          \
+  tie(size, type##s) = type##s_[request->version()];                                         \
+  auto encrypted_##type##s = response->mutable_encrypted_##type##s();                        \
+  for (int i = 0; i < size; ++i) {                                                           \
+    auto encrypted_##type = encrypted_##type##s->Add();                                      \
+    process_stats                                                                            \
+  }                                                                                          \
   return Status::OK;
 }  // namespace
 
@@ -360,7 +377,10 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
 
   splits_requests_.insert({request->nidx(), *request});
   finish_splits_[request->nidx()] = true;
+  cv.notify_one();
+  std::unique_lock<std::mutex> lk(mtx);
   while (finish_splits_[request->nidx()]) {
+    cv.wait(lk);
   }  // wait for the label part
 
   auto es = response->mutable_encrypted_split();
@@ -445,7 +465,9 @@ Status XgbServiceServer::IsFewerRight(ServerContext* context, const IsFewerRight
 
 Status XgbServiceServer::FewerRight(ServerContext* context, const Request* request,
                                     ValidResponse* response) {
+  // std::unique_lock<std::mutex> lk(mtx);
   while (fewer_right_.count(request->idx()) == 0) {
+    // cv.wait(lk);
   }  // wait for the label part
 
   response->set_is_valid(fewer_right_[request->idx()]);
@@ -455,7 +477,9 @@ Status XgbServiceServer::FewerRight(ServerContext* context, const Request* reque
 
 Status XgbServiceServer::GetLeftRightNodeSize(ServerContext* context, const Request* request,
                                               BlockInfo* response) {
+  std::unique_lock<std::mutex> lk(mtx);
   while (left_right_nodes_sizes_.count(request->idx()) == 0) {
+    cv.wait(lk);
   }  // wait for the label part
   auto left_right_node_size = left_right_nodes_sizes_[request->idx()];
 
@@ -474,7 +498,9 @@ Status XgbServiceServer::SendLeftRightNodeSize(ServerContext* context, const Blo
 
 Status XgbServiceServer::GetBlockInfo(ServerContext* context, const Request* request,
                                       BlockInfo* response) {
+  std::unique_lock<std::mutex> lk(mtx);
   while (block_infos_.count(request->idx()) == 0) {
+    cv.wait(lk);
   }  // wait for the label part
   auto block_info = block_infos_[request->idx()];
 
@@ -517,7 +543,9 @@ Status XgbServiceServer::SendBlockInfo(ServerContext* context, const BlockInfo* 
 
 Status XgbServiceServer::GetNextNode(ServerContext* context, const NextNode* request,
                                      NextNode* response) {
+  std::unique_lock<std::mutex> lk(mtx);
   while (next_nodes_[request->k()].count(request->nid()) == 0) {
+    cv.wait(lk);
   }  // wait for the label part
   // response->set_nid(request->nid());
   response->set_flow_left(next_nodes_[request->k()][request->nid()]);
@@ -533,7 +561,9 @@ Status XgbServiceServer::SendNextNode(ServerContext* context, const NextNode* re
 
 Status XgbServiceServer::GetMetric(ServerContext* context, const MetricRequest* request,
                                    MetricResponse* response) {
+  // std::unique_lock<std::mutex> lk(mtx);
   while (metrics_[request->iter()].count(request->metric_name()) == 0) {
+    // cv.wait(lk);
   }  // wait for the label part
   response->set_metric(metrics_[request->iter()].at(request->metric_name()));
 

@@ -9,8 +9,10 @@
 #include <grpcpp/health_check_service_interface.h>
 
 #include <boost/unordered_map.hpp>
+#include <condition_variable>
 #include <iostream>
 #include <memory>
+#include <mutex>
 #include <shared_mutex>
 #include <string>
 #include <thread>
@@ -102,6 +104,8 @@ class XgbServiceServer final : public XgbService::Service {
   bool finished_ = false;
   // shared mutex to control updating the mask id
   shared_timed_mutex m{};
+  mutex mtx{};
+  condition_variable cv{};
 
  public:
   uint32_t cur_version{0};
