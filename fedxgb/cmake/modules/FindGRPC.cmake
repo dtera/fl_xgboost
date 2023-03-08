@@ -113,6 +113,16 @@ set_target_properties(gRPC::grpc++_reflection PROPERTIES
         IMPORTED_LOCATION ${GRPC_GRPC++_REFLECTION_LIBRARY}
         )
 
+# Find gRPC gpr library
+find_library(GPR_LIBRARY NAMES gpr)
+mark_as_advanced(GPR_LIBRARY)
+add_library(gRPC::gpr UNKNOWN IMPORTED)
+set_target_properties(gRPC::gpr PROPERTIES
+        INTERFACE_INCLUDE_DIRECTORIES ${GRPC_INCLUDE_DIR}
+        INTERFACE_LINK_LIBRARIES gRPC::grpc
+        IMPORTED_LOCATION ${GPR_LIBRARY}
+        )
+
 # Find gRPC CPP generator
 find_program(GRPC_CPP_PLUGIN NAMES grpc_cpp_plugin)
 mark_as_advanced(GRPC_CPP_PLUGIN)

@@ -7,27 +7,31 @@ add_library(objxgboost OBJECT)
 target_sources(objxgboost PRIVATE ${CPU_SOURCES})
 # Skip files with factory object
 set_source_files_properties(
-  predictor/predictor.cc gbm/gbm.cc tree/tree_updater.cc metric/metric.cc objective/objective.cc
-  PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
+        predictor/predictor.cc gbm/gbm.cc tree/tree_updater.cc metric/metric.cc objective/objective.cc
+        PROPERTIES SKIP_UNITY_BUILD_INCLUSION ON)
 target_sources(objxgboost PRIVATE ${RABIT_SOURCES})
 
 if (USE_CUDA)
-  file(GLOB_RECURSE CUDA_SOURCES *.cu *.cuh)
-  target_sources(objxgboost PRIVATE ${CUDA_SOURCES})
+    file(GLOB_RECURSE CUDA_SOURCES *.cu *.cuh)
+    target_sources(objxgboost PRIVATE ${CUDA_SOURCES})
 endif (USE_CUDA)
 
 target_include_directories(objxgboost
-  PRIVATE
-  ${xgboost_SOURCE_DIR}/src
-  ${xgboost_SOURCE_DIR}/include
-  ${xgboost_SOURCE_DIR}/dmlc-core/include
-  ${xgboost_SOURCE_DIR}/fedxgb/include
-  ${xgboost_SOURCE_DIR}/rabit/include
-  ${CMAKE_CURRENT_BINARY_DIR}/../fedxgb/proto-generated
-  )
+        PRIVATE
+        ${xgboost_SOURCE_DIR}/include
+        ${xgboost_SOURCE_DIR}/dmlc-core/include
+        ${xgboost_SOURCE_DIR}/rabit/include
+        )
+
+target_include_directories(objxgboost
+        PUBLIC
+        ${xgboost_SOURCE_DIR}/src
+        ${xgboost_SOURCE_DIR}/fedxgb/include
+        ${CMAKE_CURRENT_BINARY_DIR}/../fedxgb/proto-generated
+        )
 
 if (LOG_CAPI_INVOCATION)
-  target_compile_definitions(objxgboost PRIVATE -DLOG_CAPI_INVOCATION=1)
+    target_compile_definitions(objxgboost PRIVATE -DLOG_CAPI_INVOCATION=1)
 endif (LOG_CAPI_INVOCATION)
 
 # For MSVC: Call msvc_use_static_runtime() once again to completely
