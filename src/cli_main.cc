@@ -12,32 +12,28 @@
 #endif  // !defined(NOMINMAX)
 
 #include <dmlc/timer.h>
-
-#include <xgboost/learner.h>
 #include <xgboost/data.h>
 #include <xgboost/json.h>
+#include <xgboost/learner.h>
 #include <xgboost/logging.h>
 #include <xgboost/parameter.h>
 
-#include <iomanip>
-#include <ctime>
-#include <string>
 #include <cstdio>
 #include <cstring>
+#include <ctime>
+#include <iomanip>
+#include <string>
 #include <vector>
+
+#include "c_api/c_api_utils.h"
 #include "collective/communicator-inl.h"
 #include "common/common.h"
 #include "common/config.h"
 #include "common/io.h"
 #include "common/version.h"
-#include "c_api/c_api_utils.h"
 
 namespace xgboost {
-enum CLITask {
-  kTrain = 0,
-  kDumpModel = 1,
-  kPredict = 2
-};
+enum CLITask { kTrain = 0, kDumpModel = 1, kPredict = 2 };
 
 struct CLIParam : public XGBoostParameter<CLIParam> {
   /*! \brief the task name */
@@ -81,68 +77,78 @@ struct CLIParam : public XGBoostParameter<CLIParam> {
   /*! \brief the names of the evaluation data used in output log */
   std::vector<std::string> eval_data_names;
   /*! \brief all the configurations */
-  std::vector<std::pair<std::string, std::string> > cfg;
+  std::vector<std::pair<std::string, std::string>> cfg;
 
   static constexpr char const* const kNull = "NULL";
 
   // declare parameters
   DMLC_DECLARE_PARAMETER(CLIParam) {
     // NOTE: declare everything except eval_data_paths.
-    DMLC_DECLARE_FIELD(task).set_default(kTrain)
+    DMLC_DECLARE_FIELD(task)
+        .set_default(kTrain)
         .add_enum("train", kTrain)
         .add_enum("dump", kDumpModel)
         .add_enum("pred", kPredict)
         .describe("Task to be performed by the CLI program.");
-    DMLC_DECLARE_FIELD(eval_train).set_default(false)
+    DMLC_DECLARE_FIELD(eval_train)
+        .set_default(false)
         .describe("Whether evaluate on training data during training.");
-    DMLC_DECLARE_FIELD(num_round).set_default(10).set_lower_bound(1)
-        .describe("Number of boosting iterations");
-    DMLC_DECLARE_FIELD(save_period).set_default(0).set_lower_bound(0)
+    DMLC_DECLARE_FIELD(num_round).set_default(10).set_lower_bound(1).describe(
+        "Number of boosting iterations");
+    DMLC_DECLARE_FIELD(save_period)
+        .set_default(0)
+        .set_lower_bound(0)
         .describe("The period to save the model, 0 means only save final model.");
-    DMLC_DECLARE_FIELD(train_path).set_default("NULL")
-        .describe("Training data path.");
-    DMLC_DECLARE_FIELD(test_path).set_default("NULL")
-        .describe("Test data path.");
-    DMLC_DECLARE_FIELD(model_in).set_default("NULL")
-        .describe("Input model path, if any.");
-    DMLC_DECLARE_FIELD(model_out).set_default("NULL")
-        .describe("Output model path, if any.");
-    DMLC_DECLARE_FIELD(model_dir).set_default("./")
-        .describe("Output directory of period checkpoint.");
-    DMLC_DECLARE_FIELD(name_pred).set_default("pred.txt")
-        .describe("Name of the prediction file.");
-    DMLC_DECLARE_FIELD(dsplit).set_default(0)
+    DMLC_DECLARE_FIELD(train_path).set_default("NULL").describe("Training data path.");
+    DMLC_DECLARE_FIELD(test_path).set_default("NULL").describe("Test data path.");
+    DMLC_DECLARE_FIELD(model_in).set_default("NULL").describe("Input model path, if any.");
+    DMLC_DECLARE_FIELD(model_out).set_default("NULL").describe("Output model path, if any.");
+    DMLC_DECLARE_FIELD(model_dir).set_default("./").describe(
+        "Output directory of period checkpoint.");
+    DMLC_DECLARE_FIELD(name_pred).set_default("pred.txt").describe("Name of the prediction file.");
+    DMLC_DECLARE_FIELD(dsplit)
+        .set_default(0)
         .add_enum("auto", 0)
         .add_enum("col", 1)
         .add_enum("row", 2)
         .add_enum("none", 3)
         .describe("Data split mode.");
-    DMLC_DECLARE_FIELD(ntree_limit).set_default(0).set_lower_bound(0)
+    DMLC_DECLARE_FIELD(ntree_limit)
+        .set_default(0)
+        .set_lower_bound(0)
         .describe("(Deprecated) Use iteration_begin/iteration_end instead.");
-    DMLC_DECLARE_FIELD(iteration_begin).set_default(0).set_lower_bound(0)
+    DMLC_DECLARE_FIELD(iteration_begin)
+        .set_default(0)
+        .set_lower_bound(0)
         .describe("Begining of boosted tree iteration used for prediction.");
-    DMLC_DECLARE_FIELD(iteration_end).set_default(0).set_lower_bound(0)
+    DMLC_DECLARE_FIELD(iteration_end)
+        .set_default(0)
+        .set_lower_bound(0)
         .describe("End of boosted tree iteration used for prediction.  0 means all the trees.");
-    DMLC_DECLARE_FIELD(pred_margin).set_default(false)
+    DMLC_DECLARE_FIELD(pred_margin)
+        .set_default(false)
         .describe("Whether to predict margin value instead of probability.");
-    DMLC_DECLARE_FIELD(dump_stats).set_default(false)
+    DMLC_DECLARE_FIELD(dump_stats)
+        .set_default(false)
         .describe("Whether dump the model statistics.");
-    DMLC_DECLARE_FIELD(dump_format).set_default("text")
+    DMLC_DECLARE_FIELD(dump_format)
+        .set_default("text")
         .describe("What format to dump the model in.");
-    DMLC_DECLARE_FIELD(name_fmap).set_default("NULL")
-        .describe("Name of the feature map file.");
-    DMLC_DECLARE_FIELD(name_dump).set_default("dump.txt")
+    DMLC_DECLARE_FIELD(name_fmap).set_default("NULL").describe("Name of the feature map file.");
+    DMLC_DECLARE_FIELD(name_dump)
+        .set_default("dump.txt")
         .describe("Name of the output dump text file.");
     // alias
     DMLC_DECLARE_ALIAS(train_path, data);
-    DMLC_DECLARE_ALIAS(test_path, test:data);
+    DMLC_DECLARE_ALIAS(test_path, test : data);
     DMLC_DECLARE_ALIAS(name_fmap, fmap);
   }
   // customized configure function of CLIParam
-  inline void Configure(const std::vector<std::pair<std::string, std::string> >& _cfg) {
+  inline void Configure(const std::vector<std::pair<std::string, std::string>>& _cfg) {
     // Don't copy the configuration to enable parameter validation.
     auto unknown_cfg = this->UpdateAllowUnknown(_cfg);
     this->cfg.emplace_back("validate_parameters", "True");
+    this->cfg.emplace_back("num_round", to_string(num_round));
     for (const auto& kv : unknown_cfg) {
       if (!strncmp("eval[", kv.first.c_str(), 5)) {
         char evname[256];
@@ -174,27 +180,18 @@ constexpr char const* const CLIParam::kNull;
 
 DMLC_REGISTER_PARAMETER(CLIParam);
 
-std::string CliHelp() {
-  return "Use xgboost -h for showing help information.\n";
-}
+std::string CliHelp() { return "Use xgboost -h for showing help information.\n"; }
 
 void CLIError(dmlc::Error const& e) {
-  std::cerr << "Error running xgboost:\n\n"
-            << e.what() << "\n"
-            << CliHelp()
-            << std::endl;
+  std::cerr << "Error running xgboost:\n\n" << e.what() << "\n" << CliHelp() << std::endl;
 }
 
 class CLI {
   CLIParam param_;
   std::unique_ptr<Learner> learner_;
-  enum Print {
-    kNone,
-    kVersion,
-    kHelp
-  } print_info_ {kNone};
+  enum Print { kNone, kVersion, kHelp } print_info_{kNone};
 
-  void ResetLearner(std::vector<std::shared_ptr<DMatrix>> const &matrices) {
+  void ResetLearner(std::vector<std::shared_ptr<DMatrix>> const& matrices) {
     learner_.reset(Learner::Create(matrices));
     if (param_.model_in != CLIParam::kNull) {
       this->LoadModel(param_.model_in, learner_.get());
@@ -234,8 +231,7 @@ class CLI {
     }
     // initialize the learner.
     this->ResetLearner(cache_mats);
-    LOG(INFO) << "Loading data: " << dmlc::GetTime() - tstart_data_load
-              << " sec";
+    LOG(INFO) << "Loading data: " << dmlc::GetTime() - tstart_data_load << " sec";
 
     // start training.
     const double start = dmlc::GetTime();
@@ -243,8 +239,7 @@ class CLI {
     for (int i = version / 2; i < param_.num_round; ++i) {
       double elapsed = dmlc::GetTime() - start;
       if (version % 2 == 0) {
-        LOG(INFO) << "boosting round " << i << ", " << elapsed
-                  << " sec elapsed";
+        LOG(INFO) << "boosting round " << i << ", " << elapsed << " sec elapsed";
         learner_->UpdateOneIter(i, dtrain);
         version += 1;
       }
@@ -259,23 +254,20 @@ class CLI {
       if (param_.save_period != 0 && (i + 1) % param_.save_period == 0 &&
           collective::GetRank() == 0) {
         std::ostringstream os;
-        os << param_.model_dir << '/' << std::setfill('0') << std::setw(4)
-           << i + 1 << ".model";
+        os << param_.model_dir << '/' << std::setfill('0') << std::setw(4) << i + 1 << ".model";
         this->SaveModel(os.str(), learner_.get());
       }
 
       version += 1;
     }
-    LOG(INFO) << "Complete Training loop time: " << dmlc::GetTime() - start
-              << " sec";
+    LOG(INFO) << "Complete Training loop time: " << dmlc::GetTime() - start << " sec";
     // always save final round
-    if ((param_.save_period == 0 ||
-         param_.num_round % param_.save_period != 0) &&
-         collective::GetRank() == 0) {
+    if ((param_.save_period == 0 || param_.num_round % param_.save_period != 0) &&
+        collective::GetRank() == 0) {
       std::ostringstream os;
       if (param_.model_out == CLIParam::kNull) {
-        os << param_.model_dir << '/' << std::setfill('0') << std::setw(4)
-           << param_.num_round << ".model";
+        os << param_.model_dir << '/' << std::setfill('0') << std::setw(4) << param_.num_round
+           << ".model";
       } else {
         os << param_.model_out;
       }
@@ -289,8 +281,7 @@ class CLI {
   void CLIDumpModel() {
     FeatureMap fmap;
     if (param_.name_fmap != CLIParam::kNull) {
-      std::unique_ptr<dmlc::Stream> fs(
-          dmlc::Stream::Create(param_.name_fmap.c_str(), "r"));
+      std::unique_ptr<dmlc::Stream> fs(dmlc::Stream::Create(param_.name_fmap.c_str(), "r"));
       dmlc::istream is(fs.get());
       fmap.LoadText(is);
     }
@@ -301,8 +292,7 @@ class CLI {
     // dump data
     std::vector<std::string> dump =
         learner_->DumpModel(fmap, param_.dump_stats, param_.dump_format);
-    std::unique_ptr<dmlc::Stream> fo(
-        dmlc::Stream::Create(param_.name_dump.c_str(), "w"));
+    std::unique_ptr<dmlc::Stream> fo(dmlc::Stream::Create(param_.name_dump.c_str(), "w"));
     dmlc::ostream os(fo.get());
     if (param_.dump_format == "json") {
       os << "[" << std::endl;
@@ -328,8 +318,7 @@ class CLI {
         << "Test dataset parameter test:data must be specified.";
     // load data
     std::shared_ptr<DMatrix> dtest(DMatrix::Load(
-        param_.test_path,
-        ConsoleLogger::GlobalVerbosity() > ConsoleLogger::DefaultVerbosity(),
+        param_.test_path, ConsoleLogger::GlobalVerbosity() > ConsoleLogger::DefaultVerbosity(),
         static_cast<DataSplitMode>(param_.dsplit)));
     // load model
     CHECK_NE(param_.model_in, CLIParam::kNull) << "Must specify model_in for predict";
@@ -346,12 +335,10 @@ class CLI {
                       param_.iteration_end);
     LOG(CONSOLE) << "Writing prediction to " << param_.name_pred;
 
-    std::unique_ptr<dmlc::Stream> fo(
-        dmlc::Stream::Create(param_.name_pred.c_str(), "w"));
+    std::unique_ptr<dmlc::Stream> fo(dmlc::Stream::Create(param_.name_pred.c_str(), "w"));
     dmlc::ostream os(fo.get());
     for (bst_float p : preds.ConstHostVector()) {
-      os << std::setprecision(std::numeric_limits<bst_float>::max_digits10) << p
-         << '\n';
+      os << std::setprecision(std::numeric_limits<bst_float>::max_digits10) << p << '\n';
     }
     // force flush before fo destruct.
     os.set_stream(nullptr);
@@ -454,7 +441,7 @@ class CLI {
       exit(1);
     }
     for (int i = 0; i < argc; ++i) {
-      std::string str {argv[i]};
+      std::string str{argv[i]};
       if (str == "-h" || str == "--help") {
         print_info_ = kHelp;
         break;
@@ -491,29 +478,29 @@ class CLI {
 
   int Run() {
     switch (this->print_info_) {
-    case kNone:
-      break;
-    case kVersion: {
-      this->PrintVersion();
-      return 0;
-    }
-    case kHelp: {
-      this->PrintHelp();
-      return 0;
-    }
+      case kNone:
+        break;
+      case kVersion: {
+        this->PrintVersion();
+        return 0;
+      }
+      case kHelp: {
+        this->PrintHelp();
+        return 0;
+      }
     }
 
     try {
       switch (param_.task) {
-      case kTrain:
-        CLITrain();
-        break;
-      case kDumpModel:
-        CLIDumpModel();
-        break;
-      case kPredict:
-        CLIPredict();
-        break;
+        case kTrain:
+          CLITrain();
+          break;
+        case kDumpModel:
+          CLIDumpModel();
+          break;
+        case kPredict:
+          CLIPredict();
+          break;
       }
     } catch (dmlc::Error const& e) {
       xgboost::CLIError(e);
@@ -522,16 +509,21 @@ class CLI {
     return 0;
   }
 
-  ~CLI() {
-    collective::Finalize();
-  }
+  ~CLI() { collective::Finalize(); }
 };
 }  // namespace xgboost
 
-int main(int argc, char *argv[]) {
+int main(int argc, char* argv[]) {
   try {
-    xgboost::CLI cli(argc, argv);
-    return cli.Run();
+    int rc;
+    TIME_STAT(
+        {
+          xgboost::CLI cli(argc, argv);
+          rc = cli.Run();
+        },
+        xgboost)
+
+    return rc;
   } catch (dmlc::Error const& e) {
     // This captures only the initialization error.
     xgboost::CLIError(e);

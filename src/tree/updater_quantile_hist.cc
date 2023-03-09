@@ -137,7 +137,7 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
     auto ft = p_fmat->Info().feature_types.ConstHostSpan();
     for (auto const &gmat : p_fmat->GetBatches<GHistIndexMatrix>(HistBatch(param_))) {
       if (is_same<float, T>()) {
-        if (fparam_->dsplit == DataSplitMode::kCol) {
+        if (IsFederated()) {
           xgb_server_->SetTrainParam(&param_);
         }
         evaluator_->EvaluateSplits(histogram_builder_->Histogram(), gmat.cut, ft, *p_tree,

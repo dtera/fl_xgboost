@@ -246,8 +246,7 @@ class CLI {
       double elapsed = dmlc::GetTime() - start;
       if (version % 2 == 0) {
         LOG(INFO) << "boosting round " << i << ", " << elapsed << " sec elapsed";
-        cout << "iter[" << i << "]\t";
-        TIME_STAT(learner_->UpdateOneIter(i, dtrain);, UpdateOneIter)
+        learner_->UpdateOneIter(i, dtrain);
         version += 1;
       }
       std::string res = learner_->EvalOneIter(i, eval_datasets, eval_data_names);
