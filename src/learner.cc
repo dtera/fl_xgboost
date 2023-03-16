@@ -1408,6 +1408,9 @@ class LearnerImpl : public LearnerIO {
       metrics_.back()->Configure({cfg_.begin(), cfg_.end()});
     }
 
+    if (IsFederated() && IsGuest()) {
+      xgb_server_->ResizeMetrics(iter, data_sets.size());
+    }
     auto local_cache = this->GetPredictionCache();
     for (size_t i = 0; i < data_sets.size(); ++i) {
       std::shared_ptr<DMatrix> m = data_sets[i];
@@ -1420,18 +1423,21 @@ class LearnerImpl : public LearnerIO {
       out.Copy(predt.predictions);
 
       obj_->EvalTransform(&out);
+      cout << "i: " << i << ", GetMetric Before" << endl;
       for (auto& ev : metrics_) {
         double metric;
         if (IsGuest()) {
           metric = ev->Eval(out, m->Info());
           if (IsFederated()) {
-            xgb_server_->SendMetrics(iter, ev->Name(), metric);
+            cout << "i: " << i << ", metric: " << metric << endl;
+            xgb_server_->SendMetrics(iter, i, ev->Name(), metric);
           }
         } else {
-          xgb_client_->GetMetric(iter, ev->Name(), [&metric](double m) { metric = m; });
+          xgb_client_->GetMetric(iter, i, ev->Name(), [&metric](double m) { metric = m; });
         }
         os << '\t' << data_names[i] << '-' << ev->Name() << ':' << metric;
       }
+      cout << "i: " << i << ", GetMetric After" << endl;
     }
     if (IsFederated() && !IsGuest()) {
       xgb_client_->Clear(-1);

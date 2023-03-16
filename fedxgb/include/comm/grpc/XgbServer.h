@@ -100,7 +100,7 @@ class XgbServiceServer final : public XgbService::Service {
   boost::unordered_map<uint32_t, EncryptedSplit> best_splits_;
   oneapi::tbb::concurrent_unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
   vector<boost::unordered_map<int32_t, const bool>> next_nodes_;
-  vector<unordered_map<string, const double>> metrics_;
+  vector<vector<boost::unordered_map<string, const double>>> metrics_;
   bool finished_ = false;
   // shared mutex to control updating the mask id
   shared_timed_mutex m{};
@@ -124,6 +124,8 @@ class XgbServiceServer final : public XgbService::Service {
 
   void ResizeNextNode(size_t n);
 
+  void ResizeMetrics(int iter, size_t n);
+
   void SendPubKey(opt_public_key_t *pub);
 
   void SetPriKey(opt_private_key_t *pri);
@@ -144,7 +146,7 @@ class XgbServiceServer final : public XgbService::Service {
 
   void SendNextNode(size_t k, int32_t nid, bool flow_left);
 
-  void SendMetrics(int iter, const char *metric_name, double metric);
+  void SendMetrics(int iter, size_t data_idx, const char *metric_name, double metric);
 
   template <typename ExpandEntry>
   void UpdateExpandEntry(

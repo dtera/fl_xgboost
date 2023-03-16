@@ -176,6 +176,8 @@ void XgbServiceServer::ResizeNextNode(size_t n) {
   next_nodes_.resize(n);
 }
 
+void XgbServiceServer::ResizeMetrics(int iter, size_t n) { metrics_[iter].resize(n); }
+
 void XgbServiceServer::SendPubKey(opt_public_key_t* pub) { pub_ = pub; }
 
 void XgbServiceServer::SetPriKey(opt_private_key_t* pri) { pri_ = pri; }
@@ -218,8 +220,9 @@ void XgbServiceServer::SendNextNode(size_t k, int32_t nid, bool flow_left) {
   cv.notify_all();
 }
 
-void XgbServiceServer::SendMetrics(int iter, const char* metric_name, double metric) {
-  metrics_[iter].insert({metric_name, metric});
+void XgbServiceServer::SendMetrics(int iter, size_t data_idx, const char* metric_name,
+                                   double metric) {
+  metrics_[iter][data_idx].insert({metric_name, metric});
   // cv.notify_one();
 }
 
@@ -562,10 +565,10 @@ Status XgbServiceServer::SendNextNode(ServerContext* context, const NextNode* re
 Status XgbServiceServer::GetMetric(ServerContext* context, const MetricRequest* request,
                                    MetricResponse* response) {
   // std::unique_lock<std::mutex> lk(mtx);
-  while (metrics_[request->iter()].count(request->metric_name()) == 0) {
+  while (metrics_[request->iter()][request->data_idx()].count(request->metric_name()) == 0) {
     // cv.wait(lk);
   }  // wait for the label part
-  response->set_metric(metrics_[request->iter()].at(request->metric_name()));
+  response->set_metric(metrics_[request->iter()][request->data_idx()].at(request->metric_name()));
 
   return Status::OK;
 }
