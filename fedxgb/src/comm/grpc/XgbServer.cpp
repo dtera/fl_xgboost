@@ -142,7 +142,7 @@ void XgbServiceServer::Start(const uint32_t port, const string& host, int32_t n_
   xgb_thread_.reset(new thread((bind(&XgbServiceServer::Run, this))));
 
   // init for rpc server
-  metrics_.resize(max_iter);
+  // metrics_.resize(max_iter);
 }
 
 void XgbServiceServer::Run() {
@@ -173,10 +173,15 @@ void XgbServiceServer::Shutdown() {
 
 void XgbServiceServer::ResizeNextNode(size_t n) {
   next_nodes_.clear();
+  next_nodes_clear_ = true;
+  cv.notify_one();
   next_nodes_.resize(n);
 }
 
-void XgbServiceServer::ResizeMetrics(int iter, size_t n) { metrics_[iter].resize(n); }
+void XgbServiceServer::ResizeMetrics(int iter, size_t n) {
+  metrics_.resize(iter + 1);
+  metrics_[iter].resize(n);
+}
 
 void XgbServiceServer::SendPubKey(opt_public_key_t* pub) { pub_ = pub; }
 
@@ -582,11 +587,15 @@ Status XgbServiceServer::Clear(ServerContext* context, const Request* request, R
     entries_.clear();
     left_right_nodes_sizes_.clear();
     block_infos_.clear();
+  } else if (request->idx() == 1) {
+    std::unique_lock<std::mutex> lk(mtx);
+    while (!next_nodes_clear_) {
+      cv.wait(lk);
+    }  // wait for the label part
+    next_nodes_clear_ = false;
   } else {
     grad_pairs_.clear();
     splits_.clear();
-    // next_nodes_.clear();
-
     if (cur_version == max_iter) {
       // cout << "cur_version: " << cur_version << ", max_iter: " << max_iter << endl;
       finished_ = true;

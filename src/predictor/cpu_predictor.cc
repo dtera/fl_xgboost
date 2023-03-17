@@ -377,6 +377,8 @@ class CPUPredictor : public Predictor {
     InitThreadTemp(n_threads * (blocked ? kBlockOfRowsSize : 1), &feat_vecs);
     if (IsFederated() && IsGuest()) {
       xgb_server_->ResizeNextNode(out_preds->size());
+    } else {
+      xgb_client_->Clear(1);
     }
     for (auto const &batch : p_fmat->GetBatches<SparsePage>()) {
       CHECK_EQ(out_preds->size(),

@@ -102,6 +102,7 @@ class XgbServiceServer final : public XgbService::Service {
   vector<boost::unordered_map<int32_t, const bool>> next_nodes_;
   vector<vector<boost::unordered_map<string, const double>>> metrics_;
   bool finished_ = false;
+  bool next_nodes_clear_ = false;
   // shared mutex to control updating the mask id
   shared_timed_mutex m{};
   mutex mtx{};

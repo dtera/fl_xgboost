@@ -1423,13 +1423,11 @@ class LearnerImpl : public LearnerIO {
       out.Copy(predt.predictions);
 
       obj_->EvalTransform(&out);
-      cout << "i: " << i << ", GetMetric Before" << endl;
       for (auto& ev : metrics_) {
         double metric;
         if (IsGuest()) {
           metric = ev->Eval(out, m->Info());
           if (IsFederated()) {
-            cout << "i: " << i << ", metric: " << metric << endl;
             xgb_server_->SendMetrics(iter, i, ev->Name(), metric);
           }
         } else {
@@ -1437,7 +1435,6 @@ class LearnerImpl : public LearnerIO {
         }
         os << '\t' << data_names[i] << '-' << ev->Name() << ':' << metric;
       }
-      cout << "i: " << i << ", GetMetric After" << endl;
     }
     if (IsFederated() && !IsGuest()) {
       xgb_client_->Clear(-1);

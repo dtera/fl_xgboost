@@ -14,6 +14,7 @@ dsplit = col
 num_round = 3
 save_period = 0
 data = "../../data/a9a.host.train?format=libsvm"
+eval[train] = "../../data/a9a.host.train?format=libsvm"
 eval[test] = "../../data/a9a.host.test?format=libsvm"
 model_dir = ../../models/
 model_out = ../../models/a9a.host.json
