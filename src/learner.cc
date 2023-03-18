@@ -1260,9 +1260,6 @@ class LearnerImpl : public LearnerIO {
     if (local_map->find(this) != local_map->cend()) {
       local_map->erase(this);
     }
-    if (xgb_server_ != nullptr) {
-      xgb_server_->Shutdown();
-    }
   }
 
   // Configuration before data is known.
@@ -1436,8 +1433,14 @@ class LearnerImpl : public LearnerIO {
         os << '\t' << data_names[i] << '-' << ev->Name() << ':' << metric;
       }
     }
-    if (IsFederated() && !IsGuest()) {
-      xgb_client_->Clear(-1);
+    if (IsFederated()) {
+      if (IsGuest()) {
+        if (xgb_server_->cur_version == xgb_server_->max_iter) {
+          xgb_server_->Shutdown();
+        }
+      } else {
+        xgb_client_->Clear(-1);
+      }
     }
 
     monitor_.Stop("EvalOneIter");

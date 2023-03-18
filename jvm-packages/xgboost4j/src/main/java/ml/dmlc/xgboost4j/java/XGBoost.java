@@ -268,9 +268,7 @@ public class XGBoost {
         }
       }
       booster.saveRabitCheckpoint();
-      System.out.println(iter + ": saveRabitCheckpoint");
     }
-    System.out.println("booster");
 
     return booster;
   }

@@ -163,10 +163,10 @@ void XgbServiceServer::Run() {
 }
 
 void XgbServiceServer::Shutdown() {
-  cout << "RPC Server Shutdown..." << endl;
   while (!finished_) {
   }
   this_thread::sleep_for(chrono::milliseconds(10));
+  INFO << "RPC Server Shutdown..." << endl;
   server_->Shutdown();
   xgb_thread_->join();
 }
