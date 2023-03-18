@@ -16,13 +16,12 @@
 
 package ml.dmlc.xgboost4j.scala
 
-import java.io.InputStream
-
 import ml.dmlc.xgboost4j.java.{XGBoostError, Booster => JBooster, XGBoost => JXGBoost}
-import scala.collection.JavaConverters._
-
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{FileSystem, Path}
+import org.apache.hadoop.fs.Path
+
+import java.io.InputStream
+import scala.collection.JavaConverters._
 
 /**
   * XGBoost Scala Training function.
@@ -102,7 +101,11 @@ object XGBoost {
       eval: EvalTrait = null,
       earlyStoppingRound: Int = 0,
       booster: Booster = null): Booster = {
-    trainAndSaveCheckpoint(dtrain, params, round, watches, metrics, obj, eval, earlyStoppingRound,
+    var ps = params + ("num_round" -> round)
+    if (!ps.contains("tree_method")) {
+      ps += "tree_method" -> "hist"
+    }
+    trainAndSaveCheckpoint(dtrain, ps, round, watches, metrics, obj, eval, earlyStoppingRound,
       booster, None)
   }
 

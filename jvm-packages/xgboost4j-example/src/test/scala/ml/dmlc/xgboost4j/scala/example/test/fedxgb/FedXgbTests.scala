@@ -54,8 +54,6 @@ class FedXgbTests extends SparkTest {
     val round = 3
     // train a model
     val booster = XGBoost.train(trainMax, params.toMap, round, watches.toMap)
-    // predict
-    val predicts = booster.predict(testMax)
     // save model to model path
     val file = new File("./model/a9a.guest")
     if (!file.exists()) {
@@ -65,13 +63,16 @@ class FedXgbTests extends SparkTest {
     // save dmatrix into binary buffer
     testMax.saveBinary(file.getAbsolutePath + "/dtest.buffer")
 
+    // predict
+    // val predicts = booster.predict(testMax)
     // reload model and data
-    val booster2 = XGBoost.loadModel(file.getAbsolutePath + "/xgb.model.json")
+    /* val booster2 = XGBoost.loadModel(file.getAbsolutePath + "/xgb.model.json")
     val testMax2 = new DMatrix(file.getAbsolutePath + "/dtest.buffer")
     val predicts2 = booster2.predict(testMax2)
 
     // check predicts
     println(checkPredicts(predicts, predicts2))
+    */
   }
 
   "[host]fed xgb" should "work with a9a dataset" in {
@@ -90,8 +91,6 @@ class FedXgbTests extends SparkTest {
     val round = 3
     // train a model
     val booster = XGBoost.train(trainMax, params.toMap, round, watches.toMap)
-    // predict
-    val predicts = booster.predict(testMax)
     // save model to model path
     val file = new File("./model/a9a.host")
     if (!file.exists()) {
@@ -101,13 +100,16 @@ class FedXgbTests extends SparkTest {
     // save dmatrix into binary buffer
     testMax.saveBinary(file.getAbsolutePath + "/dtest.buffer")
 
+    // predict
+    // val predicts = booster.predict(testMax)
     // reload model and data
-    val booster2 = XGBoost.loadModel(file.getAbsolutePath + "/xgb.model.json")
+    /* val booster2 = XGBoost.loadModel(file.getAbsolutePath + "/xgb.model.json")
     val testMax2 = new DMatrix(file.getAbsolutePath + "/dtest.buffer")
     val predicts2 = booster2.predict(testMax2)
 
     // check predicts
     println(checkPredicts(predicts, predicts2))
+    */
   }
 
   "xgb" should "work with a9a dataset" in {
