@@ -20,7 +20,7 @@ import org.apache.spark.{SparkConf, SparkContext}
 import org.scalatest.{BeforeAndAfterAll, FlatSpec}
 
 class SparkTest extends FlatSpec with BeforeAndAfterAll with Serializable {
-  lazy implicit val ss: SparkSession = {
+  lazy implicit val spark: SparkSession = {
     val sparkBuild = SparkSession
       .builder
       .appName(appName)
@@ -34,8 +34,8 @@ class SparkTest extends FlatSpec with BeforeAndAfterAll with Serializable {
     sparkBuild.getOrCreate()
   }
 
-  lazy implicit val sc: SparkContext = ss.sparkContext
-  lazy implicit val sqc: SQLContext = ss.sqlContext
+  lazy implicit val sc: SparkContext = spark.sparkContext
+  lazy implicit val sqc: SQLContext = spark.sqlContext
 
   def appName: String = this.getClass.getSimpleName
 

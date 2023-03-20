@@ -17,6 +17,7 @@ package ml.dmlc.xgboost4j.scala.example.test.fedxgb
 
 import ml.dmlc.xgboost4j.java.example.BasicWalkThrough.{checkPredicts, saveDumpModel}
 import ml.dmlc.xgboost4j.scala.example.test.SparkTest
+import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
 
 import java.io.File
@@ -110,6 +111,19 @@ class FedXgbTests extends SparkTest {
     // check predicts
     println(checkPredicts(predicts, predicts2))
     */
+  }
+
+  "spark xgb" should "work with a9a dataset" in {
+    val trainInput = spark.read.format("libsvm").load("../data/a9a.train")
+    val testInput = spark.read.format("libsvm").load("../data/a9a.test")
+
+    params += "num_workers" -> 2
+    params += "timeout_request_workers" -> 60000L
+
+    val xgbClassifier = new XGBoostClassifier(params.toMap) // .setMissing(0.0f)
+    val xgbModel = xgbClassifier.fit(trainInput)
+    val resDF = xgbModel.transform(testInput)
+    resDF.show(10)
   }
 
   "xgb" should "work with a9a dataset" in {

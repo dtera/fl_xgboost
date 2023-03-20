@@ -36,7 +36,9 @@ object SparkTraining {
       ("gpu_hist", 1)
     } else ("auto", 2)
 
-    val spark = SparkSession.builder().getOrCreate()
+    val spark = SparkSession.builder().master("local[*]")
+      .config("spark.xgboost.useExternalMemory", true)
+      .getOrCreate()
     val inputPath = args(0)
     val schema = new StructType(Array(
       StructField("sepal length", DoubleType, true),
@@ -75,6 +77,7 @@ object SparkTraining {
       "num_class" -> 3,
       "num_round" -> 100,
       "num_workers" -> numWorkers,
+      "timeout_request_workers" -> 60000L,
       "tree_method" -> treeMethod,
       "eval_sets" -> Map("eval1" -> eval1, "eval2" -> eval2))
     val xgbClassifier = new XGBoostClassifier(xgbParam).
