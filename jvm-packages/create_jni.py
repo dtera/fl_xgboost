@@ -78,7 +78,7 @@ if __name__ == "__main__":
 
     if sys.platform == "darwin":
         # Enable of your compiler supports OpenMP.
-        CONFIG["USE_OPENMP"] = "OFF"
+        # CONFIG["USE_OPENMP"] = "OFF"
         os.environ["JAVA_HOME"] = subprocess.check_output(
             "/usr/libexec/java_home").strip().decode()
 
