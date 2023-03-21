@@ -63,17 +63,6 @@ class FedXgbTests extends SparkTest {
     booster.saveModel(file.getAbsolutePath + "/xgb.model.json")
     // save dmatrix into binary buffer
     testMax.saveBinary(file.getAbsolutePath + "/dtest.buffer")
-
-    // predict
-    // val predicts = booster.predict(testMax)
-    // reload model and data
-    /* val booster2 = XGBoost.loadModel(file.getAbsolutePath + "/xgb.model.json")
-    val testMax2 = new DMatrix(file.getAbsolutePath + "/dtest.buffer")
-    val predicts2 = booster2.predict(testMax2)
-
-    // check predicts
-    println(checkPredicts(predicts, predicts2))
-    */
   }
 
   "[host]fed xgb" should "work with a9a dataset" in {
@@ -100,27 +89,16 @@ class FedXgbTests extends SparkTest {
     booster.saveModel(file.getAbsolutePath + "/xgb.model.json")
     // save dmatrix into binary buffer
     testMax.saveBinary(file.getAbsolutePath + "/dtest.buffer")
-
-    // predict
-    // val predicts = booster.predict(testMax)
-    // reload model and data
-    /* val booster2 = XGBoost.loadModel(file.getAbsolutePath + "/xgb.model.json")
-    val testMax2 = new DMatrix(file.getAbsolutePath + "/dtest.buffer")
-    val predicts2 = booster2.predict(testMax2)
-
-    // check predicts
-    println(checkPredicts(predicts, predicts2))
-    */
   }
 
   "spark xgb" should "work with a9a dataset" in {
     val trainInput = spark.read.format("libsvm").load("../data/a9a.train")
     val testInput = spark.read.format("libsvm").load("../data/a9a.test")
 
-    params += "num_workers" -> 2
-    params += "timeout_request_workers" -> 60000L
+    // params += "num_workers" -> 2
+    // params += "timeout_request_workers" -> 60000L
 
-    val xgbClassifier = new XGBoostClassifier(params.toMap) // .setMissing(0.0f)
+    val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f)
     val xgbModel = xgbClassifier.fit(trainInput)
     val resDF = xgbModel.transform(testInput)
     resDF.show(10)

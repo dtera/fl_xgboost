@@ -264,7 +264,11 @@ trait HasFeaturesCols extends Params {
 private[spark] trait ParamMapFuncs extends Params {
 
   def XGBoost2MLlibParams(xgboostParams: Map[String, Any]): Unit = {
-    for ((paramName, paramValue) <- xgboostParams) {
+    var ps = xgboostParams
+    if (!xgboostParams.contains("tracker_conf")) {
+      ps += "tracker_conf" -> TrackerConf(60 * 60 * 1000, "scala")
+    }
+    for ((paramName, paramValue) <- ps) {
       if ((paramName == "booster" && paramValue != "gbtree") ||
         (paramName == "updater" && paramValue != "grow_histmaker,prune" &&
           paramValue != "grow_quantile_histmaker" && paramValue != "grow_gpu_hist")) {

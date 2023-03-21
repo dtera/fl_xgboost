@@ -16,8 +16,7 @@
 
 package ml.dmlc.xgboost4j.scala.example.spark
 
-import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
-
+import ml.dmlc.xgboost4j.scala.spark.{TrackerConf, XGBoostClassifier}
 import org.apache.spark.ml.feature.{StringIndexer, VectorAssembler}
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
@@ -36,8 +35,11 @@ object SparkTraining {
       ("gpu_hist", 1)
     } else ("auto", 2)
 
-    val spark = SparkSession.builder().master("local[*]")
-      .config("spark.xgboost.useExternalMemory", true)
+    val spark = SparkSession.builder().master(s"local[*]")
+      /*.config("spark.ui.enabled", false)
+      .config("spark.driver.memory", "512m")
+      .config("spark.barrier.sync.timeout", 10)
+      .config("spark.task.cpus", 1)*/
       .getOrCreate()
     val inputPath = args(0)
     val schema = new StructType(Array(
@@ -62,6 +64,7 @@ object SparkTraining {
       "classIndex")
 
     val Array(train, eval1, eval2, test) = xgbInput.randomSplit(Array(0.6, 0.2, 0.1, 0.1))
+    xgbInput.show(100)
 
     /**
      * setup spark.scheduler.barrier.maxConcurrentTasksCheck.interval and
@@ -77,7 +80,7 @@ object SparkTraining {
       "num_class" -> 3,
       "num_round" -> 100,
       "num_workers" -> numWorkers,
-      "timeout_request_workers" -> 60000L,
+      // "timeout_request_workers" -> 60000L,
       "tree_method" -> treeMethod,
       "eval_sets" -> Map("eval1" -> eval1, "eval2" -> eval2))
     val xgbClassifier = new XGBoostClassifier(xgbParam).
