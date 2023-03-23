@@ -38,6 +38,37 @@ class FedXgbTests extends SparkTest {
   params += "eval_metric" -> "auc"
   params += "dump_format" -> "json"
 
+  "[guest]fed spark xgb" should "work with a9a dataset" in {
+    val trainInput = spark.read.format("fedlibsvm").load("../data/a9a.guest.train")
+    val testInput = spark.read.format("fedlibsvm").load("../data/a9a.guest.test")
+
+    params += "fl_port" -> "30002"
+    params += "fl_role" -> "guest"
+    params += "fl_bit_len" -> 1024
+    params += "fl_part_id" -> 0
+    params += "fl_on" -> 1
+
+    val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f)
+    val xgbModel = xgbClassifier.fit(trainInput)
+    val resDF = xgbModel.transform(testInput)
+    resDF.show(10)
+  }
+
+  "[host]fed spark xgb" should "work with a9a dataset" in {
+    val trainInput = spark.read.format("fedlibsvm").load("../data/a9a.host.train")
+    val testInput = spark.read.format("fedlibsvm").load("../data/a9a.host.test")
+
+    params += "fl_address" -> "0.0.0.0:30002"
+    params += "fl_role" -> "host"
+    params += "fl_part_id" -> 1
+    params += "fl_on" -> 1
+
+    val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f)
+    val xgbModel = xgbClassifier.fit(trainInput)
+    val resDF = xgbModel.transform(testInput)
+    resDF.show(10)
+  }
+
   "[guest]fed xgb" should "work with a9a dataset" in {
     val trainMax = new DMatrix("../data/a9a.guest.train?format=libsvm")
     val testMax = new DMatrix("../data/a9a.guest.test?format=libsvm")
