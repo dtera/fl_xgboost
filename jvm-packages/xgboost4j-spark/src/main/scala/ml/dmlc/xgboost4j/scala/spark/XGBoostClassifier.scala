@@ -31,9 +31,9 @@ import org.apache.spark.ml.param.ParamMap
 import org.apache.spark.ml.util.{DefaultXGBoostParamsReader, DefaultXGBoostParamsWriter, XGBoostWriter}
 import org.apache.spark.sql.types.StructType
 
-class XGBoostClassifier (
-    override val uid: String,
-    private[spark] val xgboostParams: Map[String, Any])
+class XGBoostClassifier(
+                         override val uid: String,
+                         private[spark] val xgboostParams: Map[String, Any])
   extends ProbabilisticClassifier[Vector, XGBoostClassifier, XGBoostClassificationModel]
     with XGBoostClassifierParams with DefaultParamsWritable {
 
@@ -166,7 +166,8 @@ class XGBoostClassifier (
   }
 
   override protected def train(dataset: Dataset[_]): XGBoostClassificationModel = {
-    val _numClasses = getNumClasses(dataset)
+    val _numClasses = if (xgboostParams.contains("fl_role") && xgboostParams("fl_role").equals("host"))
+      xgboostParams.getOrElse("numClass", 2).toString.toInt else getNumClasses(dataset)
     if (isDefined(numClass) && $(numClass) != _numClasses) {
       throw new Exception("The number of classes in dataset doesn't match " +
         "\'num_class\' in xgboost params.")
@@ -216,9 +217,9 @@ object XGBoostClassifier extends DefaultParamsReadable[XGBoostClassifier] {
 }
 
 class XGBoostClassificationModel private[ml](
-    override val uid: String,
-    override val numClasses: Int,
-    private[scala] val _booster: Booster)
+                                              override val uid: String,
+                                              override val numClasses: Int,
+                                              private[scala] val _booster: Booster)
   extends ProbabilisticClassificationModel[Vector, XGBoostClassificationModel]
     with XGBoostClassifierParams with InferenceParams
     with MLWritable with Serializable {
@@ -294,11 +295,11 @@ class XGBoostClassificationModel private[ml](
   }
 
   private[scala] def produceResultIterator(
-      originalRowItr: Iterator[Row],
-      rawPredictionItr: Iterator[Row],
-      probabilityItr: Iterator[Row],
-      predLeafItr: Iterator[Row],
-      predContribItr: Iterator[Row]): Iterator[Row] = {
+                                            originalRowItr: Iterator[Row],
+                                            rawPredictionItr: Iterator[Row],
+                                            probabilityItr: Iterator[Row],
+                                            predLeafItr: Iterator[Row],
+                                            predContribItr: Iterator[Row]): Iterator[Row] = {
     // the following implementation is to be improved
     if (isDefined(leafPredictionCol) && $(leafPredictionCol).nonEmpty &&
       isDefined(contribPredictionCol) && $(contribPredictionCol).nonEmpty) {
@@ -307,7 +308,7 @@ class XGBoostClassificationModel private[ml](
         contribs: Row) =>
           Row.fromSeq(originals.toSeq ++ rawPrediction.toSeq ++ probability.toSeq ++ leaves.toSeq ++
             contribs.toSeq)
-      }
+        }
     } else if (isDefined(leafPredictionCol) && $(leafPredictionCol).nonEmpty &&
       (!isDefined(contribPredictionCol) || $(contribPredictionCol).isEmpty)) {
       originalRowItr.zip(rawPredictionItr).zip(probabilityItr).zip(predLeafItr).
@@ -329,7 +330,7 @@ class XGBoostClassificationModel private[ml](
   }
 
   private[scala] def producePredictionItrs(booster: Booster, dm: DMatrix):
-      Array[Iterator[Row]] = {
+  Array[Iterator[Row]] = {
     val rawPredictionItr = {
       booster.predict(dm, outPutMargin = true, $(treeLimit)).
         map(Row(_)).iterator

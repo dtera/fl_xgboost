@@ -19,6 +19,7 @@ import ml.dmlc.xgboost4j.java.example.BasicWalkThrough.{checkPredicts, saveDumpM
 import ml.dmlc.xgboost4j.scala.example.test.SparkTest
 import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
+import org.apache.spark.ml.util.FedMLUtils.FED_LIBSVM
 
 import java.io.File
 import scala.collection.mutable
@@ -39,8 +40,9 @@ class FedXgbTests extends SparkTest {
   params += "dump_format" -> "json"
 
   "[guest]fed spark xgb" should "work with a9a dataset" in {
-    val trainInput = spark.read.format("fedlibsvm").load("../data/a9a.guest.train")
-    val testInput = spark.read.format("fedlibsvm").load("../data/a9a.guest.test")
+    val trainInput = spark.read.format(FED_LIBSVM).load("../data/a9a.guest.train")
+    val testInput = spark.read.format(FED_LIBSVM).load("../data/a9a.guest.test")
+    trainInput.show(10)
 
     params += "fl_port" -> "30002"
     params += "fl_role" -> "guest"
@@ -55,13 +57,15 @@ class FedXgbTests extends SparkTest {
   }
 
   "[host]fed spark xgb" should "work with a9a dataset" in {
-    val trainInput = spark.read.format("fedlibsvm").load("../data/a9a.host.train")
-    val testInput = spark.read.format("fedlibsvm").load("../data/a9a.host.test")
+    val trainInput = spark.read.format(FED_LIBSVM).load("../data/a9a.host.train")
+    val testInput = spark.read.format(FED_LIBSVM).load("../data/a9a.host.test")
+    trainInput.show(10)
 
     params += "fl_address" -> "0.0.0.0:30002"
     params += "fl_role" -> "host"
     params += "fl_part_id" -> 1
     params += "fl_on" -> 1
+    params += "numClass" -> 2
 
     val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f)
     val xgbModel = xgbClassifier.fit(trainInput)

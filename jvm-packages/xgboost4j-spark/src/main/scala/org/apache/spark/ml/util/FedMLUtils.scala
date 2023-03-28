@@ -17,6 +17,7 @@ import org.apache.spark.storage.StorageLevel
  * Helper methods to load, save and pre-process data used in federated learning.
  */
 object FedMLUtils extends Logging {
+  val FED_LIBSVM = "fedlibsvm"
 
   /**
    * Loads labeled data in the LIBSVM format into an RDD[LabeledPoint].
@@ -90,8 +91,10 @@ object FedMLUtils extends Logging {
     var items = line.split(' ')
     var head = items.head
     var sampleId = ""
+    var zeroBased = false
     if (head.startsWith("@")) {
       sampleId = head.stripPrefix("@")
+      zeroBased = true
       items = items.tail
       head = items.head
     }
@@ -105,7 +108,8 @@ object FedMLUtils extends Logging {
     }
     val (indices, values) = features.filter(_.nonEmpty).map { item =>
       val indexAndValue = item.split(':')
-      val index = indexAndValue(0).toInt - 1 // Convert 1-based indices to 0-based.
+      // Convert 1-based indices to 0-based.
+      val index = indexAndValue(0).toInt - (if (zeroBased) 0 else 1)
       val value = indexAndValue(1).toDouble
       (index, value)
     }.unzip
