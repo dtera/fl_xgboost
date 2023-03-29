@@ -19,6 +19,7 @@ import ml.dmlc.xgboost4j.java.example.BasicWalkThrough.{checkPredicts, saveDumpM
 import ml.dmlc.xgboost4j.scala.example.test.SparkTest
 import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
+import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.util.FedMLUtils.FED_LIBSVM
 
 import java.io.File
@@ -52,8 +53,14 @@ class FedXgbTests extends SparkTest {
 
     val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f)
     val xgbModel = xgbClassifier.fit(trainInput)
-    val resDF = xgbModel.transform(testInput)
-    resDF.show(10)
+
+    val evaluator = new BinaryClassificationEvaluator()
+      .setLabelCol("label")
+      .setRawPredictionCol("rawPrediction")
+      .setMetricName("areaUnderROC")
+
+    val testAUC = evaluator.evaluate(xgbModel.transform(testInput))
+    println(s"Test AUC: $testAUC")
   }
 
   "[host]fed spark xgb" should "work with a9a dataset" in {
@@ -69,8 +76,14 @@ class FedXgbTests extends SparkTest {
 
     val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f)
     val xgbModel = xgbClassifier.fit(trainInput)
-    val resDF = xgbModel.transform(testInput)
-    resDF.show(10)
+
+    val evaluator = new BinaryClassificationEvaluator()
+      .setLabelCol("label")
+      .setRawPredictionCol("rawPrediction")
+      .setMetricName("areaUnderROC")
+
+    val testAUC = evaluator.evaluate(xgbModel.transform(testInput))
+    println(s"Test AUC: $testAUC")
   }
 
   "[guest]fed xgb" should "work with a9a dataset" in {

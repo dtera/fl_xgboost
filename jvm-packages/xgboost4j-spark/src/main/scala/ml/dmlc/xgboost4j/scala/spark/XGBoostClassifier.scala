@@ -166,8 +166,12 @@ class XGBoostClassifier(
   }
 
   override protected def train(dataset: Dataset[_]): XGBoostClassificationModel = {
-    val _numClasses = if (xgboostParams.contains("fl_role") && xgboostParams("fl_role").equals("host"))
-      xgboostParams.getOrElse("numClass", 2).toString.toInt else getNumClasses(dataset)
+    val _numClasses = if (xgboostParams.contains("fl_role") &&
+      xgboostParams("fl_role").equals("host")) {
+      xgboostParams.getOrElse("numClass", 2).toString.toInt
+    } else {
+      getNumClasses(dataset)
+    }
     if (isDefined(numClass) && $(numClass) != _numClasses) {
       throw new Exception("The number of classes in dataset doesn't match " +
         "\'num_class\' in xgboost params.")
