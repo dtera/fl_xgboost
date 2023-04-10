@@ -65,7 +65,7 @@ class AFTObj : public ObjFunction {
   void GetGradient(const HostDeviceVector<bst_float>& preds, const MetaInfo& info, int /*iter*/,
                    HostDeviceVector<GradientPair>* out_gpair,
                    HostDeviceVector<EncryptedGradientPair>* encrypted_gpair,
-                   opt_public_key_t* pub) override {
+                   opt_public_key_t* pub, opt_private_key_t* pri) override {
     const size_t ndata = preds.Size();
     CHECK_EQ(info.labels_lower_bound_.Size(), ndata);
     CHECK_EQ(info.labels_upper_bound_.Size(), ndata);

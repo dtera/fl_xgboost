@@ -53,7 +53,7 @@ class SoftmaxMultiClassObj : public ObjFunction {
                    int iter,
                    HostDeviceVector<GradientPair>* out_gpair,
                    HostDeviceVector<EncryptedGradientPair>* encrypted_gpair,
-                   opt_public_key_t* pub) override {
+                   opt_public_key_t* pub, opt_private_key_t* pri) override {
     // Remove unused parameter compiler warning.
     (void) iter;
 

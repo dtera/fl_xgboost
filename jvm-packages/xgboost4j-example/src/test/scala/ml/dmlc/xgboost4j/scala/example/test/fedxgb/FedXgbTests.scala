@@ -72,7 +72,6 @@ class FedXgbTests extends SparkTest {
     params += "fl_role" -> "host"
     params += "fl_part_id" -> 1
     params += "fl_on" -> 1
-    params += "numClass" -> 2
 
     val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f)
     val xgbModel = xgbClassifier.fit(trainInput)

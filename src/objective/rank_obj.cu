@@ -758,7 +758,7 @@ class LambdaRankObj : public ObjFunction {
                    int iter,
                    HostDeviceVector<GradientPair>* out_gpair,
                    HostDeviceVector<EncryptedGradientPair>* encrypted_gpair,
-                   opt_public_key_t* pub) override {
+                   opt_public_key_t* pub, opt_private_key_t* pri) override {
     CHECK_EQ(preds.Size(), info.labels.Size()) << "label size predict size not match";
 
     // quick consistency when group is not available

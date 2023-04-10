@@ -51,7 +51,7 @@ class ObjFunction : public Configurable {
                            int iteration, HostDeviceVector<GradientPair>* out_gpair,
                            HostDeviceVector<EncryptedGradientPair>* encrypted_gpair =
                                new HostDeviceVector<EncryptedGradientPair>(),
-                           opt_public_key_t* pub = nullptr) = 0;
+                           opt_public_key_t* pub = nullptr, opt_private_key_t* pri = nullptr) = 0;
 
   /*! \return the default evaluation metric for the objective */
   virtual const char* DefaultEvalMetric() const = 0;

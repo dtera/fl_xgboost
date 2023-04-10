@@ -30,7 +30,7 @@ class HingeObj : public ObjFunction {
   void GetGradient(const HostDeviceVector<bst_float> &preds, const MetaInfo &info, int /*iter*/,
                    HostDeviceVector<GradientPair> *out_gpair,
                    HostDeviceVector<EncryptedGradientPair>* encrypted_gpair,
-                   opt_public_key_t* pub) override {
+                   opt_public_key_t* pub, opt_private_key_t* pri) override {
     CHECK_NE(info.labels.Size(), 0U) << "label set cannot be empty";
     CHECK_EQ(preds.Size(), info.labels.Size())
         << "labels are not correctly provided"
