@@ -101,6 +101,7 @@ class XgbServiceServer final : public XgbService::Service {
   oneapi::tbb::concurrent_unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
   vector<boost::unordered_map<int32_t, const bool>> next_nodes_;
   vector<vector<boost::unordered_map<string, const double>>> metrics_;
+  std::unordered_map<int32_t, google::protobuf::Map<uint32_t, uint32_t>> next_nodes_v2_;
   bool finished_ = false;
   bool next_nodes_clear_ = false;
   // shared mutex to control updating the mask id
@@ -147,6 +148,8 @@ class XgbServiceServer final : public XgbService::Service {
 
   void SendNextNode(size_t k, int32_t nid, bool flow_left);
 
+  void SendNextNodesV2(int idx, const google::protobuf::Map<uint32_t, uint32_t> &next_nids);
+
   void SendMetrics(int iter, size_t data_idx, const char *metric_name, double metric);
 
   template <typename ExpandEntry>
@@ -165,6 +168,9 @@ class XgbServiceServer final : public XgbService::Service {
                     function<void(shared_ptr<PositionBlockInfo> &)> process_block_info);
 
   void GetNextNode(size_t k, int32_t nid, function<void(bool)> process_next_node);
+
+  void GetNextNodesV2(
+      int idx, function<void(const google::protobuf::Map<uint32_t, uint32_t> &)> process_part_idxs);
 
   Status GetPubKey(ServerContext *context, const Request *request,
                    PubKeyResponse *response) override;
@@ -201,6 +207,12 @@ class XgbServiceServer final : public XgbService::Service {
   Status GetNextNode(ServerContext *context, const NextNode *request, NextNode *response) override;
 
   Status SendNextNode(ServerContext *context, const NextNode *request, Response *response) override;
+
+  Status GetNextNodesV2(ServerContext *context, const Request *request,
+                        NextNodesV2 *response) override;
+
+  Status SendNextNodesV2(ServerContext *context, const NextNodesV2 *request,
+                         Response *response) override;
 
   Status GetMetric(ServerContext *context, const MetricRequest *request,
                    MetricResponse *response) override;

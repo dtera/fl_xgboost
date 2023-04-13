@@ -158,7 +158,7 @@ void XgbServiceServer::Run() {
   builder.RegisterService(this);
   // Finally assemble the server.
   server_ = builder.BuildAndStart();
-  cout << "RPC Server listening on " << server_address_ << "..." << endl;
+  LOG(CONSOLE) << "RPC Server is listening on " << server_address_ << "..." << endl;
   server_->Wait();
 }
 
@@ -194,6 +194,9 @@ void XgbServiceServer::SendGradPairs(mpz_t* grad_pairs, size_t size) {
 }
 
 void XgbServiceServer::SendGradPairs(const vector<xgboost::EncryptedGradientPair>& grad_pairs) {
+  if (grad_pairs_.count(cur_version - 1) != 0) {
+    grad_pairs_.erase(cur_version - 1);
+  }
   grad_pairs_.insert({cur_version, {grad_pairs.size(), grad_pairs}});
   cv.notify_one();
 }
@@ -222,6 +225,12 @@ void XgbServiceServer::SendBlockInfo(size_t task_idx, PositionBlockInfo* block_i
 void XgbServiceServer::SendNextNode(size_t k, int32_t nid, bool flow_left) {
   // lock_guard lk(m);
   next_nodes_[k].insert({nid, flow_left});
+  cv.notify_all();
+}
+
+void XgbServiceServer::SendNextNodesV2(int idx,
+                                       const google::protobuf::Map<uint32_t, uint32_t>& next_nids) {
+  next_nodes_v2_.insert({idx, next_nids});
   cv.notify_all();
 }
 
@@ -295,6 +304,16 @@ void XgbServiceServer::GetNextNode(size_t k, int32_t nid, function<void(bool)> p
     cv.wait(lk);
   }  // wait for data holder part
   process_next_node(next_nodes_[k][nid]);
+}
+
+void XgbServiceServer::GetNextNodesV2(
+    int idx, function<void(const google::protobuf::Map<uint32_t, uint32_t>&)> process_part_idxs) {
+  std::unique_lock<std::mutex> lk(mtx);
+  while (next_nodes_v2_.count(idx) == 0) {
+    cv.wait(lk);
+  }  // wait for data holder part
+  process_part_idxs(next_nodes_v2_[idx]);
+  next_nodes_v2_.erase(idx);
 }
 
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
@@ -567,6 +586,26 @@ Status XgbServiceServer::SendNextNode(ServerContext* context, const NextNode* re
   return Status::OK;
 }
 
+Status XgbServiceServer::GetNextNodesV2(ServerContext* context, const Request* request,
+                                        NextNodesV2* response) {
+  std::unique_lock<std::mutex> lk(mtx);
+  while (next_nodes_v2_.count(request->idx()) == 0) {
+    cv.wait(lk);
+  }  // wait for label holder part
+#pragma ide diagnostic ignored "UnusedLocalVariable"
+  auto next_ids = response->mutable_next_ids();
+  *next_ids = next_nodes_v2_[request->idx()];
+
+  return Status::OK;
+}
+
+Status XgbServiceServer::SendNextNodesV2(ServerContext* context, const NextNodesV2* request,
+                                         Response* response) {
+  SendNextNodesV2(request->idx(), request->next_ids());
+
+  return Status::OK;
+}
+
 Status XgbServiceServer::GetMetric(ServerContext* context, const MetricRequest* request,
                                    MetricResponse* response) {
   // std::unique_lock<std::mutex> lk(mtx);
@@ -594,10 +633,11 @@ Status XgbServiceServer::Clear(ServerContext* context, const Request* request, R
     }  // wait for the label part
     next_nodes_clear_ = false;
   } else {
-    grad_pairs_.clear();
     splits_.clear();
+    next_nodes_v2_.clear();
     if (cur_version == max_iter) {
       // cout << "cur_version: " << cur_version << ", max_iter: " << max_iter << endl;
+      grad_pairs_.clear();
       finished_ = true;
     }
   }

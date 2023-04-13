@@ -338,6 +338,26 @@ void XgbServiceClient::SendNextNode(size_t k, int32_t nid, bool flow_left) {
              {});
 }
 
+void XgbServiceClient::GetNextNodesV2(
+    int idx, function<void(const google::protobuf::Map<uint32_t, uint32_t>&)> process_part_idxs) {
+  RpcRequest(
+      Request, GetNextNodesV2, NextNodesV2, { request.set_idx(idx); },
+      { process_part_idxs(response.next_ids()); });
+}
+
+void XgbServiceClient::SendNextNodesV2(
+    int idx, oneapi::tbb::concurrent_unordered_map<uint32_t, uint32_t>& part_idxs) {
+  RpcRequest(NextNodesV2, SendNextNodesV2, Response,
+             {
+               request.set_idx(idx);
+               auto next_ids = request.mutable_next_ids();
+               for (auto part_idx : part_idxs) {
+                 next_ids->insert({part_idx.first, part_idx.second});
+               };
+             },
+             {});
+}
+
 void XgbServiceClient::GetMetric(int iter, size_t data_idx, const char* metric_name,
                                  function<void(double)> process_metric) {
   RpcRequest(

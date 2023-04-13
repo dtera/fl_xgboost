@@ -8,13 +8,23 @@
 
 namespace xgboost {
 enum class FedratedRole : int { Guest = 0, Host = 1 };
-}
+}  // namespace xgboost
 
 DECLARE_FIELD_ENUM_CLASS(xgboost::FedratedRole);
 
 namespace xgboost {
 
 struct FederatedParam : public XGBoostParameter<FederatedParam> {
+  static std::string getRole(const FedratedRole &role) {
+    switch (role) {
+      case FedratedRole::Guest:
+        return "guest";
+      case FedratedRole::Host:
+        return "host";
+      default:
+        return "";
+    }
+  }
   // data split mode, can be row, col, or none.
   DataSplitMode dsplit{DataSplitMode::kAuto};
   // federated role, can be guest or host
@@ -50,10 +60,8 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
         .set_default(0)
         .set_lower_bound(0)
         .describe("Part id for federated learning.");
-    DMLC_DECLARE_FIELD(fl_on)
-        .set_default(0)
-        .set_lower_bound(0)
-        .describe("Whether run with federated learning.");
+    DMLC_DECLARE_FIELD(fl_on).set_default(0).set_lower_bound(0).describe(
+        "Whether run with federated learning.");
   }
 };
 }  // namespace xgboost

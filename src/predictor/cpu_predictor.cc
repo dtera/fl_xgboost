@@ -34,8 +34,9 @@ bst_node_t GetNextNode(const RegTree &tree, bst_node_t nid, const RegTree::FVec 
                        const RegTree::CategoricalSplitMatrix &cats) {
   unsigned split_index = tree[nid].SplitIndex();
   auto fvalue = feat.GetFvalue(split_index);
-  return GetNextNode<has_missing, has_categorical>(
+  auto next_nid = GetNextNode<has_missing, has_categorical>(
       tree[nid], nid, fvalue, has_missing && feat.IsMissing(split_index), cats);
+  return next_nid;
 }
 
 template <bool has_missing, bool has_categorical>
@@ -135,6 +136,25 @@ void PredictByAllTrees(gbm::GBTreeModel const &model, const size_t tree_begin,
         size_t k = (predict_offset + i) * num_group + gid;
         preds[k] += PredValueByOneTree<false>(thread_temp[offset + i], tree, cats, k);
       }
+    }
+  }
+}
+
+template <bool has_categorical>
+void FlowToByOneTree(const RegTree::FVec &p_feats, RegTree const &tree,
+                     RegTree::CategoricalSplitMatrix const &cats, size_t k, bst_node_t leaf_nids[],
+                     oneapi::tbb::concurrent_unordered_map<uint32_t, uint32_t> &self_part_idxs,
+                     std::unordered_set<bst_node_t> &other_part_idxs) {
+  if (!tree[leaf_nids[k]].IsLeaf()) {
+    if (NotSelfPart(tree[leaf_nids[k]].PartId())) {
+      other_part_idxs.insert(tree[leaf_nids[k]].PartId());
+    } else {
+      if (p_feats.HasMissing()) {
+        leaf_nids[k] = GetNextNode<true, has_categorical>(tree, leaf_nids[k], p_feats, cats);
+      } else {
+        leaf_nids[k] = GetNextNode<false, has_categorical>(tree, leaf_nids[k], p_feats, cats);
+      }
+      self_part_idxs.insert({k, leaf_nids[k]});
     }
   }
 }
@@ -261,6 +281,10 @@ class AdapterView {
   bst_row_t const static base_rowid = 0;  // NOLINT
 };
 
+inline int GenIdxForNextIds(std::int32_t tree_id, std::int32_t part_id, std::int32_t depth) {
+  return tree_id << 20 | part_id << 10 | depth;
+}
+
 template <typename DataView, size_t block_of_rows_size>
 void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out_preds,
                                      gbm::GBTreeModel const &model, int32_t tree_begin,
@@ -275,24 +299,122 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
   const int num_feature = model.learner_model_param->num_feature;
   omp_ulong n_blocks = common::DivRoundUp(nsize, block_of_rows_size);
 
-  auto pred_block = [&](bst_omp_uint block_id) {
-    const size_t batch_offset = block_id * block_of_rows_size;
-    const size_t block_size = std::min(nsize - batch_offset, block_of_rows_size);
-    const size_t fvec_offset = omp_get_thread_num() * block_of_rows_size;
+  auto parallel_for = [&](std::function<void(const size_t, const size_t, const size_t)> process) {
+    common::ParallelFor(n_blocks, n_threads, [&](bst_omp_uint block_id) {
+      const size_t batch_offset = block_id * block_of_rows_size;
+      const size_t block_size = std::min(nsize - batch_offset, block_of_rows_size);
+      const size_t fvec_offset = omp_get_thread_num() * block_of_rows_size;
 
-    FVecFill(block_size, batch_offset, num_feature, &batch, fvec_offset, p_thread_temp);
-    // process block of rows through all trees to keep cache locality
-    PredictByAllTrees(model, tree_begin, tree_end, out_preds, batch_offset + batch.base_rowid,
-                      num_group, thread_temp, fvec_offset, block_size);
-    FVecDrop(block_size, batch_offset, &batch, fvec_offset, p_thread_temp);
+      process(batch_offset, block_size, fvec_offset);
+    });
   };
 
   if (IsFederated()) {
-    for (int i = 0; i < n_blocks; ++i) {
-      pred_block(i);
+    bst_node_t leaf_nids[tree_end - tree_begin][out_preds->size()];
+    std::memset(leaf_nids, 0, sizeof(leaf_nids));
+    oneapi::tbb::concurrent_unordered_map<uint32_t, uint32_t> self_part_idxs[tree_end - tree_begin];
+    std::unordered_set<bst_node_t> other_part_idxs[tree_end - tree_begin];
+
+    std::vector<bst_float> &preds = *out_preds;
+
+    for (size_t tree_id = tree_begin; tree_id < tree_end; ++tree_id) {
+      const size_t gid = model.tree_info[tree_id];
+      auto const &tree = *model.trees[tree_id];
+      auto const &cats = tree.GetCategoriesMatrix();
+      auto has_categorical = tree.HasCategoricalSplit();
+
+      std::size_t depth = 0;
+      std::size_t i = tree_id - tree_begin;
+      do {
+        other_part_idxs[i].clear();
+        self_part_idxs[i].clear();
+        parallel_for([&](const size_t batch_offset, const size_t block_size, const size_t offset) {
+          FVecFill(block_size, batch_offset, num_feature, &batch, offset, p_thread_temp);
+          auto predict_offset = batch_offset + batch.base_rowid;
+          if (has_categorical) {
+            for (size_t i = 0; i < block_size; ++i) {
+              size_t k = (predict_offset + i) * num_group + gid;
+              FlowToByOneTree<true>(thread_temp[offset + i], tree, cats, k, leaf_nids[i],
+                                    self_part_idxs[i], other_part_idxs[i]);
+            }
+          } else {
+            for (size_t i = 0; i < block_size; ++i) {
+              size_t k = (predict_offset + i) * num_group + gid;
+              FlowToByOneTree<false>(thread_temp[offset + i], tree, cats, k, leaf_nids[i],
+                                     self_part_idxs[i], other_part_idxs[i]);
+            }
+          }
+          FVecDrop(block_size, batch_offset, &batch, offset, p_thread_temp);
+        });
+
+        if (!self_part_idxs[i].empty()) {
+          auto idx = GenIdxForNextIds(tree_id, fparam_->fl_part_id, depth);
+          // send next node id to other part
+          if (IsGuest()) {
+            google::protobuf::Map<uint32_t, uint32_t> self_part_idx;
+            for (auto part_idx : self_part_idxs[i]) {
+              self_part_idx.insert({part_idx.first, part_idx.second});
+            };
+            xgb_server_->SendNextNodesV2(idx, self_part_idx);
+          } else {
+            xgb_client_->SendNextNodesV2(idx, self_part_idxs[i]);
+          }
+        }
+
+        if (!other_part_idxs[i].empty()) {
+          std::for_each(
+              other_part_idxs[i].begin(), other_part_idxs[i].end(), [&](bst_node_t other_part_id) {
+                auto idx = GenIdxForNextIds(tree_id, other_part_id, depth);
+                // receive next node id from other part
+                auto process_part_idxs =
+                    [&](const google::protobuf::Map<uint32_t, uint32_t> &next_ids) {
+                      std::for_each(
+                          next_ids.begin(), next_ids.end(),
+                          [&](google::protobuf::MapPair<unsigned int, unsigned int> id_pair) {
+                            leaf_nids[i][id_pair.first] = id_pair.second;
+                          });
+                    };
+                if (IsGuest()) {
+                  xgb_server_->GetNextNodesV2(idx, process_part_idxs);
+                } else {
+                  xgb_client_->GetNextNodesV2(idx, process_part_idxs);
+                }
+              });
+        }
+
+        /*cout << FederatedParam::getRole(fparam_->fl_role) << ": [" << leaf_nids[tree_id][0];
+        for (int i = 1; i < out_preds->size() * 0.01; ++i) {
+          cout << ", " << leaf_nids[tree_id][i];
+        }
+        cout << "]" << endl;*/
+        depth++;
+      } while (!self_part_idxs[i].empty() || !other_part_idxs[i].empty());
+
+      if (IsGuest()) {
+        parallel_for([&](const size_t batch_offset, const size_t block_size, const size_t offset) {
+          auto predict_offset = batch_offset + batch.base_rowid;
+          if (has_categorical) {
+            for (size_t i = 0; i < block_size; ++i) {
+              size_t k = (predict_offset + i) * num_group + gid;
+              preds[k] += tree[leaf_nids[i][k]].LeafValue();
+            }
+          } else {
+            for (size_t i = 0; i < block_size; ++i) {
+              size_t k = (predict_offset + i) * num_group + gid;
+              preds[k] += tree[leaf_nids[i][k]].LeafValue();
+            }
+          }
+        });
+      }
     }
   } else {
-    common::ParallelFor(n_blocks, n_threads, pred_block);
+    parallel_for([&](const size_t batch_offset, const size_t block_size, const size_t fvec_offset) {
+      FVecFill(block_size, batch_offset, num_feature, &batch, fvec_offset, p_thread_temp);
+      // process block of rows through all trees to keep cache locality
+      PredictByAllTrees(model, tree_begin, tree_end, out_preds, batch_offset + batch.base_rowid,
+                        num_group, thread_temp, fvec_offset, block_size);
+      FVecDrop(block_size, batch_offset, &batch, fvec_offset, p_thread_temp);
+    });
   }
 }
 

@@ -540,7 +540,7 @@ class LearnerConfiguration : public Learner {
         xgb_client_ = FIND_XGB_SERVICE(XgbServiceClient);
         xgb_client_->Start(atoi(fparam_->fl_address.substr(p + 1).c_str()),
                            fparam_->fl_address.substr(0, p), omp_get_num_procs());
-        cout << "** RPC client connect server success! " << endl;
+        LOG(CONSOLE) << "** RPC client connect server success! " << endl;
 
         xgb_client_->GetPubKey(&pub_);
       }
@@ -1323,11 +1323,13 @@ class LearnerImpl : public LearnerIO {
     monitor_.Start("UpdateOneIter");
     TrainingObserver::Instance().Update(iter);
     this->Configure();
-    if (encrypted_gpair_.Empty()) {
+    if (IsFederated() && encrypted_gpair_.Empty()) {
       encrypted_gpair_.Resize(train->Info().num_row_);
       DEBUG << "encrypted_gpair_.size(): " << encrypted_gpair_.Size() << endl;
     }
-    this->InitBaseScore(train.get());
+    if (IsGuest()) {
+      this->InitBaseScore(train.get());
+    }
 
     if (ctx_.seed_per_iteration) {
       common::GlobalRandom().seed(ctx_.seed * kRandSeedMagic + iter);
@@ -1339,12 +1341,12 @@ class LearnerImpl : public LearnerIO {
     auto local_cache = this->GetPredictionCache();
     auto& predt = local_cache->Cache(train, ctx_.gpu_id);
 
-    monitor_.Start("PredictRaw");
-    this->PredictRaw(train.get(), &predt, true, 0, 0);
-    TrainingObserver::Instance().Observe(predt.predictions, "Predictions");
-    monitor_.Stop("PredictRaw");
-
     if (IsGuest()) {
+      monitor_.Start("PredictRaw");
+      this->PredictRaw(train.get(), &predt, true, 0, 0);
+      TrainingObserver::Instance().Observe(predt.predictions, "Predictions");
+      monitor_.Stop("PredictRaw");
+
       monitor_.Start("GetGradient");
       obj_->GetGradient(predt.predictions, train->Info(), iter, &gpair_, &encrypted_gpair_, pub_);
       monitor_.Stop("GetGradient");
@@ -1415,15 +1417,17 @@ class LearnerImpl : public LearnerIO {
       this->ValidateDMatrix(m.get(), false);
       this->PredictRaw(m.get(), &predt, false, 0, 0);
 
-      auto& out = output_predictions_.Cache(m, ctx_.gpu_id).predictions;
-      out.Resize(predt.predictions.Size());
-      out.Copy(predt.predictions);
-
-      obj_->EvalTransform(&out);
+      HostDeviceVector<bst_float>* out;
+      if (IsGuest()) {
+        out = &output_predictions_.Cache(m, ctx_.gpu_id).predictions;
+        out->Resize(predt.predictions.Size());
+        out->Copy(predt.predictions);
+        obj_->EvalTransform(out);
+      }
       for (auto& ev : metrics_) {
         double metric;
         if (IsGuest()) {
-          metric = ev->Eval(out, m->Info());
+          metric = ev->Eval(*out, m->Info());
           if (IsFederated()) {
             xgb_server_->SendMetrics(iter, i, ev->Name(), metric);
           }

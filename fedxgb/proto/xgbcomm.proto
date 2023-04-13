@@ -24,6 +24,8 @@ service XgbService {
   rpc SendBlockInfo (BlockInfo) returns (Response) {}
   rpc GetNextNode (NextNode) returns (NextNode) {}
   rpc SendNextNode (NextNode) returns (Response) {}
+  rpc GetNextNodesV2 (Request) returns (NextNodesV2) {}
+  rpc SendNextNodesV2 (NextNodesV2) returns (Response) {}
   rpc GetMetric (MetricRequest) returns (MetricResponse) {}
   rpc Clear (Request) returns (Response) {}
 }
@@ -123,6 +125,11 @@ message NextNode {
   int32 nid = 2;
   bool flow_left = 3;
   //int32 next_nid = 3;
+}
+
+message NextNodesV2 {
+  int32 idx = 1;
+  map<uint32, uint32> next_ids = 2;
 }
 
 message MpzType {
