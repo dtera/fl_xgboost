@@ -158,7 +158,7 @@ void XgbServiceServer::Run() {
   builder.RegisterService(this);
   // Finally assemble the server.
   server_ = builder.BuildAndStart();
-  LOG(CONSOLE) << "RPC Server is listening on " << server_address_ << "..." << endl;
+  LOG(CONSOLE) << "** RPC Server is listening on " << server_address_ << "..." << endl;
   server_->Wait();
 }
 
@@ -166,7 +166,7 @@ void XgbServiceServer::Shutdown() {
   while (!finished_) {
   }
   this_thread::sleep_for(chrono::milliseconds(10));
-  INFO << "RPC Server Shutdown..." << endl;
+  INFO << "** RPC Server Shutdown..." << endl;
   server_->Shutdown();
   xgb_thread_->join();
 }
