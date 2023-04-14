@@ -96,7 +96,7 @@ class FedXgbTests extends SparkTest {
     params += "fl_on" -> 1
 
     val watches = new mutable.HashMap[String, DMatrix]
-    // watches += "train" -> trainMax
+    watches += "train" -> trainMax
     watches += "test" -> testMax
 
     val round = 3
@@ -122,7 +122,7 @@ class FedXgbTests extends SparkTest {
     params += "fl_on" -> 1
 
     val watches = new mutable.HashMap[String, DMatrix]
-    // watches += "train" -> trainMax
+    watches += "train" -> trainMax
     watches += "test" -> testMax
 
     val round = 3

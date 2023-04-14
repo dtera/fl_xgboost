@@ -52,7 +52,7 @@ template <bool has_missing, bool has_categorical>
 bst_node_t GetLeafIndex(RegTree const &tree, const RegTree::FVec &feat,
                         RegTree::CategoricalSplitMatrix const &cats, size_t k) {
   bst_node_t nid = 0;  // , prev_nid = nid;
-  if (IsFederated()) {
+  /*if (IsFederated()) {
     while (!tree[nid].IsLeaf()) {
       int64_t pid = nid;  // (k << 32) | nid;
       if (NotSelfPart(tree[nid].PartId())) {
@@ -77,6 +77,9 @@ bst_node_t GetLeafIndex(RegTree const &tree, const RegTree::FVec &feat,
     while (!tree[nid].IsLeaf()) {
       nid = GetNextNode<has_missing, has_categorical>(tree, nid, feat, cats);
     }
+  }*/
+  while (!tree[nid].IsLeaf()) {
+    nid = GetNextNode<has_missing, has_categorical>(tree, nid, feat, cats);
   }
   return nid;
 }
