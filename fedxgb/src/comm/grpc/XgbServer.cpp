@@ -313,7 +313,7 @@ void XgbServiceServer::GetNextNodesV2(
     cv.wait(lk);
   }  // wait for data holder part
   process_part_idxs(next_nodes_v2_[idx]);
-  next_nodes_v2_.erase(idx);
+  // next_nodes_v2_.erase(idx);
 }
 
 Status XgbServiceServer::GetPubKey(ServerContext* context, const Request* request,
@@ -595,7 +595,7 @@ Status XgbServiceServer::GetNextNodesV2(ServerContext* context, const Request* r
 #pragma ide diagnostic ignored "UnusedLocalVariable"
   auto next_ids = response->mutable_next_ids();
   *next_ids = next_nodes_v2_[request->idx()];
-  next_nodes_v2_.erase(request->idx());
+  // next_nodes_v2_.erase(request->idx());
 
   return Status::OK;
 }
@@ -633,9 +633,10 @@ Status XgbServiceServer::Clear(ServerContext* context, const Request* request, R
       cv.wait(lk);
     }  // wait for the label part
     next_nodes_clear_ = false;
+  } else if (request->idx() == 2) {
+    next_nodes_v2_.clear();
   } else {
     splits_.clear();
-    next_nodes_v2_.clear();
     if (cur_version == max_iter) {
       // cout << "cur_version: " << cur_version << ", max_iter: " << max_iter << endl;
       grad_pairs_.clear();

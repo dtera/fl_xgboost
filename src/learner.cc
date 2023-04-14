@@ -1436,6 +1436,10 @@ class LearnerImpl : public LearnerIO {
         }
         os << '\t' << data_names[i] << '-' << ev->Name() << ':' << metric;
       }
+
+      if (!IsGuest()) {
+        xgb_client_->Clear(2);
+      }
     }
     if (IsFederated()) {
       if (IsGuest()) {
