@@ -101,7 +101,7 @@ class XgbServiceServer final : public XgbService::Service {
   oneapi::tbb::concurrent_unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
   vector<boost::unordered_map<int32_t, const bool>> next_nodes_;
   vector<vector<boost::unordered_map<string, const double>>> metrics_;
-  std::unordered_map<int32_t, google::protobuf::Map<uint32_t, uint32_t>> next_nodes_v2_;
+  boost::unordered_map<int32_t, google::protobuf::Map<uint32_t, uint32_t>> next_nodes_v2_;
   bool finished_ = false;
   bool next_nodes_clear_ = false;
   // shared mutex to control updating the mask id

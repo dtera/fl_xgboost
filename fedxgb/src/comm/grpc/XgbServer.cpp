@@ -595,6 +595,7 @@ Status XgbServiceServer::GetNextNodesV2(ServerContext* context, const Request* r
 #pragma ide diagnostic ignored "UnusedLocalVariable"
   auto next_ids = response->mutable_next_ids();
   *next_ids = next_nodes_v2_[request->idx()];
+  next_nodes_v2_.erase(request->idx());
 
   return Status::OK;
 }
