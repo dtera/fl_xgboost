@@ -163,10 +163,12 @@ void XgbServiceServer::Run() {
 }
 
 void XgbServiceServer::Shutdown() {
+  std::unique_lock<std::mutex> lk(mtx);
   while (!finished_) {
-  }
+    cv.wait(lk);
+  }  // wait for the data holder part
   this_thread::sleep_for(chrono::milliseconds(10));
-  INFO << "** RPC Server Shutdown..." << endl;
+  LOG(CONSOLE) << "** RPC Server is Shutdowning..." << endl;
   server_->Shutdown();
   xgb_thread_->join();
 }
@@ -176,6 +178,12 @@ void XgbServiceServer::ResizeNextNode(size_t n) {
   next_nodes_clear_ = true;
   cv.notify_one();
   next_nodes_.resize(n);
+}
+
+void XgbServiceServer::ClearNextNodeV2() {
+  next_nodes_v2_.clear();
+  next_nodes_clear_ = true;
+  cv.notify_one();
 }
 
 void XgbServiceServer::ResizeMetrics(int iter, size_t n) {
@@ -588,14 +596,10 @@ Status XgbServiceServer::SendNextNode(ServerContext* context, const NextNode* re
 
 Status XgbServiceServer::GetNextNodesV2(ServerContext* context, const Request* request,
                                         NextNodesV2* response) {
-  std::unique_lock<std::mutex> lk(mtx);
-  while (next_nodes_v2_.count(request->idx()) == 0) {
-    cv.wait(lk);
-  }  // wait for label holder part
-#pragma ide diagnostic ignored "UnusedLocalVariable"
   auto next_ids = response->mutable_next_ids();
-  *next_ids = next_nodes_v2_[request->idx()];
-  // next_nodes_v2_.erase(request->idx());
+  GetNextNodesV2(request->idx(), [&](const google::protobuf::Map<uint32_t, uint32_t>& next_ids_) {
+    *next_ids = next_ids_;
+  });
 
   return Status::OK;
 }
@@ -633,14 +637,13 @@ Status XgbServiceServer::Clear(ServerContext* context, const Request* request, R
       cv.wait(lk);
     }  // wait for the label part
     next_nodes_clear_ = false;
-  } else if (request->idx() == 2) {
-    next_nodes_v2_.clear();
   } else {
     splits_.clear();
     if (cur_version == max_iter) {
       // cout << "cur_version: " << cur_version << ", max_iter: " << max_iter << endl;
       grad_pairs_.clear();
       finished_ = true;
+      cv.notify_one();
     }
   }
 

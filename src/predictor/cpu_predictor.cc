@@ -394,7 +394,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
       } while (!self_part_idxs[i].empty() || !other_part_idxs[i].empty());
 
       if (IsGuest()) {
-        parallel_for([&](const size_t batch_offset, const size_t block_size, const size_t offset) {
+        parallel_for([&](const size_t batch_offset, const size_t block_size, const size_t) {
           auto predict_offset = batch_offset + batch.base_rowid;
           if (has_categorical) {
             for (size_t i = 0; i < block_size; ++i) {
@@ -500,14 +500,16 @@ class CPUPredictor : public Predictor {
 
     std::vector<RegTree::FVec> feat_vecs;
     InitThreadTemp(n_threads * (blocked ? kBlockOfRowsSize : 1), &feat_vecs);
-    if (IsFederated()) {
-      if (IsGuest()) {
-        xgb_server_->ResizeNextNode(out_preds->size());
-      } else {
-        xgb_client_->Clear(1);
-      }
-    }
+
     for (auto const &batch : p_fmat->GetBatches<SparsePage>()) {
+      if (IsFederated()) {
+        if (IsGuest()) {
+          // xgb_server_->ResizeNextNode(out_preds->size());
+          xgb_server_->ClearNextNodeV2();
+        } else {
+          xgb_client_->Clear(1);
+        }
+      }
       CHECK_EQ(out_preds->size(),
                p_fmat->Info().num_row_ * model.learner_model_param->num_output_group);
       if (blocked) {

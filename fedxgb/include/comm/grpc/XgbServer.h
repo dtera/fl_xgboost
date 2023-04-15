@@ -126,6 +126,8 @@ class XgbServiceServer final : public XgbService::Service {
 
   void ResizeNextNode(size_t n);
 
+  void ClearNextNodeV2();
+
   void ResizeMetrics(int iter, size_t n);
 
   void SendPubKey(opt_public_key_t *pub);
