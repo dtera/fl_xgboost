@@ -334,7 +334,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
 
       std::size_t depth = 0;
       std::size_t j = tree_id - tree_begin;
-      // LOG(CONSOLE) << "j: " << j << ", tree_id: " << tree_id << endl;
+      // LOG(CONSOLE) << "tree_id: " << tree_id << ", preds.size: " << preds.size() << endl;
       do {
         other_part_idxs[j].clear();
         self_part_idxs[j].clear();
@@ -360,6 +360,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
         if (!self_part_idxs[j].empty()) {
           auto idx = GenIdxForNextIds(tree_id, fparam_->fl_part_id, depth);
           // send next node id to other part
+          // LOG(CONSOLE) << "idx: " << idx << ", self_part_id: " << fparam_->fl_part_id << endl;
           if (IsGuest()) {
             google::protobuf::Map<uint32_t, uint32_t> self_part_idx;
             for (auto part_idx : self_part_idxs[j]) {

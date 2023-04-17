@@ -1327,9 +1327,7 @@ class LearnerImpl : public LearnerIO {
       encrypted_gpair_.Resize(train->Info().num_row_);
       DEBUG << "encrypted_gpair_.size(): " << encrypted_gpair_.Size() << endl;
     }
-    if (IsGuest()) {
-      this->InitBaseScore(train.get());
-    }
+    this->InitBaseScore(train.get());
 
     if (ctx_.seed_per_iteration) {
       common::GlobalRandom().seed(ctx_.seed * kRandSeedMagic + iter);
@@ -1341,12 +1339,12 @@ class LearnerImpl : public LearnerIO {
     auto local_cache = this->GetPredictionCache();
     auto& predt = local_cache->Cache(train, ctx_.gpu_id);
 
-    if (IsGuest()) {
-      monitor_.Start("PredictRaw");
-      this->PredictRaw(train.get(), &predt, true, 0, 0);
-      TrainingObserver::Instance().Observe(predt.predictions, "Predictions");
-      monitor_.Stop("PredictRaw");
+    monitor_.Start("PredictRaw");
+    this->PredictRaw(train.get(), &predt, true, 0, 0);
+    TrainingObserver::Instance().Observe(predt.predictions, "Predictions");
+    monitor_.Stop("PredictRaw");
 
+    if (IsGuest()) {
       monitor_.Start("GetGradient");
       obj_->GetGradient(predt.predictions, train->Info(), iter, &gpair_, &encrypted_gpair_, pub_);
       monitor_.Stop("GetGradient");
