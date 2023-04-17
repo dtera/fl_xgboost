@@ -167,7 +167,7 @@ void XgbServiceServer::Shutdown() {
   while (!finished_) {
     cv.wait(lk);
   }  // wait for the data holder part
-  this_thread::sleep_for(chrono::milliseconds(10));
+  // this_thread::sleep_for(chrono::milliseconds(10));
   LOG(CONSOLE) << "** RPC Server is Shutdowning..." << endl;
   server_->Shutdown();
   xgb_thread_->join();
@@ -181,9 +181,17 @@ void XgbServiceServer::ResizeNextNode(size_t n) {
 }
 
 void XgbServiceServer::ClearNextNodeV2() {
+  std::unique_lock<std::mutex> lk(mtx);
+  while (!cli_next_nodes_clear_) {
+    // LOG(CONSOLE) << "ClearNextNodeV2 Wait Before" << endl;
+    cv.wait(lk);
+  }  // wait for the data part
+  // LOG(CONSOLE) << "ClearNextNodeV2 Wait After" << endl;
+  cli_next_nodes_clear_ = false;
+
   next_nodes_v2_.clear();
   next_nodes_clear_ = true;
-  cv.notify_one();
+  cv.notify_all();
 }
 
 void XgbServiceServer::ResizeMetrics(int iter, size_t n) {
@@ -238,6 +246,7 @@ void XgbServiceServer::SendNextNode(size_t k, int32_t nid, bool flow_left) {
 
 void XgbServiceServer::SendNextNodesV2(int idx,
                                        const google::protobuf::Map<uint32_t, uint32_t>& next_nids) {
+  // lock_guard lk(m);
   next_nodes_v2_.insert({idx, next_nids});
   cv.notify_all();
 }
@@ -321,6 +330,7 @@ void XgbServiceServer::GetNextNodesV2(
     cv.wait(lk);
   }  // wait for data holder part
   process_part_idxs(next_nodes_v2_[idx]);
+  // lock_guard lkg(m);
   // next_nodes_v2_.erase(idx);
 }
 
@@ -632,10 +642,14 @@ Status XgbServiceServer::Clear(ServerContext* context, const Request* request, R
     left_right_nodes_sizes_.clear();
     block_infos_.clear();
   } else if (request->idx() == 1) {
+    cli_next_nodes_clear_ = true;
+    cv.notify_all();
     std::unique_lock<std::mutex> lk(mtx);
     while (!next_nodes_clear_) {
+      // LOG(CONSOLE) << "Clear Wait Before" << endl;
       cv.wait(lk);
     }  // wait for the label part
+    // LOG(CONSOLE) << "Clear Wait After" << endl;
     next_nodes_clear_ = false;
   } else {
     splits_.clear();

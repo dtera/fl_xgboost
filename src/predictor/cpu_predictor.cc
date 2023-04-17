@@ -147,7 +147,7 @@ template <bool has_categorical>
 void FlowToByOneTree(const RegTree::FVec &p_feats, RegTree const &tree,
                      RegTree::CategoricalSplitMatrix const &cats, size_t k, bst_node_t leaf_nids[],
                      oneapi::tbb::concurrent_unordered_map<uint32_t, uint32_t> &self_part_idxs,
-                     std::unordered_set<bst_node_t> &other_part_idxs) {
+                     oneapi::tbb::concurrent_unordered_set<bst_node_t> &other_part_idxs) {
   if (!tree[leaf_nids[k]].IsLeaf()) {
     if (NotSelfPart(tree[leaf_nids[k]].PartId())) {
       other_part_idxs.insert(tree[leaf_nids[k]].PartId());
@@ -313,10 +313,16 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
   };
 
   if (IsFederated()) {
+    if (IsGuest()) {
+      // xgb_server_->ResizeNextNode(out_preds->size());
+      xgb_server_->ClearNextNodeV2();
+    } else {
+      xgb_client_->Clear(1);
+    }
     bst_node_t leaf_nids[tree_end - tree_begin][out_preds->size()];
     std::memset(leaf_nids, 0, sizeof(leaf_nids));
     oneapi::tbb::concurrent_unordered_map<uint32_t, uint32_t> self_part_idxs[tree_end - tree_begin];
-    std::unordered_set<bst_node_t> other_part_idxs[tree_end - tree_begin];
+    oneapi::tbb::concurrent_unordered_set<bst_node_t> other_part_idxs[tree_end - tree_begin];
 
     std::vector<bst_float> &preds = *out_preds;
 
@@ -327,10 +333,11 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
       auto has_categorical = tree.HasCategoricalSplit();
 
       std::size_t depth = 0;
-      std::size_t i = tree_id - tree_begin;
+      std::size_t j = tree_id - tree_begin;
+      // LOG(CONSOLE) << "j: " << j << ", tree_id: " << tree_id << endl;
       do {
-        other_part_idxs[i].clear();
-        self_part_idxs[i].clear();
+        other_part_idxs[j].clear();
+        self_part_idxs[j].clear();
         parallel_for([&](const size_t batch_offset, const size_t block_size, const size_t offset) {
           FVecFill(block_size, batch_offset, num_feature, &batch, offset, p_thread_temp);
           auto predict_offset = batch_offset + batch.base_rowid;
@@ -338,35 +345,36 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
             for (size_t i = 0; i < block_size; ++i) {
               size_t k = (predict_offset + i) * num_group + gid;
               FlowToByOneTree<true>(thread_temp[offset + i], tree, cats, k, leaf_nids[i],
-                                    self_part_idxs[i], other_part_idxs[i]);
+                                    self_part_idxs[j], other_part_idxs[j]);
             }
           } else {
             for (size_t i = 0; i < block_size; ++i) {
               size_t k = (predict_offset + i) * num_group + gid;
               FlowToByOneTree<false>(thread_temp[offset + i], tree, cats, k, leaf_nids[i],
-                                     self_part_idxs[i], other_part_idxs[i]);
+                                     self_part_idxs[j], other_part_idxs[j]);
             }
           }
           FVecDrop(block_size, batch_offset, &batch, offset, p_thread_temp);
         });
 
-        if (!self_part_idxs[i].empty()) {
+        if (!self_part_idxs[j].empty()) {
           auto idx = GenIdxForNextIds(tree_id, fparam_->fl_part_id, depth);
           // send next node id to other part
           if (IsGuest()) {
             google::protobuf::Map<uint32_t, uint32_t> self_part_idx;
-            for (auto part_idx : self_part_idxs[i]) {
+            for (auto part_idx : self_part_idxs[j]) {
               self_part_idx.insert({part_idx.first, part_idx.second});
             };
             xgb_server_->SendNextNodesV2(idx, self_part_idx);
           } else {
-            xgb_client_->SendNextNodesV2(idx, self_part_idxs[i]);
+            xgb_client_->SendNextNodesV2(idx, self_part_idxs[j]);
           }
         }
+        // LOG(CONSOLE) << "SendNextNodesV2 End, depth: " << depth << endl;
 
-        if (!other_part_idxs[i].empty()) {
+        if (!other_part_idxs[j].empty()) {
           std::for_each(
-              other_part_idxs[i].begin(), other_part_idxs[i].end(), [&](bst_node_t other_part_id) {
+              other_part_idxs[j].begin(), other_part_idxs[j].end(), [&](bst_node_t other_part_id) {
                 auto idx = GenIdxForNextIds(tree_id, other_part_id, depth);
                 // receive next node id from other part
                 auto process_part_idxs =
@@ -374,9 +382,10 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
                       std::for_each(
                           next_ids.begin(), next_ids.end(),
                           [&](google::protobuf::MapPair<unsigned int, unsigned int> id_pair) {
-                            leaf_nids[i][id_pair.first] = id_pair.second;
+                            leaf_nids[j][id_pair.first] = id_pair.second;
                           });
                     };
+                // LOG(CONSOLE) << "idx: " << idx << ", other_part_id: " << other_part_id << endl;
                 if (IsGuest()) {
                   xgb_server_->GetNextNodesV2(idx, process_part_idxs);
                 } else {
@@ -384,6 +393,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
                 }
               });
         }
+        // LOG(CONSOLE) << "GetNextNodesV2 End, depth: " << depth << endl;
 
         /*cout << FederatedParam::getRole(fparam_->fl_role) << ": [" << leaf_nids[tree_id][0];
         for (int i = 1; i < out_preds->size() * 0.01; ++i) {
@@ -391,7 +401,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
         }
         cout << "]" << endl;*/
         depth++;
-      } while (!self_part_idxs[i].empty() || !other_part_idxs[i].empty());
+      } while (!self_part_idxs[j].empty() || !other_part_idxs[j].empty());
 
       if (IsGuest()) {
         parallel_for([&](const size_t batch_offset, const size_t block_size, const size_t) {
@@ -409,6 +419,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
           }
         });
       }
+      // LOG(CONSOLE) << "depth: " << depth << endl;
     }
   } else {
     parallel_for([&](const size_t batch_offset, const size_t block_size, const size_t fvec_offset) {
@@ -502,14 +513,6 @@ class CPUPredictor : public Predictor {
     InitThreadTemp(n_threads * (blocked ? kBlockOfRowsSize : 1), &feat_vecs);
 
     for (auto const &batch : p_fmat->GetBatches<SparsePage>()) {
-      if (IsFederated()) {
-        if (IsGuest()) {
-          // xgb_server_->ResizeNextNode(out_preds->size());
-          xgb_server_->ClearNextNodeV2();
-        } else {
-          xgb_client_->Clear(1);
-        }
-      }
       CHECK_EQ(out_preds->size(),
                p_fmat->Info().num_row_ * model.learner_model_param->num_output_group);
       if (blocked) {

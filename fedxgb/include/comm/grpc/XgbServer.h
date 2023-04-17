@@ -19,6 +19,7 @@
 
 #include "common.h"
 #include "tbb/concurrent_unordered_map.h"
+#include "tbb/concurrent_unordered_set.h"
 #include "tree/hist/expand_entry.h"
 #include "xgbcomm.grpc.pb.h"
 
@@ -104,6 +105,7 @@ class XgbServiceServer final : public XgbService::Service {
   boost::unordered_map<int32_t, google::protobuf::Map<uint32_t, uint32_t>> next_nodes_v2_;
   bool finished_ = false;
   bool next_nodes_clear_ = false;
+  bool cli_next_nodes_clear_ = false;
   // shared mutex to control updating the mask id
   shared_timed_mutex m{};
   mutex mtx{};
