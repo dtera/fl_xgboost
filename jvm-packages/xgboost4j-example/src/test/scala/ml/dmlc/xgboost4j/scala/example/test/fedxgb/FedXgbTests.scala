@@ -34,6 +34,7 @@ class FedXgbTests extends SparkTest {
   params += "max_depth" -> 8
   params += "seed" -> 0
   params += "min_child_weight" -> 0
+  params += "missing" -> 0f
   params += "verbosity" -> 1
   params += "objective" -> "reg:squarederror"
   params += "tree_method" -> "hist"
@@ -51,8 +52,10 @@ class FedXgbTests extends SparkTest {
     params += "fl_part_id" -> 0
     params += "fl_on" -> 1
 
-    val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f)
+    val xgbClassifier = new XGBoostClassifier(params.toMap)
     val xgbModel = xgbClassifier.fit(trainInput)
+    val modelDir = "./model/a9a.guest.xgb.spark"
+    xgbModel.write.overwrite().option("format", "json").save(modelDir)
 
     val evaluator = new BinaryClassificationEvaluator()
       .setLabelCol("label")
@@ -73,16 +76,12 @@ class FedXgbTests extends SparkTest {
     params += "fl_part_id" -> 1
     params += "fl_on" -> 1
 
-    val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f)
+    val xgbClassifier = new XGBoostClassifier(params.toMap)
     val xgbModel = xgbClassifier.fit(trainInput)
+    val modelDir = "./model/a9a.host.xgb.spark"
+    xgbModel.write.overwrite().option("format", "json").save(modelDir)
 
-    val evaluator = new BinaryClassificationEvaluator()
-      .setLabelCol("label")
-      .setRawPredictionCol("rawPrediction")
-      .setMetricName("areaUnderROC")
-
-    val testAUC = evaluator.evaluate(xgbModel.transform(testInput))
-    println(s"Test AUC: $testAUC")
+    xgbModel.transform(testInput).count()
   }
 
   "[guest]fed xgb" should "work with a9a dataset" in {
