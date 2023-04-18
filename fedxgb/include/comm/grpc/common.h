@@ -29,6 +29,11 @@ enum class XgbCommType {
 struct GradPair {
   mpz_t grad;
   mpz_t hess;
+
+  friend std::ostream &operator<<(std::ostream &os, const GradPair &p) {
+    os << "grad: " << mpz_get_d(p.grad) << ", hess: " << mpz_get_d(p.hess);
+    return os;
+  }
 };
 
 struct XgbEncryptedSplit {

@@ -30,14 +30,19 @@ list(REMOVE_ITEM SOURCES ${RM_SRCS})
 #        CMAKE_ARGS ${TBB_CMAKE_ARGS}
 #        )
 
-# brew install grpc googletest helib libomp openssl protobuf tbb xgboost
+# brew install grpc googletest helib libomp openssl protobuf tbb xgboost libpulsar
 if (APPLE)
     # execute_process(COMMAND brew install grpc googletest helib libomp protobuf xgboost tbb)
     set(OPENSSL_ROOT_DIR /usr/local/opt/openssl /opt/homebrew/opt/openssl)
     set(OPENSSL_INCLUDE_DIR /usr/local/opt/openssl/include /opt/homebrew/opt/openssl/include)
     set(OPENSSL_LIBRARIES /usr/local/opt/openssl/lib /opt/homebrew/opt/openssl/lib)
+    set(PULSAR_ROOT_DIR /opt/homebrew/opt/libpulsar)
+else ()
+    set(PULSAR_ROOT_DIR /usr)
 endif ()
-foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest:CONFIG helib OpenMP OpenSSL Protobuf Opt@TBB Threads)
+
+foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest:CONFIG helib OpenMP OpenSSL
+        Protobuf Pulsar Opt@TBB Threads)
     string(REGEX REPLACE "(:(.*)?)|(Opt@)" "" pkg_name ${pkg})
     string(REGEX MATCH ":(.*)?$" f1 ${pkg})
     string(FIND ${pkg} "Opt@" f2)
@@ -101,7 +106,7 @@ include_directories(./include ./src ../src ${PROTO_GENERATED_DIR}  # ${TBB_PREFI
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
 target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES} protobuf::libprotobuf protobuf::libprotobuf-lite
-        OpenMP::OpenMP_CXX gRPC::gpr gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection helib TBB::tbb)
+        OpenMP::OpenMP_CXX gRPC::gpr gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection helib TBB::tbb ${PULSAR_LIBRARIES})
 #add_dependencies(${PROJECT_NAME}_lib tbb)
 
 set(EXE_TARGETS)
