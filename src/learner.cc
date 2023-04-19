@@ -525,6 +525,15 @@ class LearnerConfiguration : public Learner {
 
     // config rpc service for xgb
     if (IsFederated()) {
+      if (IsPulsar()) {
+        xgb_pulsar_ = FIND_XGB_SERVICE(XgbPulsarService);
+        xgb_pulsar_->max_iter =
+            cfg_.count("num_round") == 0 ? 1 : std::atoi(cfg_["num_round"].c_str());
+        xgb_pulsar_->Start(fparam_->fl_pulsar_url, fparam_->fl_pulsar_topic_prefix,
+                           fparam_->fl_pulsar_token, fparam_->fl_pulsar_tenant,
+                           fparam_->fl_pulsar_namespace);
+      }
+
       if (IsGuest()) {
         // server_.reset(new XgbServiceServer(fparam_->fl_port));
         xgb_server_ = FIND_XGB_SERVICE(XgbServiceServer);
@@ -1351,9 +1360,15 @@ class LearnerImpl : public LearnerIO {
       TrainingObserver::Instance().Observe(gpair_, "Gradients");
 
       if (IsFederated()) {
-        xgb_server_->cur_version = iter;
         monitor_.Start("SendEncryptedGradient");
-        xgb_server_->SendGradPairs(encrypted_gpair_.HostVector());
+        if (IsPulsar()) {
+          xgb_pulsar_->cur_version = iter;
+          xgb_pulsar_->SendEncryptedGradPairs(encrypted_gpair_.HostVector());
+        } else {
+          xgb_server_->cur_version = iter;
+          xgb_server_->SendGradPairs(encrypted_gpair_.HostVector());
+        }
+        LOG(CONSOLE) << "SendEncryptedGradPairs End" << endl;
         monitor_.Stop("SendEncryptedGradient");
         TrainingObserver::Instance().Observe(encrypted_gpair_, "EncryptedGradients");
         // For checking the encrypted gradient pairs
@@ -1365,8 +1380,15 @@ class LearnerImpl : public LearnerIO {
         xgb_server_->cur_version = iter + 1;
       }
     } else {
-      xgb_client_->cur_version = iter;
-      xgb_client_->GetEncryptedGradPairs(encrypted_gpair_.HostVector());
+      if (IsPulsar()) {
+        xgb_pulsar_->cur_version = iter;
+        encrypted_gpair_.Resize(train->Info().num_row_);
+        xgb_pulsar_->GetEncryptedGradPairs(encrypted_gpair_.HostVector());
+      } else {
+        xgb_client_->cur_version = iter;
+        xgb_client_->GetEncryptedGradPairs(encrypted_gpair_.HostVector());
+      }
+      LOG(CONSOLE) << "GetEncryptedGradPairs End" << endl;
       gbm_->DoBoost(train.get(), &encrypted_gpair_, &predt, obj_.get());
     }
     monitor_.Stop("UpdateOneIter");

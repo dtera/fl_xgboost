@@ -5,8 +5,8 @@
 
 #include <random>
 
+#include "comm/XgbServiceRegistry.h"
 #include "comm/grpc/GRPCComm.hpp"
-#include "comm/grpc/XgbServiceRegistry.h"
 #include "opt_paillier.h"
 
 using namespace std;

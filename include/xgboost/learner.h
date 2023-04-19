@@ -22,7 +22,7 @@
 #include <utility>
 #include <vector>
 
-#include "comm/grpc/XgbServiceRegistry.h"
+#include "comm/XgbServiceRegistry.h"
 
 namespace xgboost {
 

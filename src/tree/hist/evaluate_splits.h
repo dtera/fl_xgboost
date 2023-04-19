@@ -18,7 +18,7 @@
 #include "../constraints.h"
 #include "../param.h"
 #include "../split_evaluator.h"
-#include "comm/grpc/XgbServiceRegistry.h"
+#include "comm/XgbServiceRegistry.h"
 #include "ssl_util.h"
 #include "xgboost/federated_param.h"
 

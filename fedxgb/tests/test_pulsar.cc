@@ -4,7 +4,6 @@
 
 #include <gtest/gtest.h>
 
-#include <boost/algorithm/string.hpp>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -23,7 +22,7 @@ TEST(pulsar, send) {
     mpz_set_d(mpz_temp, 100 + i);
     cout << "mpz_temp: " << mpz_get_d(mpz_temp) << endl;
     cout << "mpz_temp._mp_size: " << mpz_temp->_mp_size << endl;
-    pulsarClient.send<mpz_t, xgbcomm::MpzType>(
+    pulsarClient.Send<mpz_t, xgbcomm::MpzType>(
         "xxx_" + to_string(i), mpz_temp,
         [&](xgbcomm::MpzType *m, const mpz_t &data) { mpz_t2_mpz_type(m, data); });
   }
@@ -35,7 +34,7 @@ TEST(pulsar, receive) {
   mpz_inits(mpz_res);
 
   for (int i = 0; i < n; ++i) {
-    pulsarClient.receive<mpz_t, xgbcomm::MpzType>(
+    pulsarClient.Receive<mpz_t, xgbcomm::MpzType>(
         "xxx_" + to_string(i), mpz_res,
         [&](mpz_t &data, const xgbcomm::MpzType &m) { mpz_type2_mpz_t(data, m); });
     cout << endl << "mpz_res: " << mpz_get_d(mpz_res) << endl;
@@ -43,38 +42,36 @@ TEST(pulsar, receive) {
   }
 }
 
-TEST(pulsar, sendGradPairs) {
+TEST(pulsar, BatchSend) {
   PulsarClient pulsarClient;
-  vector<GradPair> grad_pairs;
+  vector<int> grad_pairs;
   for (int i = 0; i < n; ++i) {
-    GradPair p;
-    // mpz_inits(p.grad, p.hess);
-    grad_pairs.emplace_back(p);
+    grad_pairs.emplace_back(i);
   }
-  pulsarClient.send<vector<GradPair>, xgbcomm::GradPairsResponse>(
-      "grad_pair", grad_pairs, [&](xgbcomm::GradPairsResponse *m, const vector<GradPair> &data) {
-        for (auto grad_pair : grad_pairs) {
-          cout << "grad_pair: " << grad_pair << endl;
-          auto encrypted_grad_pair = m->mutable_encrypted_grad_pairs()->Add();
-          mpz_t2_mpz_type(encrypted_grad_pair, grad_pair);
-        }
-      });
+  pulsarClient.BatchSend<int, xgbcomm::Request>(
+      "grad_pair12", grad_pairs, [&](xgbcomm::Request *m, const int &data) { m->set_idx(data); },
+      true);
 }
 
-TEST(pulsar, receiveGradPairs) {
+TEST(pulsar, BatchReceive) {
   PulsarClient pulsarClient;
-  vector<GradPair> grad_pairs;
+  vector<int> grad_pairs;
+  grad_pairs.resize(n);
 
-  pulsarClient.receive<vector<GradPair>, xgbcomm::GradPairsResponse>(
-      "grad_pair", grad_pairs, [&](vector<GradPair> &data, const xgbcomm::GradPairsResponse &m) {
-        for (auto encrypted_grad_pair : m.encrypted_grad_pairs()) {
-          GradPair p;
-          mpz_type2_mpz_t(p, encrypted_grad_pair);
-          data.emplace_back(p);
-        }
-      });
+  pulsarClient.BatchReceive<int, xgbcomm::Request>(
+      "grad_pair12", grad_pairs, [&](int &data, const xgbcomm::Request &m) { data = m.idx(); },
+      true);
 
-  for (auto grad_pair : grad_pairs) {
-    cout << "grad_pair: " << grad_pair << endl;
+  for (int i = 0; i < n; ++i) {
+    if (i % 1000 == 0) {
+      cout << "grad_pair: " << grad_pairs[i] << endl;
+    }
   }
+}
+
+TEST(pulsar, test) {
+  char buff[13];
+  time_t now = time(NULL);
+  strftime(buff, 13, "%Y%m%d%H%M", localtime(&now));
+  cout << std::string(buff).substr(0, 11) << endl;
 }
