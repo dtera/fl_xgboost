@@ -4,15 +4,39 @@
 
 #pragma once
 
+#include <boost/algorithm/string.hpp>
+
 #include "comm/grpc/common.h"
 #include "comm/pulsar/PulsarClient.hpp"
+#include "tree/hist/expand_entry.h"
 
 class XgbPulsarService {
  private:
   std::unique_ptr<PulsarClient> client;
   std::int32_t n_threads;
+  opt_private_key_t* pri;
+  opt_public_key_t* pub;
 
-  inline std::string GradPairTopic() { return "grad_pairs_" + std::to_string(cur_version); }
+  inline std::string PubKeyTopic() { return "pub_key"; }
+
+  inline std::string GradPairTopic() { return "grad_pairs_iter-" + std::to_string(cur_version); }
+
+  inline std::string SplitsTopic(const std::uint32_t nid) {
+    return "splits_iter-" + std::to_string(cur_version) + "_nid-" + std::to_string(nid);
+  }
+
+  inline std::string BestSplitTopic(const std::uint32_t nid) {
+    return "best_split_iter-" + std::to_string(cur_version) + "_nid-" + std::to_string(nid);
+  }
+
+  inline std::string SplitValidTopic(const std::uint32_t nid, const bool is_push = false) {
+    return "split_valid_iter-" + std::to_string(cur_version) + "_nid-" + std::to_string(nid) +
+           (is_push ? "_pushed" : "");
+  }
+
+  inline std::string SplitsValidTopic(const std::uint32_t nids) {
+    return "splits_valid_iter-" + std::to_string(cur_version) + "_nids-" + std::to_string(nids);
+  }
 
  public:
   uint32_t cur_version{0};
@@ -32,7 +56,35 @@ class XgbPulsarService {
              const std::string& pulsar_namespace = "fl-algorithm",
              const std::int32_t n_threads = omp_get_num_procs());
 
+  void SetPriKey(opt_private_key_t* pri_);
+
+  void SendPubKey(opt_public_key_t* pub_);
+
+  void GetPubKey(opt_public_key_t** pub_);
+
   void SendEncryptedGradPairs(const std::vector<xgboost::EncryptedGradientPair>& grad_pairs);
 
   void GetEncryptedGradPairs(std::vector<xgboost::EncryptedGradientPair>& grad_pairs);
+
+  void SendEncryptedSplits(const xgbcomm::SplitsRequest& sr);
+
+  void GetEncryptedSplits(
+      const std::uint32_t nid, xgbcomm::SplitsRequest& sr,
+      std::function<void(std::uint32_t, xgboost::tree::GradStats<double>&,
+                         xgboost::tree::GradStats<double>&, const xgbcomm::SplitsRequest&)>
+          update_grad_stats);
+
+  template <typename ExpandEntry>
+  void SendBestSplit(int bestIdx, ExpandEntry& entry, const xgbcomm::SplitsRequest& sr);
+
+  void GetBestSplit(const std::uint32_t nid,
+                    std::function<void(xgbcomm::SplitsResponse&)> process_best_split);
+
+  void SendSplitValid(const std::uint32_t nid, const bool split_valid, const bool is_push = false);
+
+  bool GetSplitValid(const std::uint32_t nid, const bool is_push = false);
+
+  void SendSplitsValid(const std::map<std::uint32_t, std::pair<bool, bool>>& splits_valid);
+
+  void GetSplitsValid(std::map<std::uint32_t, std::pair<bool, bool>>& splits_valid);
 };

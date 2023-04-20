@@ -338,19 +338,38 @@ class HistEvaluator {
                            const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) const {
     if (IsFederated()) {
       e.split.part_id = fparam_->fl_part_id;
-      xgb_server_->UpdateFinishSplits(e.nid, false);
-      // update expand entry for the data holder part
-      xgb_server_->UpdateExpandEntry(e, [&](uint32_t i, GradStats<double> &left_sum,
-                                            GradStats<double> &right_sum, const SplitsRequest &sr) {
-        auto es = sr.encrypted_splits()[i];
-        // update grad statistics for the data holder part
-        auto updated = EnumerateUpdate(-1, 0, sr.nidx(), 0.0, evaluator, left_sum, right_sum,
-                                       e.split, es.d_step(), es.default_left(), es.is_cat());
-        if (updated) {
-          e.split.part_id = sr.part_id();
-          xgb_server_->UpdateBestEncryptedSplit(sr.nidx(), es);
-        }
-      });
+      if (IsPulsar()) {
+        SplitsRequest sr;
+        std::atomic<int> bestIdx{-1};
+        xgb_pulsar_->GetEncryptedSplits(e.nid, sr,
+                                        [&](uint32_t i, GradStats<double> &left_sum,
+                                            GradStats<double> &right_sum, const SplitsRequest &) {
+                                          auto es = sr.encrypted_splits()[i];
+                                          auto updated = EnumerateUpdate(
+                                              -1, 0, sr.nidx(), 0.0, evaluator, left_sum, right_sum,
+                                              e.split, es.d_step(), es.default_left(), es.is_cat());
+                                          if (updated) {
+                                            e.split.part_id = sr.part_id();
+                                            bestIdx = i;
+                                          }
+                                        });
+        xgb_pulsar_->SendBestSplit(bestIdx.load(), e, sr);
+      } else {
+        xgb_server_->UpdateFinishSplits(e.nid, false);
+        // update expand entry for the data holder part
+        xgb_server_->UpdateExpandEntry(
+            e, [&](uint32_t i, GradStats<double> &left_sum, GradStats<double> &right_sum,
+                   const SplitsRequest &sr) {
+              auto es = sr.encrypted_splits()[i];
+              // update grad statistics for the data holder part
+              auto updated = EnumerateUpdate(-1, 0, sr.nidx(), 0.0, evaluator, left_sum, right_sum,
+                                             e.split, es.d_step(), es.default_left(), es.is_cat());
+              if (updated) {
+                e.split.part_id = sr.part_id();
+                xgb_server_->UpdateBestEncryptedSplit(sr.nidx(), es);
+              }
+            });
+      }
     }
   }
 
@@ -359,7 +378,7 @@ class HistEvaluator {
                         SplitsRequest &sr) const {
     auto const &cut_ptrs = cut.Ptrs();
     sr.set_part_id(fparam_->fl_part_id);
-    xgb_client_->SendEncryptedSplits(sr, [&](SplitsResponse &response) {
+    auto process_best_split = [&](SplitsResponse &response) {
       bst_feature_t fidx = 0;
       bst_float split_pt = 0;
 
@@ -399,7 +418,13 @@ class HistEvaluator {
       } else {
         e.split.Update(fidx, split_pt, es.default_left(), response.part_id(), left_sum, right_sum);
       }
-    });
+    };
+    if (IsPulsar()) {
+      xgb_pulsar_->SendEncryptedSplits(sr);
+      xgb_pulsar_->GetBestSplit(e.nid, process_best_split);
+    } else {
+      xgb_client_->SendEncryptedSplits(sr, process_best_split);
+    }
   }
 
   void EvaluateSplits(const common::HistCollection<H> &hist, common::HistogramCuts const &cut,

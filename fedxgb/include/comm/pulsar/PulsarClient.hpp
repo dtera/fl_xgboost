@@ -42,7 +42,11 @@ class PulsarClient {
     client_config.setMemoryLimit(std::numeric_limits<std::uint64_t>().max());
     client = std::make_unique<pulsar::Client>(pulsar_url, client_config);
 
-    producer_config.setBatchingEnabled(true);
+    producer_config.setBatchingEnabled(false);
+    producer_config.setChunkingEnabled(true);
+    producer_config.setPartitionsRoutingMode(pulsar::ProducerConfiguration::UseSinglePartition);
+    producer_config.setLazyStartPartitionedProducers(true);
+
     producer_config.setBlockIfQueueFull(true);
     producer_config.setBatchingMaxMessages(pulsar_batch_max_size);
     producer_config.setMaxPendingMessages(pulsar_batch_max_size);
@@ -57,22 +61,26 @@ class PulsarClient {
   template <typename T, typename M>
   void Send(const std::string& topic, const T& data,
             std::function<void(M*, const T&)> convertObj2PB) {
+    M pbMsg;
+    convertObj2PB(&pbMsg, data);
+    Send(topic, pbMsg);
+  }
+
+  void Send(const std::string& topic, const google::protobuf::MessageLite& pbMsg) {
+    std::string serialized;
+    pbMsg.SerializeToString(&serialized);
+    Send(topic, serialized);
+  }
+
+  void Send(const std::string& topic, const std::string& content) {
     try {
       pulsar::Producer producer;
-      producer_config.setBatchingEnabled(false);
-      producer_config.setChunkingEnabled(true);
-      producer_config.setPartitionsRoutingMode(pulsar::ProducerConfiguration::UseSinglePartition);
-      producer_config.setLazyStartPartitionedProducers(true);
       client->createProducer(pulsar_topic_prefix + topic, producer_config, producer);
 
-      M pb_msg;
-      convertObj2PB(&pb_msg, data);
-      std::string serialized;
-      pb_msg.SerializeToString(&serialized);
-      auto message = pulsar::MessageBuilder().setContent(std::move(serialized)).build();
+      auto message = pulsar::MessageBuilder().setContent(std::move(content)).build();
       producer.send(message);
 
-      producer.close();
+      // producer.close();
     } catch (const std::exception& ex) {
       throw std::runtime_error(std::string("Failed to send message: ") + ex.what());
     }
@@ -81,19 +89,30 @@ class PulsarClient {
   template <typename T, typename M>
   void Receive(const std::string& topic, T& data, std::function<void(T&, const M&)> convertPB2Obj,
                const std::string& subscriptionName = "federated_xgb_subscription") {
+    M pbMsg;
+    Receive(topic, pbMsg, subscriptionName);
+    convertPB2Obj(data, pbMsg);
+  }
+
+  void Receive(const std::string& topic, google::protobuf::MessageLite& pbMsg,
+               const std::string& subscriptionName = "federated_xgb_subscription") {
+    std::string content;
+    Receive(topic, content, subscriptionName);
+    pbMsg.ParseFromString(std::move(content));
+  }
+
+  void Receive(const std::string& topic, std::string& content,
+               const std::string& subscriptionName = "federated_xgb_subscription") {
     try {
       pulsar::Consumer consumer;
       client->subscribe(pulsar_topic_prefix + topic, subscriptionName, consumer_config, consumer);
 
       auto message = pulsar::Message();
       consumer.receive(message);
-
-      M pb_msg;
-      pb_msg.ParseFromString(message.getDataAsString());
-      convertPB2Obj(data, pb_msg);
-
+      content = std::move(message.getDataAsString());
       consumer.acknowledge(message);
-      consumer.close();
+
+      // consumer.close();
     } catch (const std::exception& ex) {
       throw std::runtime_error(std::string("Failed to receive message: ") + ex.what());
     }
@@ -104,6 +123,10 @@ class PulsarClient {
                  const std::function<void(M*, const T&)> convertObj2PB, const bool waited = false) {
     try {
       pulsar::Producer producer;
+      producer_config.setBatchingEnabled(true);
+      producer_config.setChunkingEnabled(false);
+      producer_config.setPartitionsRoutingMode(
+          pulsar::ProducerConfiguration::RoundRobinDistribution);
       client->createProducer(pulsar_topic_prefix + topic, producer_config, producer);
 
       std::atomic<std::uint32_t> msgSize{0};

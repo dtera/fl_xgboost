@@ -234,12 +234,21 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
   Driver<CPUExpandEntry> driver(param_);
   driver.Push(this->InitRoot<T>(p_fmat, p_tree, gpair_h));
   auto const &tree = *p_tree;
-  auto expand_set =
-      is_same<float, T>()
-          ? driver.Pop()
-          : driver.Pop([](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
-              return xgb_client_->IsSplitEntryValid(e.nid, num_leaves);
-            });
+  auto expand_set = driver.Pop([](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
+    if (is_same<float, T>()) {
+      auto is_valid = e.IsValid(param, num_leaves);
+      if (IsPulsar()) {
+        xgb_pulsar_->SendSplitValid(e.nid, is_valid);
+      }
+      return is_valid;
+    } else {
+      if (IsPulsar()) {
+        return xgb_pulsar_->GetSplitValid(e.nid);
+      } else {
+        return xgb_client_->IsSplitEntryValid(e.nid, num_leaves);
+      }
+    }
+  });
 
   while (!expand_set.empty()) {
     // candidates that can be further splited.
@@ -292,15 +301,47 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
         break;
       }
     }
+    std::map<std::uint32_t, std::pair<bool, bool>> splits_valid;
     if (is_same<float, T>()) {
-      driver.Push(best_splits.begin(), best_splits.end());
-      expand_set = driver.Pop();
-    } else {
-      driver.Push(best_splits.begin(), best_splits.end(), [](const CPUExpandEntry &e) {
-        return xgb_client_->IsSplitEntryValid(e.nid, -1);
+      driver.Push(best_splits.begin(), best_splits.end(), [&](const CPUExpandEntry &e) {
+        auto is_valid = e.split.loss_chg > kRtEps;
+        if (IsPulsar()) {
+          splits_valid.insert({e.nid, {false, is_valid}});
+          ;
+        }
+        return is_valid;
       });
-      expand_set = driver.Pop([](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
-        return xgb_client_->IsSplitEntryValid(e.nid, num_leaves);
+
+      expand_set = driver.Pop([&](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
+        auto is_valid = e.IsValid(param, num_leaves);
+        if (IsPulsar() && is_valid) {
+          splits_valid[e.nid].first = true;
+        }
+        return is_valid;
+      });
+      if (IsPulsar()) {
+        xgb_pulsar_->SendSplitsValid(splits_valid);
+      }
+    } else {
+      if (IsPulsar()) {
+        std::for_each(best_splits.begin(), best_splits.end(), [&](auto &e) {
+          splits_valid.insert({e.nid, {false, false}});
+        });
+        xgb_pulsar_->GetSplitsValid(splits_valid);
+      }
+      driver.Push(best_splits.begin(), best_splits.end(), [&](const CPUExpandEntry &e) {
+        if (IsPulsar()) {
+          return splits_valid[e.nid].second;
+        } else {
+          return xgb_client_->IsSplitEntryValid(e.nid, -1);
+        }
+      });
+      expand_set = driver.Pop([&](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
+        if (IsPulsar()) {
+          return splits_valid[e.nid].first;
+        } else {
+          return xgb_client_->IsSplitEntryValid(e.nid, num_leaves);
+        }
       });
     }
   }

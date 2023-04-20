@@ -21,7 +21,7 @@ inline bool DepthWise(const ExpandEntryT& lhs, const ExpandEntryT& rhs) {
 template <typename ExpandEntryT>
 inline bool LossGuide(const ExpandEntryT& lhs, const ExpandEntryT& rhs) {
   if (lhs.GetLossChange() == rhs.GetLossChange()) {
-    return lhs.GetNodeId() > rhs.GetNodeId();  // favor small timestamp
+    return lhs.GetNodeId() > rhs.GetNodeId();          // favor small timestamp
   } else {
     return lhs.GetLossChange() < rhs.GetLossChange();  // favor large loss_chg
   }

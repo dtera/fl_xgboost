@@ -90,6 +90,46 @@ void mpz_type2_mpz_t(EncryptedType<T> &m_t, const xgbcomm::MpzType &mt) {
   }
 }
 
+template <typename T>
+void println_vector(const std::vector<T> &vs, const std::string &name,
+                    const std::string &sep = ", ") {
+  std::cout << name << "(len:" << vs.size() << ")--> [";
+  if (vs.size() != 0) {
+    std::cout << vs[0];
+  }
+  for (int i = 1; i < vs.size(); i++) {
+    std::cout << sep << vs[i];
+  }
+  std::cout << "]" << std::endl;
+}
+
+template <typename K, typename V>
+void println_map(const std::map<K, V> &m, const std::string &name) {
+  std::cout << name << "(len:" << m.size() << ")--> \n{";
+  for ([[maybe_unused]] auto &entry : m) {
+    std::cout << "\n\t" << entry.first << ": " << entry.second << ",";
+  }
+  std::cout << "\n}" << std::endl;
+}
+
+template <typename T>
+std::string join_vector(const std::vector<T> &vs, const std::string &sep = ",",
+                        const std::string &start = "", const std::string &end = "") {
+  std::string res = start;
+  if (vs.size() != 0) {
+    res += vs[0];
+  }
+  for (int i = 1; i < vs.size(); i++) {
+    res += sep + vs[i];
+  }
+  res += end;
+  return res;
+}
+
+void pub_key2pb(xgbcomm::PubKeyResponse *response, opt_public_key_t *pub_);
+
+void pb2pub_key(opt_public_key_t **pub, xgbcomm::PubKeyResponse &response);
+
 namespace {
 #define MAX_MESSAGE_LENGTH 10 * 1024 * 1024 * 1024l
 

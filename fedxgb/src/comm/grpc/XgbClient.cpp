@@ -132,35 +132,7 @@ EncryptedSplit* XgbServiceClient::GetEncryptedSplit(string mask_id) {
 }
 
 void XgbServiceClient::GetPubKey(opt_public_key_t** pub) {
-  *pub = (opt_public_key_t*)malloc(sizeof(opt_public_key_t));
-  RpcRequest(Request, GetPubKey, PubKeyResponse, , {
-    (*pub)->nbits = response.nbits();
-    (*pub)->lbits = response.lbits();
-    mpz_type2_mpz_t((*pub)->n, response.n());
-    mpz_type2_mpz_t((*pub)->half_n, response.half_n());
-    mpz_type2_mpz_t((*pub)->n_squared, response.n_squared());
-    mpz_type2_mpz_t((*pub)->h_s, response.h_s());
-    mpz_type2_mpz_t((*pub)->P_squared_mul_P_squared_inverse,
-                    response.p_squared_mul_p_squared_inverse());
-    auto mod_p_sqaured = response.fb_mod_p_sqaured();
-    mpz_type2_mpz_t((*pub)->fb_mod_P_sqaured.m_mod, mod_p_sqaured.m_mod());
-    (*pub)->fb_mod_P_sqaured.m_table_G = new mpz_t[mod_p_sqaured.m_t() + 1];
-    for (int i = 0; i <= mod_p_sqaured.m_t(); ++i) {
-      mpz_type2_mpz_t((*pub)->fb_mod_P_sqaured.m_table_G[i], mod_p_sqaured.m_table_g(i));
-    }
-    (*pub)->fb_mod_P_sqaured.m_h = mod_p_sqaured.m_h();
-    (*pub)->fb_mod_P_sqaured.m_t = mod_p_sqaured.m_t();
-    (*pub)->fb_mod_P_sqaured.m_w = mod_p_sqaured.m_w();
-    auto mod_q_sqaured = response.fb_mod_q_sqaured();
-    mpz_type2_mpz_t((*pub)->fb_mod_Q_sqaured.m_mod, mod_q_sqaured.m_mod());
-    (*pub)->fb_mod_Q_sqaured.m_table_G = new mpz_t[mod_q_sqaured.m_t() + 1];
-    for (int i = 0; i <= mod_q_sqaured.m_t(); ++i) {
-      mpz_type2_mpz_t((*pub)->fb_mod_Q_sqaured.m_table_G[i], mod_q_sqaured.m_table_g(i));
-    }
-    (*pub)->fb_mod_Q_sqaured.m_h = mod_q_sqaured.m_h();
-    (*pub)->fb_mod_Q_sqaured.m_t = mod_q_sqaured.m_t();
-    (*pub)->fb_mod_Q_sqaured.m_w = mod_q_sqaured.m_w();
-  });
+  RpcRequest(Request, GetPubKey, PubKeyResponse, , { pb2pub_key(pub, response); });
 }
 
 void XgbServiceClient::GetEncryptedGradPairs(mpz_t* encryptedGradPairs) {
