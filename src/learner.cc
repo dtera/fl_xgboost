@@ -1382,7 +1382,6 @@ class LearnerImpl : public LearnerIO {
     } else {
       if (IsPulsar()) {
         xgb_pulsar_->cur_version = iter;
-        encrypted_gpair_.Resize(train->Info().num_row_);
         xgb_pulsar_->GetEncryptedGradPairs(encrypted_gpair_.HostVector());
       } else {
         xgb_client_->cur_version = iter;

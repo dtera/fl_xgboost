@@ -10,6 +10,7 @@
 class XgbPulsarService {
  private:
   std::unique_ptr<PulsarClient> client;
+  std::int32_t n_threads;
 
   inline std::string GradPairTopic() { return "grad_pairs_" + std::to_string(cur_version); }
 
@@ -21,13 +22,15 @@ class XgbPulsarService {
                    const std::string& topic_prefix = "federated_xgb_",
                    const std::string& pulsar_token = "notoken",
                    const std::string& pulsar_tenant = "fl-tenant",
-                   const std::string& pulsar_namespace = "fl-algorithm");
+                   const std::string& pulsar_namespace = "fl-algorithm",
+                   const std::int32_t n_threads = omp_get_num_procs());
 
   void Start(const std::string& pulsar_url = "pulsar://localhost:6650",
              const std::string& topic_prefix = "federated_xgb_",
              const std::string& pulsar_token = "notoken",
              const std::string& pulsar_tenant = "fl-tenant",
-             const std::string& pulsar_namespace = "fl-algorithm");
+             const std::string& pulsar_namespace = "fl-algorithm",
+             const std::int32_t n_threads = omp_get_num_procs());
 
   void SendEncryptedGradPairs(const std::vector<xgboost::EncryptedGradientPair>& grad_pairs);
 

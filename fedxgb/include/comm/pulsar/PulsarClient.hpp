@@ -29,14 +29,15 @@ class PulsarClient {
                const std::string& pulsar_token = "notoken",
                const std::string& pulsar_tenant = "fl-tenant",
                const std::string& pulsar_namespace = "fl-algorithm",
-               std::uint32_t pulsar_batch_max_size = 1000000)
+               const std::uint32_t pulsar_batch_max_size = 1000000,
+               const std::int32_t n_threads = omp_get_num_procs())
       : pulsar_url(pulsar_url),
         pulsar_topic_prefix("persistent://" + pulsar_tenant + "/" + pulsar_namespace + "/" +
                             topic_prefix),
         pulsar_token(pulsar_token),
         pulsar_tenant(pulsar_tenant),
         pulsar_namespace(pulsar_namespace),
-        n_threads(omp_get_num_procs()) {
+        n_threads(n_threads) {
     client_config.setAuth(pulsar::AuthToken::createWithToken(pulsar_token));
     client_config.setMemoryLimit(std::numeric_limits<std::uint64_t>().max());
     client = std::make_unique<pulsar::Client>(pulsar_url, client_config);
