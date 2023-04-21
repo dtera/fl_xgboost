@@ -120,6 +120,10 @@ message BlockInfo {
   repeated uint32 right_data_ = 7;
 }
 
+message BlockInfos {
+  repeated BlockInfo block_infos = 1;
+}
+
 message NextNode {
   uint32 k = 1;
   int32 nid = 2;

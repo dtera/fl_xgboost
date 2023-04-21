@@ -9,9 +9,9 @@
 #include <limits>  // std::numeric_limits
 #include <vector>
 
-#include "../common/numeric.h"  // Iota
+#include "../common/numeric.h"           // Iota
 #include "../common/partition_builder.h"
-#include "hist/expand_entry.h"  // CPUExpandEntry
+#include "hist/expand_entry.h"           // CPUExpandEntry
 #include "xgboost/federated_param.h"
 #include "xgboost/generic_parameters.h"  // Context
 
@@ -178,80 +178,177 @@ class CommonRowPartitioner {
     // 3. Compute offsets to copy blocks of row-indexes
     // from partition_builder_ to row_set_collection_
     if (IsFederated()) {
-      partition_builder_.CalculateRowOffsets([&](size_t i, size_t* n_left, size_t* n_right) {
-        if (NotSelfPart(nodes[i].split.part_id)) {
-          if (IsGuest()) {
-            // label holder get left_right_nodes_sizes from data holder
-            xgb_server_->GetLeftRightNodeSize(i, n_left, n_right);
+      if (IsPulsar()) {
+        map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes;
+        vector<size_t> other_nids;
+        partition_builder_.CalculateRowOffsets([&](size_t i, size_t* n_left, size_t* n_right) {
+          auto not_self_part = NotSelfPart(nodes[i].split.part_id);
+          if (not_self_part) {
+            other_nids.emplace_back(nodes[i].nid);
           } else {
-            // data holder get left_right_nodes_sizes from label holder
-            xgb_client_->GetLeftRightNodeSize(i, n_left, n_right);
+            left_right_nodes_sizes.insert({nodes[i].nid, {*n_left, *n_right}});
           }
-        } else {
-          if (IsGuest()) {
-            // label holder send left_right_nodes_sizes to data holder
-            xgb_server_->SendLeftRightNodeSize(i, *n_left, *n_right);
-          } else {
-            // data holder send left_right_nodes_sizes to label holder
-            xgb_client_->SendLeftRightNodeSize(i, *n_left, *n_right);
-          }
+          return !not_self_part;
+        });
+        xgb_pulsar_->SendLeftRightNodeSizes(left_right_nodes_sizes);
+        if (!other_nids.empty()) {
+          left_right_nodes_sizes.clear();
+          string nids = to_string(other_nids[0]);
+          std::for_each(++other_nids.begin(), other_nids.end(),
+                        [&](auto& t) { nids += "_" + to_string(t); });
+          xgb_pulsar_->GetLeftRightNodeSizes(nids, left_right_nodes_sizes);
+          partition_builder_.CalculateRowOffsets(
+              [&](size_t i, size_t* n_left, size_t* n_right) {
+                auto not_self_part = NotSelfPart(nodes[i].split.part_id);
+                if (not_self_part) {
+                  *n_left = left_right_nodes_sizes[nodes[i].nid].first;
+                  *n_right = left_right_nodes_sizes[nodes[i].nid].second;
+                }
+                return not_self_part;
+              },
+              false);
         }
-      });
+      } else {
+        partition_builder_.CalculateRowOffsets([&](size_t i, size_t* n_left, size_t* n_right) {
+          if (NotSelfPart(nodes[i].split.part_id)) {
+            if (IsGuest()) {
+              // label holder get left_right_nodes_sizes from data holder
+              xgb_server_->GetLeftRightNodeSize(i, n_left, n_right);
+            } else {
+              // data holder get left_right_nodes_sizes from label holder
+              xgb_client_->GetLeftRightNodeSize(i, n_left, n_right);
+            }
+          } else {
+            if (IsGuest()) {
+              // label holder send left_right_nodes_sizes to data holder
+              xgb_server_->SendLeftRightNodeSize(i, *n_left, *n_right);
+            } else {
+              // data holder send left_right_nodes_sizes to label holder
+              xgb_client_->SendLeftRightNodeSize(i, *n_left, *n_right);
+            }
+          }
+          return true;
+        });
+      }
     } else {
       partition_builder_.CalculateRowOffsets();
     }
 
     // 4. Copy elements from partition_builder_ to row_set_collection_ back
     // with updated row-indexes for each tree-node
-    common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
-      const int32_t nid = nodes[node_in_set].nid;
-      if (IsFederated()) {
+    if (IsPulsar()) {
+      oneapi::tbb::concurrent_unordered_map<size_t, BlockInfo> block_infos;
+      oneapi::tbb::concurrent_unordered_set<size_t> other_task_ids;
+      common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
         partition_builder_.MergeToArray(
-            node_in_set, r.begin(), const_cast<size_t*>(row_set_collection_[nid].begin),
+            node_in_set, r.begin(),
+            const_cast<size_t*>(row_set_collection_[nodes[node_in_set].nid].begin),
             [&](size_t task_idx, size_t* rows_indexes, auto& mem_blocks) {
               if (NotSelfPart(nodes[node_in_set].split.part_id)) {
-                if (IsGuest()) {
-                  // label holder get block info from data holder
-                  xgb_server_->GetBlockInfo(task_idx, [&](auto& block_info) {
-                    size_t* left_result = rows_indexes + block_info->n_offset_left;
-                    size_t* right_result = rows_indexes + block_info->n_offset_right;
-                    std::copy_n(block_info->left_data_, block_info->n_left, left_result);
-                    std::copy_n(block_info->right_data_, block_info->n_right, right_result);
-                  });
-                } else {
-                  // data holder get block info from label holder
-                  xgb_client_->GetBlockInfo(task_idx, [&](auto& block_info) {
-                    size_t* left_result = rows_indexes + block_info.n_offset_left();
-                    size_t* right_result = rows_indexes + block_info.n_offset_right();
-                    std::copy_n(block_info.mutable_left_data_()->data(), block_info.n_left(),
-                                left_result);
-                    std::copy_n(block_info.mutable_right_data_()->data(), block_info.n_right(),
-                                right_result);
-                  });
-                }
+                other_task_ids.insert(task_idx);
               } else {
                 partition_builder_.MergeToRowsIndexes(task_idx, rows_indexes, mem_blocks);
-                auto block_info = new PositionBlockInfo;
-                block_info->n_left = mem_blocks[task_idx]->n_left;
-                block_info->n_right = mem_blocks[task_idx]->n_right;
-                block_info->n_offset_left = mem_blocks[task_idx]->n_offset_left;
-                block_info->n_offset_right = mem_blocks[task_idx]->n_offset_right;
-                block_info->left_data_ = mem_blocks[task_idx]->Left();
-                block_info->right_data_ = mem_blocks[task_idx]->Right();
-                if (IsGuest()) {
-                  // label holder send block info to data holder
-                  xgb_server_->SendBlockInfo(task_idx, block_info);
-                } else {
-                  // data holder send block info to label holder
-                  xgb_client_->SendBlockInfo(task_idx, block_info);
+                BlockInfo block_info;
+                block_info.set_idx(task_idx);
+                block_info.set_n_left(mem_blocks[task_idx]->n_left);
+                block_info.set_n_right(mem_blocks[task_idx]->n_right);
+                block_info.set_n_offset_left(mem_blocks[task_idx]->n_offset_left);
+                block_info.set_n_offset_right(mem_blocks[task_idx]->n_offset_right);
+                auto left_data = block_info.mutable_left_data_();
+                auto right_data = block_info.mutable_right_data_();
+                auto left_data_ = mem_blocks[task_idx]->Left();
+                auto right_data_ = mem_blocks[task_idx]->Right();
+                for (int i = 0; i < block_info.n_left(); ++i) {
+                  left_data->Add(left_data_[i]);
                 }
+                for (int i = 0; i < block_info.n_right(); ++i) {
+                  right_data->Add(right_data_[i]);
+                }
+                block_infos.insert({task_idx, std::move(block_info)});
               }
             });
-      } else {
-        partition_builder_.MergeToArray(node_in_set, r.begin(),
-                                        const_cast<size_t*>(row_set_collection_[nid].begin));
+      });
+      xgb_pulsar_->SendBlockInfos(block_infos);
+      if (!other_task_ids.empty()) {
+        block_infos.clear();
+        string nids = to_string(*other_task_ids.begin());
+        std::for_each(++other_task_ids.begin(), other_task_ids.end(),
+                      [&](auto& t) { nids += "_" + to_string(t); });
+        xgb_pulsar_->GetBlockInfos(nids, block_infos);
+        common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
+          partition_builder_.MergeToArray(
+              node_in_set, r.begin(),
+              const_cast<size_t*>(row_set_collection_[nodes[node_in_set].nid].begin),
+              [&](size_t task_idx, size_t* rows_indexes, auto& mem_blocks) {
+                if (NotSelfPart(nodes[node_in_set].split.part_id)) {
+                  auto block_info = block_infos[task_idx];
+                  size_t* left_result = rows_indexes + block_info.n_offset_left();
+                  size_t* right_result = rows_indexes + block_info.n_offset_right();
+                  std::copy_n(block_info.mutable_left_data_()->data(), block_info.n_left(),
+                              left_result);
+                  std::copy_n(block_info.mutable_right_data_()->data(), block_info.n_right(),
+                              right_result);
+                  /*LOG(CONSOLE) << "[*]nid: " << nodes[node_in_set].nid
+                               << ", n_left: " << block_info.n_left()
+                               << ", n_right: " << block_info.n_right()
+                               << ", n_offset_left: " << block_info.n_offset_left()
+                               << ", n_offset_right: " << block_info.n_offset_right() << std::endl;
+                               */
+                }
+              });
+        });
       }
-    });
+    } else {
+      common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
+        const int32_t nid = nodes[node_in_set].nid;
+        if (IsFederated()) {
+          partition_builder_.MergeToArray(
+              node_in_set, r.begin(), const_cast<size_t*>(row_set_collection_[nid].begin),
+              [&](size_t task_idx, size_t* rows_indexes, auto& mem_blocks) {
+                if (NotSelfPart(nodes[node_in_set].split.part_id)) {
+                  if (IsGuest()) {
+                    // label holder get block info from data holder
+                    xgb_server_->GetBlockInfo(task_idx, [&](auto& block_info) {
+                      size_t* left_result = rows_indexes + block_info->n_offset_left;
+                      size_t* right_result = rows_indexes + block_info->n_offset_right;
+                      std::copy_n(block_info->left_data_, block_info->n_left, left_result);
+                      std::copy_n(block_info->right_data_, block_info->n_right, right_result);
+                    });
+                  } else {
+                    // data holder get block info from label holder
+                    xgb_client_->GetBlockInfo(task_idx, [&](auto& block_info) {
+                      size_t* left_result = rows_indexes + block_info.n_offset_left();
+                      size_t* right_result = rows_indexes + block_info.n_offset_right();
+                      std::copy_n(block_info.mutable_left_data_()->data(), block_info.n_left(),
+                                  left_result);
+                      std::copy_n(block_info.mutable_right_data_()->data(), block_info.n_right(),
+                                  right_result);
+                    });
+                  }
+                } else {
+                  partition_builder_.MergeToRowsIndexes(task_idx, rows_indexes, mem_blocks);
+                  auto block_info = new PositionBlockInfo;
+                  block_info->n_left = mem_blocks[task_idx]->n_left;
+                  block_info->n_right = mem_blocks[task_idx]->n_right;
+                  block_info->n_offset_left = mem_blocks[task_idx]->n_offset_left;
+                  block_info->n_offset_right = mem_blocks[task_idx]->n_offset_right;
+                  block_info->left_data_ = mem_blocks[task_idx]->Left();
+                  block_info->right_data_ = mem_blocks[task_idx]->Right();
+                  if (IsGuest()) {
+                    // label holder send block info to data holder
+                    xgb_server_->SendBlockInfo(task_idx, block_info);
+                  } else {
+                    // data holder send block info to label holder
+                    xgb_client_->SendBlockInfo(task_idx, block_info);
+                  }
+                }
+              });
+        } else {
+          partition_builder_.MergeToArray(node_in_set, r.begin(),
+                                          const_cast<size_t*>(row_set_collection_[nid].begin));
+        }
+      });
+    }
 
     // 5. Add info about splits into row_set_collection_
     AddSplitsToRowSet(nodes, p_tree);

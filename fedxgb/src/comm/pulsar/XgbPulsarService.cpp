@@ -22,7 +22,7 @@ void XgbPulsarService::Start(const std::string& pulsar_url, const std::string& t
   time_t now = time(NULL);
   strftime(yyyymmddhh, 13, "%Y%m%d%H%M", localtime(&now));
   client = std::make_unique<PulsarClient>(
-      pulsar_url, topic_prefix + std::to_string(std::atoll(yyyymmddhh) / 5) + "_", pulsar_token,
+      pulsar_url, topic_prefix + std::to_string(std::atoll(yyyymmddhh) / 3) + "_", pulsar_token,
       pulsar_tenant, pulsar_namespace, n_threads);
 }
 
@@ -81,8 +81,8 @@ void XgbPulsarService::GetEncryptedGradPairs(
 
 void XgbPulsarService::SendEncryptedSplits(const xgbcomm::SplitsRequest& sr) {
   client->Send(SplitsTopic(sr.nidx()), sr);
-  LOG(CONSOLE) << "nid: " << sr.nidx()
-               << ", send encrypted splits size: " << sr.encrypted_splits_size() << std::endl;
+  LOG(CONSOLE) << "[S]nid: " << sr.nidx()
+               << ", encrypted splits size: " << sr.encrypted_splits_size() << std::endl;
 }
 
 void XgbPulsarService::GetEncryptedSplits(
@@ -91,8 +91,8 @@ void XgbPulsarService::GetEncryptedSplits(
                        xgboost::tree::GradStats<double>&, const xgbcomm::SplitsRequest&)>
         update_grad_stats) {
   client->Receive(SplitsTopic(nid), sr);
-  LOG(CONSOLE) << "nid: " << nid
-               << ", receive encrypted splits size: " << sr.encrypted_splits_size() << std::endl;
+  LOG(CONSOLE) << "[R]nid: " << nid << ", encrypted splits size: " << sr.encrypted_splits_size()
+               << std::endl;
   auto encrypted_splits = sr.encrypted_splits();
   ParallelFor(encrypted_splits.size(), n_threads, [&](uint32_t i) {
     xgboost::tree::GradStats<double> left_sum;
@@ -160,9 +160,9 @@ bool XgbPulsarService::GetSplitValid(const std::uint32_t nid, const bool is_push
 
 void XgbPulsarService::SendSplitsValid(
     const std::map<std::uint32_t, std::pair<bool, bool>>& splits_valid) {
-  std::uint32_t nids;
-  std::string vs;
   if (!splits_valid.empty()) {
+    std::uint32_t nids;
+    std::string vs;
     nids = splits_valid.begin()->first;
     vs = std::to_string(splits_valid.begin()->second.first) + ":" +
          std::to_string(splits_valid.begin()->second.second);
@@ -172,22 +172,22 @@ void XgbPulsarService::SendSplitsValid(
     });
 
     client->Send(SplitsValidTopic(nids), vs);
-    LOG(CONSOLE) << "nids: " << nids << ", send splits valid size: " << splits_valid.size()
+    LOG(CONSOLE) << "[S]nids: " << nids << ", splits_valid size: " << splits_valid.size()
                  << std::endl;
-  };
+  }
 }
 
 void XgbPulsarService::GetSplitsValid(
     std::map<std::uint32_t, std::pair<bool, bool>>& splits_valid) {
-  std::uint32_t nids = 0;
-  std::string vs;
   if (!splits_valid.empty()) {
+    std::uint32_t nids = 0;
+    std::string vs;
     std::for_each(splits_valid.begin(), splits_valid.end(), [&](auto t) { nids += t.first; });
 
     client->Receive(SplitsValidTopic(nids), vs);
     std::vector<std::string> v1;
     boost::split(v1, vs, boost::is_any_of("_"));
-    LOG(CONSOLE) << "nids: " << nids << ", receive splits valid size: " << v1.size() << std::endl;
+    LOG(CONSOLE) << "[R]nids: " << nids << ", splits_valid size: " << v1.size() << std::endl;
     int i = 0;
     for (auto& sv : splits_valid) {
       std::vector<std::string> v2;
@@ -196,7 +196,74 @@ void XgbPulsarService::GetSplitsValid(
       sv.second.second = std::atoi(v2[1].c_str());
       i++;
     }
-  };
+  }
+}
+
+void XgbPulsarService::SendLeftRightNodeSizes(
+    const std::map<std::size_t, const std::pair<std::size_t, std::size_t>>&
+        left_right_nodes_sizes) {
+  if (!left_right_nodes_sizes.empty()) {
+    std::string nids, vs;
+    nids = std::to_string(left_right_nodes_sizes.begin()->first);
+    vs = std::to_string(left_right_nodes_sizes.begin()->second.first) + ":" +
+         std::to_string(left_right_nodes_sizes.begin()->second.second);
+    std::for_each(++left_right_nodes_sizes.begin(), left_right_nodes_sizes.end(), [&](auto t) {
+      nids += "_" + std::to_string(t.first);
+      vs += "_" + std::to_string(t.second.first) + ":" + std::to_string(t.second.second);
+    });
+
+    client->Send(LeftRightNodeSizesTopic(nids), vs);
+    LOG(CONSOLE) << "[S]nids: " << nids << ", left_right size: " << left_right_nodes_sizes.size()
+                 << std::endl;
+  }
+}
+
+void XgbPulsarService::GetLeftRightNodeSizes(
+    std::string nids,
+    std::map<std::size_t, const std::pair<std::size_t, std::size_t>>& left_right_nodes_sizes) {
+  std::string vs;
+  client->Receive(LeftRightNodeSizesTopic(nids), vs);
+  std::vector<std::string> v1, ids;
+  boost::split(v1, vs, boost::is_any_of("_"));
+  boost::split(ids, nids, boost::is_any_of("_"));
+  LOG(CONSOLE) << "[R]nids: " << nids << ", left_right size: " << v1.size() << std::endl;
+  int i = 0;
+  for (auto& id : ids) {
+    std::vector<std::string> v2;
+    boost::split(v2, v1[i], boost::is_any_of(":"));
+    left_right_nodes_sizes.insert(
+        {std::atoi(id.c_str()), {std::atoi(v2[0].c_str()), std::atoi(v2[1].c_str())}});
+    i++;
+  }
+}
+
+void XgbPulsarService::SendBlockInfos(
+    const oneapi::tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos) {
+  if (!block_infos.empty()) {
+    std::string nids = std::to_string(block_infos.begin()->first);
+    xgbcomm::BlockInfos bis;
+    auto bs = bis.mutable_block_infos();
+    bs->Add()->CopyFrom(block_infos.begin()->second);
+    std::for_each(++block_infos.begin(), block_infos.end(), [&](auto& b) {
+      nids += "_" + std::to_string(b.first);
+      bs->Add()->CopyFrom(b.second);
+    });
+    client->Send(BlockInfosTopic(nids), bis);
+    LOG(CONSOLE) << "[S]nids: " << nids << ", block_infos size: " << block_infos.size()
+                 << std::endl;
+  }
+}
+
+void XgbPulsarService::GetBlockInfos(
+    std::string nids,
+    oneapi::tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos) {
+  xgbcomm::BlockInfos bis;
+  client->Receive(BlockInfosTopic(nids), bis);
+  ParallelFor(bis.block_infos_size(), n_threads, [&](auto& i) {
+    auto block_info = bis.block_infos(i);
+    block_infos.insert({block_info.idx(), block_info});
+  });
+  LOG(CONSOLE) << "[R]nids: " << nids << ", block_infos size: " << block_infos.size() << std::endl;
 }
 
 template void XgbPulsarService::SendBestSplit(int bestIdx, xgboost::tree::CPUExpandEntry& entry,

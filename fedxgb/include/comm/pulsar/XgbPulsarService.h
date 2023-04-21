@@ -4,6 +4,8 @@
 
 #pragma once
 
+#include <tbb/concurrent_unordered_map.h>
+
 #include <boost/algorithm/string.hpp>
 
 #include "comm/grpc/common.h"
@@ -36,6 +38,14 @@ class XgbPulsarService {
 
   inline std::string SplitsValidTopic(const std::uint32_t nids) {
     return "splits_valid_iter-" + std::to_string(cur_version) + "_nids-" + std::to_string(nids);
+  }
+
+  inline std::string LeftRightNodeSizesTopic(const std::string& nids) {
+    return "left_right_nodes_sizes_iter-" + std::to_string(cur_version) + "_nids-" + nids;
+  }
+
+  inline std::string BlockInfosTopic(const std::string& nids) {
+    return "block_infos_iter-" + std::to_string(cur_version) + "_nids-" + nids;
   }
 
  public:
@@ -87,4 +97,19 @@ class XgbPulsarService {
   void SendSplitsValid(const std::map<std::uint32_t, std::pair<bool, bool>>& splits_valid);
 
   void GetSplitsValid(std::map<std::uint32_t, std::pair<bool, bool>>& splits_valid);
+
+  void SendLeftRightNodeSizes(
+      const std::map<std::size_t, const std::pair<std::size_t, std::size_t>>&
+          left_right_nodes_sizes);
+
+  void GetLeftRightNodeSizes(
+      std::string nids,
+      std::map<std::size_t, const std::pair<std::size_t, std::size_t>>& left_right_nodes_sizes);
+
+  void SendBlockInfos(
+      const oneapi::tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos);
+
+  void GetBlockInfos(
+      std::string nids,
+      oneapi::tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos);
 };
