@@ -51,11 +51,13 @@ class HistEvaluator {
   // then - there are no missing values
   // else - there are missing values
   bool static SplitContainsMissingValues(const GradStats<H> e, const NodeEntry &snode) {
-    bool flag;
+    bool flag = false;
     if (is_same<double, H>()) {
       flag = e.GetGrad() == snode.stats.GetGrad() && e.GetHess() == snode.stats.GetHess();
     } else {
-      flag = xgb_client_->IsSplitContainsMissingValues(e, snode.stats);
+      if (!IsPulsar()) {
+        flag = xgb_client_->IsSplitContainsMissingValues(e, snode.stats);
+      }
     }
     if (flag) {
       return false;
@@ -227,9 +229,9 @@ class HistEvaluator {
     es->set_d_step(d_step);
     es->set_default_left(default_left);
     es->set_is_cat(is_cat);
-
-    xgb_client_->CacheEncryptedSplit(es->mask_id(), es);
-
+    if (!IsPulsar()) {
+      xgb_client_->CacheEncryptedSplit(es->mask_id(), es);
+    }
     return true;
   }
 

@@ -541,25 +541,25 @@ class LearnerConfiguration : public Learner {
         } else {
           xgb_pulsar_->GetPubKey(&pub_);
         }
-      }
-
-      if (IsGuest()) {
-        // server_.reset(new XgbServiceServer(fparam_->fl_port));
-        xgb_server_ = FIND_XGB_SERVICE(XgbServiceServer);
-        xgb_server_->max_iter =
-            cfg_.count("num_round") == 0 ? 1 : std::atoi(cfg_["num_round"].c_str());
-        xgb_server_->Start(fparam_->fl_port);
-
-        xgb_server_->SetPriKey(pri_);
-        xgb_server_->SendPubKey(pub_);
       } else {
-        auto p = fparam_->fl_address.find(":");
-        xgb_client_ = FIND_XGB_SERVICE(XgbServiceClient);
-        xgb_client_->Start(atoi(fparam_->fl_address.substr(p + 1).c_str()),
-                           fparam_->fl_address.substr(0, p), omp_get_num_procs());
-        LOG(CONSOLE) << "** RPC client connect server success! " << endl;
+        if (IsGuest()) {
+          // server_.reset(new XgbServiceServer(fparam_->fl_port));
+          xgb_server_ = FIND_XGB_SERVICE(XgbServiceServer);
+          xgb_server_->max_iter =
+              cfg_.count("num_round") == 0 ? 1 : std::atoi(cfg_["num_round"].c_str());
+          xgb_server_->Start(fparam_->fl_port);
 
-        xgb_client_->GetPubKey(&pub_);
+          xgb_server_->SetPriKey(pri_);
+          xgb_server_->SendPubKey(pub_);
+        } else {
+          auto p = fparam_->fl_address.find(":");
+          xgb_client_ = FIND_XGB_SERVICE(XgbServiceClient);
+          xgb_client_->Start(atoi(fparam_->fl_address.substr(p + 1).c_str()),
+                             fparam_->fl_address.substr(0, p), omp_get_num_procs());
+          LOG(CONSOLE) << "** RPC client connect server success! " << endl;
+
+          xgb_client_->GetPubKey(&pub_);
+        }
       }
 
       EncryptedType<>::pub = pub_;
@@ -1384,7 +1384,7 @@ class LearnerImpl : public LearnerIO {
         // pri_);
       }
       gbm_->DoBoost(train.get(), &gpair_, &predt, obj_.get());
-      if (IsFederated()) {
+      if (IsFederated() && !IsPulsar()) {
         xgb_server_->cur_version = iter + 1;
       }
     } else {
@@ -1396,6 +1396,9 @@ class LearnerImpl : public LearnerIO {
         xgb_client_->GetEncryptedGradPairs(encrypted_gpair_.HostVector());
       }
       gbm_->DoBoost(train.get(), &encrypted_gpair_, &predt, obj_.get());
+    }
+    if (IsPulsar()) {
+      xgb_pulsar_->cur_version = iter + 1;
     }
     monitor_.Stop("UpdateOneIter");
   }
@@ -1433,14 +1436,26 @@ class LearnerImpl : public LearnerIO {
       metrics_.back()->Configure({cfg_.begin(), cfg_.end()});
     }
 
-    if (IsFederated() && IsGuest()) {
+    if (IsFederated() && !IsPulsar() && IsGuest()) {
       xgb_server_->ResizeMetrics(iter, data_sets.size());
     }
     auto local_cache = this->GetPredictionCache();
+    vector<double> metrics;
     for (size_t i = 0; i < data_sets.size(); ++i) {
       std::shared_ptr<DMatrix> m = data_sets[i];
       auto& predt = local_cache->Cache(m, ctx_.gpu_id);
       this->ValidateDMatrix(m.get(), false);
+      if (IsFederated()) {
+        if (IsPulsar()) {
+          xgb_pulsar_->eval_data_idx = i;
+        } else {
+          if (IsGuest()) {
+            xgb_server_->eval_data_idx = i;
+          } else {
+            xgb_client_->eval_data_idx = i;
+          }
+        }
+      }
       this->PredictRaw(m.get(), &predt, false, 0, 0);
 
       HostDeviceVector<bst_float>* out;
@@ -1450,26 +1465,53 @@ class LearnerImpl : public LearnerIO {
         out->Copy(predt.predictions);
         obj_->EvalTransform(out);
       }
+
       for (auto& ev : metrics_) {
         double metric;
         if (IsGuest()) {
           metric = ev->Eval(*out, m->Info());
           if (IsFederated()) {
-            xgb_server_->SendMetrics(iter, i, ev->Name(), metric);
+            if (IsPulsar()) {
+              metrics.emplace_back(metric);
+            } else {
+              xgb_server_->SendMetrics(iter, i, ev->Name(), metric);
+            }
           }
         } else {
-          xgb_client_->GetMetric(iter, i, ev->Name(), [&metric](double m) { metric = m; });
+          if (!IsPulsar()) {
+            xgb_client_->GetMetric(iter, i, ev->Name(), [&metric](double m) { metric = m; });
+          }
         }
-        os << '\t' << data_names[i] << '-' << ev->Name() << ':' << metric;
+        if (!IsPulsar() || IsGuest()) {
+          os << '\t' << data_names[i] << '-' << ev->Name() << ':' << metric;
+        }
       }
     }
     if (IsFederated()) {
-      if (IsGuest()) {
-        if (xgb_server_->cur_version == xgb_server_->max_iter) {
-          xgb_server_->Shutdown();
+      if (IsPulsar()) {
+        if (IsGuest()) {
+          xgb_pulsar_->SendMetrics(iter, metrics);
+        } else {
+          if (!data_sets.empty() && !metrics_.empty()) {
+            std::vector<std::string> ms;
+            xgb_pulsar_->GetMetrics(iter, ms);
+            for (size_t i = 0; i < data_sets.size(); ++i) {
+              auto offset = i * metrics_.size();
+              for (int j = 0; j < metrics_.size(); ++j) {
+                os << '\t' << data_names[i] << '-' << metrics_[j]->Name() << ':' << ms[offset + j];
+              }
+            }
+          }
         }
+
       } else {
-        xgb_client_->Clear(-1);
+        if (IsGuest()) {
+          if (xgb_server_->cur_version == xgb_server_->max_iter) {
+            xgb_server_->Shutdown();
+          }
+        } else {
+          xgb_client_->Clear(-1);
+        }
       }
     }
 

@@ -114,6 +114,7 @@ class XgbServiceServer final : public XgbService::Service {
  public:
   uint32_t cur_version{0};
   uint32_t max_iter{numeric_limits<uint32_t>().max()};
+  std::size_t eval_data_idx = 0;
 
   explicit XgbServiceServer() = default;
 

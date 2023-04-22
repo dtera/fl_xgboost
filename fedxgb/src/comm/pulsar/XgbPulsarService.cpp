@@ -162,16 +162,16 @@ void XgbPulsarService::SendSplitsValid(
     const std::map<std::uint32_t, std::pair<bool, bool>>& splits_valid) {
   if (!splits_valid.empty()) {
     std::uint32_t nids;
-    std::string vs;
+    std::string content;
     nids = splits_valid.begin()->first;
-    vs = std::to_string(splits_valid.begin()->second.first) + ":" +
-         std::to_string(splits_valid.begin()->second.second);
+    content = std::to_string(splits_valid.begin()->second.first) + ":" +
+              std::to_string(splits_valid.begin()->second.second);
     std::for_each(++splits_valid.begin(), splits_valid.end(), [&](auto t) {
       nids += t.first;
-      vs += "_" + std::to_string(t.second.first) + ":" + std::to_string(t.second.second);
+      content += "_" + std::to_string(t.second.first) + ":" + std::to_string(t.second.second);
     });
 
-    client->Send(SplitsValidTopic(nids), vs);
+    client->Send(SplitsValidTopic(nids), content);
     LOG(CONSOLE) << "[S]nids: " << nids << ", splits_valid size: " << splits_valid.size()
                  << std::endl;
   }
@@ -181,12 +181,12 @@ void XgbPulsarService::GetSplitsValid(
     std::map<std::uint32_t, std::pair<bool, bool>>& splits_valid) {
   if (!splits_valid.empty()) {
     std::uint32_t nids = 0;
-    std::string vs;
+    std::string content;
     std::for_each(splits_valid.begin(), splits_valid.end(), [&](auto t) { nids += t.first; });
 
-    client->Receive(SplitsValidTopic(nids), vs);
+    client->Receive(SplitsValidTopic(nids), content);
     std::vector<std::string> v1;
-    boost::split(v1, vs, boost::is_any_of("_"));
+    boost::split(v1, content, boost::is_any_of("_"));
     LOG(CONSOLE) << "[R]nids: " << nids << ", splits_valid size: " << v1.size() << std::endl;
     int i = 0;
     for (auto& sv : splits_valid) {
@@ -203,16 +203,16 @@ void XgbPulsarService::SendLeftRightNodeSizes(
     const std::map<std::size_t, const std::pair<std::size_t, std::size_t>>&
         left_right_nodes_sizes) {
   if (!left_right_nodes_sizes.empty()) {
-    std::string nids, vs;
+    std::string nids, content;
     nids = std::to_string(left_right_nodes_sizes.begin()->first);
-    vs = std::to_string(left_right_nodes_sizes.begin()->second.first) + ":" +
-         std::to_string(left_right_nodes_sizes.begin()->second.second);
+    content = std::to_string(left_right_nodes_sizes.begin()->second.first) + ":" +
+              std::to_string(left_right_nodes_sizes.begin()->second.second);
     std::for_each(++left_right_nodes_sizes.begin(), left_right_nodes_sizes.end(), [&](auto t) {
       nids += "_" + std::to_string(t.first);
-      vs += "_" + std::to_string(t.second.first) + ":" + std::to_string(t.second.second);
+      content += "_" + std::to_string(t.second.first) + ":" + std::to_string(t.second.second);
     });
 
-    client->Send(LeftRightNodeSizesTopic(nids), vs);
+    client->Send(LeftRightNodeSizesTopic(nids), content);
     LOG(CONSOLE) << "[S]nids: " << nids << ", left_right size: " << left_right_nodes_sizes.size()
                  << std::endl;
   }
@@ -221,10 +221,10 @@ void XgbPulsarService::SendLeftRightNodeSizes(
 void XgbPulsarService::GetLeftRightNodeSizes(
     std::string nids,
     std::map<std::size_t, const std::pair<std::size_t, std::size_t>>& left_right_nodes_sizes) {
-  std::string vs;
-  client->Receive(LeftRightNodeSizesTopic(nids), vs);
+  std::string content;
+  client->Receive(LeftRightNodeSizesTopic(nids), content);
   std::vector<std::string> v1, ids;
-  boost::split(v1, vs, boost::is_any_of("_"));
+  boost::split(v1, content, boost::is_any_of("_"));
   boost::split(ids, nids, boost::is_any_of("_"));
   LOG(CONSOLE) << "[R]nids: " << nids << ", left_right size: " << v1.size() << std::endl;
   int i = 0;
@@ -264,6 +264,42 @@ void XgbPulsarService::GetBlockInfos(
     block_infos.insert({block_info.idx(), block_info});
   });
   LOG(CONSOLE) << "[R]nids: " << nids << ", block_infos size: " << block_infos.size() << std::endl;
+}
+
+void XgbPulsarService::SendNextNodes(int idx, const xgbcomm::NextNodesV2& next_nids) {
+  client->Send(NextNodesTopic(idx), next_nids);
+  LOG(CONSOLE) << "[S]idx:" << idx << ", next_nids size:" << next_nids.next_ids_size() << std::endl;
+}
+
+void XgbPulsarService::GetNextNodes(
+    int idx, std::function<void(const google::protobuf::Map<std::uint32_t, std::uint32_t>&)>
+                 process_part_idxs) {
+  xgbcomm::NextNodesV2 next_nids;
+  client->Receive(NextNodesTopic(idx), next_nids);
+  process_part_idxs(next_nids.next_ids());
+  LOG(CONSOLE) << "[R]idx:" << idx << ", next_nids size:" << next_nids.next_ids_size() << std::endl;
+}
+
+void XgbPulsarService::SendMetrics(int iter, const std::vector<double>& metrics) {
+  if (!metrics.empty()) {
+    std::string content = std::to_string(*metrics.begin());
+    std::for_each(++metrics.begin(), metrics.end(),
+                  [&](auto t) { content += "_" + std::to_string(t); });
+
+    client->Send(MetricsTopic(iter), content);
+    LOG(CONSOLE) << "[S]iter: " << iter << ", metrics size: " << metrics.size()
+                 << ", content: " << content << std::endl;
+  }
+}
+
+void XgbPulsarService::GetMetrics(int iter, std::vector<std::string>& metrics) {
+  std::string content;
+  client->Receive(MetricsTopic(iter), content);
+  std::vector<std::string> ms;
+  boost::split(ms, content, boost::is_any_of("_"));
+  std::for_each(ms.begin(), ms.end(), [&](auto& t) { metrics.emplace_back(std::move(t)); });
+  LOG(CONSOLE) << "[R]iter: " << iter << ", metrics size: " << metrics.size()
+               << ", content: " << content << std::endl;
 }
 
 template void XgbPulsarService::SendBestSplit(int bestIdx, xgboost::tree::CPUExpandEntry& entry,

@@ -48,9 +48,16 @@ class XgbPulsarService {
     return "block_infos_iter-" + std::to_string(cur_version) + "_nids-" + nids;
   }
 
+  inline std::string NextNodesTopic(const int idx) {
+    return "next_nodes_iter-" + std::to_string(cur_version) + "_idx-" + std::to_string(idx);
+  }
+
+  inline std::string MetricsTopic(const int iter) { return "metrics_iter-" + std::to_string(iter); }
+
  public:
-  uint32_t cur_version{0};
-  uint32_t max_iter{std::numeric_limits<uint32_t>().max()};
+  std::uint32_t cur_version{0};
+  std::uint32_t max_iter{std::numeric_limits<uint32_t>().max()};
+  std::size_t eval_data_idx = 0;
 
   XgbPulsarService(bool start = false, const std::string& pulsar_url = "pulsar://localhost:6650",
                    const std::string& topic_prefix = "federated_xgb_",
@@ -112,4 +119,14 @@ class XgbPulsarService {
   void GetBlockInfos(
       std::string nids,
       oneapi::tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos);
+
+  void SendNextNodes(int idx, const xgbcomm::NextNodesV2& next_nids);
+
+  void GetNextNodes(int idx,
+                    std::function<void(const google::protobuf::Map<std::uint32_t, std::uint32_t>&)>
+                        process_part_idxs);
+
+  void SendMetrics(int iter, const std::vector<double>& metrics);
+
+  void GetMetrics(int iter, std::vector<std::string>& metrics);
 };

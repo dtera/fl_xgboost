@@ -137,7 +137,7 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
     auto ft = p_fmat->Info().feature_types.ConstHostSpan();
     for (auto const &gmat : p_fmat->GetBatches<GHistIndexMatrix>(HistBatch(param_))) {
       if (is_same<float, T>()) {
-        if (IsFederated()) {
+        if (IsFederated() && !IsPulsar()) {
           xgb_server_->SetTrainParam(&param_);
         }
         evaluator_->EvaluateSplits(histogram_builder_->Histogram(), gmat.cut, ft, *p_tree,
@@ -296,7 +296,9 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
         if (is_same<float, T>()) {
           evaluator_->EvaluateSplits(histograms, gmat.cut, ft, *p_tree, &best_splits);
         } else {
-          xgb_client_->Clear();
+          if (!IsPulsar()) {
+            xgb_client_->Clear();
+          }
           encrypted_evaluator_->EvaluateSplits(encrypted_histograms, gmat.cut, ft, *p_tree,
                                                &best_splits);
         }
@@ -348,7 +350,7 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
     }
   }
 
-  if (!is_same<float, T>()) {
+  if (!is_same<float, T>() && !IsPulsar()) {
     xgb_client_->Clear();
   }
 

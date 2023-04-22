@@ -75,6 +75,7 @@ class XgbServiceClient {
 
  public:
   uint32_t cur_version = 0;
+  std::size_t eval_data_idx = 0;
 
   explicit XgbServiceClient() = default;
 

@@ -284,8 +284,9 @@ class AdapterView {
   bst_row_t const static base_rowid = 0;  // NOLINT
 };
 
-inline int GenIdxForNextIds(std::int32_t tree_id, std::int32_t part_id, std::int32_t depth) {
-  return tree_id << 20 | part_id << 10 | depth;
+inline int GenIdxForNextIds(std::size_t eval_data_idx, bst_row_t base_rowid, std::int32_t tree_id,
+                            std::int32_t part_id, std::int32_t depth) {
+  return eval_data_idx << 30 | base_rowid << 16 | tree_id << 13 | part_id << 10 | depth;
 }
 
 template <typename DataView, size_t block_of_rows_size>
@@ -313,11 +314,18 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
   };
 
   if (IsFederated()) {
-    if (IsGuest()) {
-      // xgb_server_->ResizeNextNode(out_preds->size());
-      xgb_server_->ClearNextNodeV2();
+    std::uint32_t eval_data_idx;
+    if (IsPulsar()) {
+      eval_data_idx = xgb_pulsar_->eval_data_idx;
     } else {
-      xgb_client_->Clear(1);
+      if (IsGuest()) {
+        eval_data_idx = xgb_server_->eval_data_idx;
+        // xgb_server_->ResizeNextNode(out_preds->size());
+        xgb_server_->ClearNextNodeV2();
+      } else {
+        eval_data_idx = xgb_client_->eval_data_idx;
+        xgb_client_->Clear(1);
+      }
     }
     bst_node_t leaf_nids[tree_end - tree_begin][out_preds->size()];
     std::memset(leaf_nids, 0, sizeof(leaf_nids));
@@ -358,17 +366,24 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
         });
 
         if (!self_part_idxs[j].empty()) {
-          auto idx = GenIdxForNextIds(tree_id, fparam_->fl_part_id, depth);
+          auto idx = GenIdxForNextIds(eval_data_idx, batch.base_rowid, tree_id, fparam_->fl_part_id,
+                                      depth);
           // send next node id to other part
           // LOG(CONSOLE) << "idx: " << idx << ", self_part_id: " << fparam_->fl_part_id << endl;
-          if (IsGuest()) {
-            google::protobuf::Map<uint32_t, uint32_t> self_part_idx;
+          xgbcomm::NextNodesV2 next_nids;
+          if (IsPulsar() || IsGuest()) {
             for (auto part_idx : self_part_idxs[j]) {
-              self_part_idx.insert({part_idx.first, part_idx.second});
+              next_nids.mutable_next_ids()->insert({part_idx.first, part_idx.second});
             };
-            xgb_server_->SendNextNodesV2(idx, self_part_idx);
+          }
+          if (IsPulsar()) {
+            xgb_pulsar_->SendNextNodes(idx, next_nids);
           } else {
-            xgb_client_->SendNextNodesV2(idx, self_part_idxs[j]);
+            if (IsGuest()) {
+              xgb_server_->SendNextNodesV2(idx, next_nids.next_ids());
+            } else {
+              xgb_client_->SendNextNodesV2(idx, self_part_idxs[j]);
+            }
           }
         }
         // LOG(CONSOLE) << "SendNextNodesV2 End, depth: " << depth << endl;
@@ -376,7 +391,8 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
         if (!other_part_idxs[j].empty()) {
           std::for_each(
               other_part_idxs[j].begin(), other_part_idxs[j].end(), [&](bst_node_t other_part_id) {
-                auto idx = GenIdxForNextIds(tree_id, other_part_id, depth);
+                auto idx = GenIdxForNextIds(eval_data_idx, batch.base_rowid, tree_id, other_part_id,
+                                            depth);
                 // receive next node id from other part
                 auto process_part_idxs =
                     [&](const google::protobuf::Map<uint32_t, uint32_t> &next_ids) {
@@ -387,10 +403,14 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
                           });
                     };
                 // LOG(CONSOLE) << "idx: " << idx << ", other_part_id: " << other_part_id << endl;
-                if (IsGuest()) {
-                  xgb_server_->GetNextNodesV2(idx, process_part_idxs);
+                if (IsPulsar()) {
+                  xgb_pulsar_->GetNextNodes(idx, process_part_idxs);
                 } else {
-                  xgb_client_->GetNextNodesV2(idx, process_part_idxs);
+                  if (IsGuest()) {
+                    xgb_server_->GetNextNodesV2(idx, process_part_idxs);
+                  } else {
+                    xgb_client_->GetNextNodesV2(idx, process_part_idxs);
+                  }
                 }
               });
         }
