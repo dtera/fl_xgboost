@@ -69,8 +69,12 @@ message SplitsRequests {
 }
 
 message SplitsResponse {
-  EncryptedSplit encrypted_split = 1;
-  uint32 part_id = 2;
+  uint32 part_id = 1;
+  EncryptedSplit encrypted_split = 2;
+}
+
+message SplitsResponses {
+  repeated SplitsResponse splits_responses = 1;
 }
 
 message SplitEntryValidRequest {

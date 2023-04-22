@@ -27,8 +27,17 @@ class XgbPulsarService {
     return "splits_iter-" + std::to_string(cur_version) + "_nid-" + std::to_string(nid);
   }
 
+  inline std::string SplitsByLayerTopic(std::uint32_t nids) {
+    return "splits_by_layer_iter-" + std::to_string(cur_version) + "_nid-" + std::to_string(nids);
+  }
+
   inline std::string BestSplitTopic(const std::uint32_t nid) {
     return "best_split_iter-" + std::to_string(cur_version) + "_nid-" + std::to_string(nid);
+  }
+
+  inline std::string BestSplitByLayerTopic(std::uint32_t nids) {
+    return "best_split_by_layer_iter-" + std::to_string(cur_version) + "_nid-" +
+           std::to_string(nids);
   }
 
   inline std::string SplitValidTopic(const std::uint32_t nid, const bool is_push = false) {
@@ -83,6 +92,12 @@ class XgbPulsarService {
 
   void GetEncryptedGradPairs(std::vector<xgboost::EncryptedGradientPair>& grad_pairs);
 
+  void HandleSplitUpdate(
+      const xgbcomm::SplitsRequest& sr,
+      const std::function<void(std::uint32_t, xgboost::tree::GradStats<double>&,
+                               xgboost::tree::GradStats<double>&, const xgbcomm::SplitsRequest&)>&
+          update_grad_stats) const;
+
   void SendEncryptedSplits(const xgbcomm::SplitsRequest& sr);
 
   void GetEncryptedSplits(
@@ -91,11 +106,23 @@ class XgbPulsarService {
                          xgboost::tree::GradStats<double>&, const xgbcomm::SplitsRequest&)>
           update_grad_stats);
 
+  void SendEncryptedSplitsByLayer(std::uint32_t nids, const xgbcomm::SplitsRequests& srs);
+
+  void GetEncryptedSplitsByLayer(std::uint32_t nids, xgbcomm::SplitsRequests& srs);
+
+  template <typename ExpandEntry>
+  void HandleBestSplit(int bestIdx, ExpandEntry& entry, const xgbcomm::SplitsRequest& sr,
+                       xgbcomm::SplitsResponse& response);
+
   template <typename ExpandEntry>
   void SendBestSplit(int bestIdx, ExpandEntry& entry, const xgbcomm::SplitsRequest& sr);
 
   void GetBestSplit(const std::uint32_t nid,
                     std::function<void(xgbcomm::SplitsResponse&)> process_best_split);
+
+  void SendBestSplitsByLayer(std::uint32_t nids, const xgbcomm::SplitsResponses& splitsResponses);
+
+  void GetBestSplitsByLayer(std::uint32_t nids, xgbcomm::SplitsResponses& splitsResponses);
 
   void SendSplitValid(const std::uint32_t nid, const bool split_valid, const bool is_push = false);
 

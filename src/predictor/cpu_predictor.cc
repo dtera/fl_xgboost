@@ -342,7 +342,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
 
       std::size_t depth = 0;
       std::size_t j = tree_id - tree_begin;
-      // LOG(CONSOLE) << "tree_id: " << tree_id << ", preds.size: " << preds.size() << endl;
+      // DEBUG << "tree_id: " << tree_id << ", preds.size: " << preds.size() << endl;
       do {
         other_part_idxs[j].clear();
         self_part_idxs[j].clear();
@@ -369,7 +369,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
           auto idx = GenIdxForNextIds(eval_data_idx, batch.base_rowid, tree_id, fparam_->fl_part_id,
                                       depth);
           // send next node id to other part
-          // LOG(CONSOLE) << "idx: " << idx << ", self_part_id: " << fparam_->fl_part_id << endl;
+          // DEBUG << "idx: " << idx << ", self_part_id: " << fparam_->fl_part_id << endl;
           xgbcomm::NextNodesV2 next_nids;
           if (IsPulsar() || IsGuest()) {
             for (auto part_idx : self_part_idxs[j]) {
@@ -386,7 +386,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
             }
           }
         }
-        // LOG(CONSOLE) << "SendNextNodesV2 End, depth: " << depth << endl;
+        // DEBUG << "SendNextNodesV2 End, depth: " << depth << endl;
 
         if (!other_part_idxs[j].empty()) {
           std::for_each(
@@ -402,7 +402,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
                             leaf_nids[j][id_pair.first] = id_pair.second;
                           });
                     };
-                // LOG(CONSOLE) << "idx: " << idx << ", other_part_id: " << other_part_id << endl;
+                // DEBUG << "idx: " << idx << ", other_part_id: " << other_part_id << endl;
                 if (IsPulsar()) {
                   xgb_pulsar_->GetNextNodes(idx, process_part_idxs);
                 } else {
@@ -414,7 +414,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
                 }
               });
         }
-        // LOG(CONSOLE) << "GetNextNodesV2 End, depth: " << depth << endl;
+        // DEBUG << "GetNextNodesV2 End, depth: " << depth << endl;
 
         /*cout << FederatedParam::getRole(fparam_->fl_role) << ": [" << leaf_nids[tree_id][0];
         for (int i = 1; i < out_preds->size() * 0.01; ++i) {
@@ -440,7 +440,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
           }
         });
       }
-      // LOG(CONSOLE) << "depth: " << depth << endl;
+      // DEBUG << "depth: " << depth << endl;
     }
   } else {
     parallel_for([&](const size_t batch_offset, const size_t block_size, const size_t fvec_offset) {

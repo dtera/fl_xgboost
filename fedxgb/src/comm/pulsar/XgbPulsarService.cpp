@@ -79,10 +79,30 @@ void XgbPulsarService::GetEncryptedGradPairs(
       });
 }
 
+void XgbPulsarService::HandleSplitUpdate(
+    const xgbcomm::SplitsRequest& sr,
+    const std::function<void(std::uint32_t, xgboost::tree::GradStats<double>&,
+                             xgboost::tree::GradStats<double>&, const xgbcomm::SplitsRequest&)>&
+        update_grad_stats) const {
+  auto encrypted_splits = sr.encrypted_splits();
+  ParallelFor(encrypted_splits.size(), this->n_threads, [&](uint32_t i) {
+    xgboost::tree::GradStats<double> left_sum;
+    xgboost::tree::GradStats<double> right_sum;
+    xgboost::tree::GradStats<EncryptedType<double>> encrypted_left_sum;
+    xgboost::tree::GradStats<EncryptedType<double>> encrypted_right_sum;
+    mpz_type2_mpz_t(encrypted_left_sum, encrypted_splits[i].left_sum());
+    mpz_type2_mpz_t(encrypted_right_sum, encrypted_splits[i].right_sum());
+    opt_paillier_decrypt(left_sum, encrypted_left_sum, this->pub, this->pri);
+    opt_paillier_decrypt(right_sum, encrypted_right_sum, this->pub, this->pri);
+    // update grad statistics
+    update_grad_stats(i, left_sum, right_sum, sr);
+  });
+}
+
 void XgbPulsarService::SendEncryptedSplits(const xgbcomm::SplitsRequest& sr) {
   client->Send(SplitsTopic(sr.nidx()), sr);
-  LOG(CONSOLE) << "[S]nid: " << sr.nidx()
-               << ", encrypted splits size: " << sr.encrypted_splits_size() << std::endl;
+  DEBUG << "[S]nid: " << sr.nidx() << ", encrypted splits size: " << sr.encrypted_splits_size()
+        << std::endl;
 }
 
 void XgbPulsarService::GetEncryptedSplits(
@@ -91,34 +111,41 @@ void XgbPulsarService::GetEncryptedSplits(
                        xgboost::tree::GradStats<double>&, const xgbcomm::SplitsRequest&)>
         update_grad_stats) {
   client->Receive(SplitsTopic(nid), sr);
-  LOG(CONSOLE) << "[R]nid: " << nid << ", encrypted splits size: " << sr.encrypted_splits_size()
-               << std::endl;
-  auto encrypted_splits = sr.encrypted_splits();
-  ParallelFor(encrypted_splits.size(), n_threads, [&](uint32_t i) {
-    xgboost::tree::GradStats<double> left_sum;
-    xgboost::tree::GradStats<double> right_sum;
-    xgboost::tree::GradStats<EncryptedType<double>> encrypted_left_sum;
-    xgboost::tree::GradStats<EncryptedType<double>> encrypted_right_sum;
-    mpz_type2_mpz_t(encrypted_left_sum, encrypted_splits[i].left_sum());
-    mpz_type2_mpz_t(encrypted_right_sum, encrypted_splits[i].right_sum());
-    opt_paillier_decrypt(left_sum, encrypted_left_sum, pub, pri);
-    opt_paillier_decrypt(right_sum, encrypted_right_sum, pub, pri);
-    // update grad statistics
-    update_grad_stats(i, left_sum, right_sum, sr);
-  });
+  DEBUG << "[R]nid: " << nid << ", encrypted splits size: " << sr.encrypted_splits_size()
+        << std::endl;
+  HandleSplitUpdate(sr, update_grad_stats);
+}
+
+void XgbPulsarService::SendEncryptedSplitsByLayer(std::uint32_t nids,
+                                                  const xgbcomm::SplitsRequests& srs) {
+  client->Send(SplitsByLayerTopic(nids), srs);
+  std::size_t size = 0;
+  std::for_each(srs.splits_requests().begin(), srs.splits_requests().end(),
+                [&](auto& sr) { size += sr.encrypted_splits_size(); });
+  DEBUG << "[S]iter: " << cur_version << ", encrypted splits size: " << size
+        << ", part_id: " << srs.splits_requests(0).part_id() << std::endl;
+}
+
+void XgbPulsarService::GetEncryptedSplitsByLayer(std::uint32_t nids, xgbcomm::SplitsRequests& srs) {
+  client->Receive(SplitsByLayerTopic(nids), srs);
+  std::size_t size = 0;
+  std::for_each(srs.splits_requests().begin(), srs.splits_requests().end(),
+                [&](auto& sr) { size += sr.encrypted_splits_size(); });
+  DEBUG << "[R]iter: " << cur_version << ", encrypted splits size: " << size
+        << ", part_id: " << srs.splits_requests(0).part_id() << std::endl;
 }
 
 template <typename ExpandEntry>
-void XgbPulsarService::SendBestSplit(int bestIdx, ExpandEntry& entry,
-                                     const xgbcomm::SplitsRequest& sr) {
-  xgbcomm::SplitsResponse response;
+void XgbPulsarService::HandleBestSplit(int bestIdx, ExpandEntry& entry,
+                                       const xgbcomm::SplitsRequest& sr,
+                                       xgbcomm::SplitsResponse& response) {
   auto es = response.mutable_encrypted_split();
   auto left_sum = es->mutable_left_sum();
   auto right_sum = es->mutable_right_sum();
   if (bestIdx != -1) {
     // notify the data holder part: it's split is the best
     auto best_split = sr.encrypted_splits(bestIdx);
-    LOG(CONSOLE) << "best split for expand entry " << entry.nid << " is " << bestIdx << std::endl;
+    // DEBUG << "best split for entry " << entry.nid << " is " << bestIdx << std::endl;
     es->set_mask_id(best_split.mask_id());
     es->set_d_step(best_split.d_step());
     es->set_default_left(best_split.default_left());
@@ -136,6 +163,13 @@ void XgbPulsarService::SendBestSplit(int bestIdx, ExpandEntry& entry,
     mpz_t2_mpz_type(left_sum, encrypted_left_sum);
     mpz_t2_mpz_type(right_sum, encrypted_right_sum);
   }
+}
+
+template <typename ExpandEntry>
+void XgbPulsarService::SendBestSplit(int bestIdx, ExpandEntry& entry,
+                                     const xgbcomm::SplitsRequest& sr) {
+  xgbcomm::SplitsResponse response;
+  HandleBestSplit(bestIdx, entry, sr, response);
 
   client->Send(BestSplitTopic(entry.nid), response);
 }
@@ -145,6 +179,22 @@ void XgbPulsarService::GetBestSplit(
   xgbcomm::SplitsResponse response;
   client->Receive(BestSplitTopic(nid), response);
   process_best_split(response);
+}
+
+void XgbPulsarService::SendBestSplitsByLayer(std::uint32_t nids,
+                                             const xgbcomm::SplitsResponses& splitsResponses) {
+  client->Send(BestSplitByLayerTopic(nids), splitsResponses);
+  DEBUG << "[S]iter: " << cur_version
+        << ", best splits size: " << splitsResponses.splits_responses_size()
+        << ", part_id: " << splitsResponses.splits_responses(0).part_id() << std::endl;
+}
+
+void XgbPulsarService::GetBestSplitsByLayer(std::uint32_t nids,
+                                            xgbcomm::SplitsResponses& splitsResponses) {
+  client->Receive(BestSplitByLayerTopic(nids), splitsResponses);
+  DEBUG << "[R]iter: " << cur_version
+        << ", best splits size: " << splitsResponses.splits_responses_size()
+        << ", part_id: " << splitsResponses.splits_responses(0).part_id() << std::endl;
 }
 
 void XgbPulsarService::SendSplitValid(const std::uint32_t nid, const bool split_valid,
@@ -172,8 +222,7 @@ void XgbPulsarService::SendSplitsValid(
     });
 
     client->Send(SplitsValidTopic(nids), content);
-    LOG(CONSOLE) << "[S]nids: " << nids << ", splits_valid size: " << splits_valid.size()
-                 << std::endl;
+    DEBUG << "[S]nids: " << nids << ", splits_valid size: " << splits_valid.size() << std::endl;
   }
 }
 
@@ -187,7 +236,7 @@ void XgbPulsarService::GetSplitsValid(
     client->Receive(SplitsValidTopic(nids), content);
     std::vector<std::string> v1;
     boost::split(v1, content, boost::is_any_of("_"));
-    LOG(CONSOLE) << "[R]nids: " << nids << ", splits_valid size: " << v1.size() << std::endl;
+    DEBUG << "[R]nids: " << nids << ", splits_valid size: " << v1.size() << std::endl;
     int i = 0;
     for (auto& sv : splits_valid) {
       std::vector<std::string> v2;
@@ -213,8 +262,8 @@ void XgbPulsarService::SendLeftRightNodeSizes(
     });
 
     client->Send(LeftRightNodeSizesTopic(nids), content);
-    LOG(CONSOLE) << "[S]nids: " << nids << ", left_right size: " << left_right_nodes_sizes.size()
-                 << std::endl;
+    DEBUG << "[S]nids: " << nids << ", left_right size: " << left_right_nodes_sizes.size()
+          << std::endl;
   }
 }
 
@@ -226,7 +275,7 @@ void XgbPulsarService::GetLeftRightNodeSizes(
   std::vector<std::string> v1, ids;
   boost::split(v1, content, boost::is_any_of("_"));
   boost::split(ids, nids, boost::is_any_of("_"));
-  LOG(CONSOLE) << "[R]nids: " << nids << ", left_right size: " << v1.size() << std::endl;
+  DEBUG << "[R]nids: " << nids << ", left_right size: " << v1.size() << std::endl;
   int i = 0;
   for (auto& id : ids) {
     std::vector<std::string> v2;
@@ -249,8 +298,7 @@ void XgbPulsarService::SendBlockInfos(
       bs->Add()->CopyFrom(b.second);
     });
     client->Send(BlockInfosTopic(nids), bis);
-    LOG(CONSOLE) << "[S]nids: " << nids << ", block_infos size: " << block_infos.size()
-                 << std::endl;
+    DEBUG << "[S]nids: " << nids << ", block_infos size: " << block_infos.size() << std::endl;
   }
 }
 
@@ -263,12 +311,12 @@ void XgbPulsarService::GetBlockInfos(
     auto block_info = bis.block_infos(i);
     block_infos.insert({block_info.idx(), block_info});
   });
-  LOG(CONSOLE) << "[R]nids: " << nids << ", block_infos size: " << block_infos.size() << std::endl;
+  DEBUG << "[R]nids: " << nids << ", block_infos size: " << block_infos.size() << std::endl;
 }
 
 void XgbPulsarService::SendNextNodes(int idx, const xgbcomm::NextNodesV2& next_nids) {
   client->Send(NextNodesTopic(idx), next_nids);
-  LOG(CONSOLE) << "[S]idx:" << idx << ", next_nids size:" << next_nids.next_ids_size() << std::endl;
+  DEBUG << "[S]idx:" << idx << ", next_nids size:" << next_nids.next_ids_size() << std::endl;
 }
 
 void XgbPulsarService::GetNextNodes(
@@ -277,7 +325,7 @@ void XgbPulsarService::GetNextNodes(
   xgbcomm::NextNodesV2 next_nids;
   client->Receive(NextNodesTopic(idx), next_nids);
   process_part_idxs(next_nids.next_ids());
-  LOG(CONSOLE) << "[R]idx:" << idx << ", next_nids size:" << next_nids.next_ids_size() << std::endl;
+  DEBUG << "[R]idx:" << idx << ", next_nids size:" << next_nids.next_ids_size() << std::endl;
 }
 
 void XgbPulsarService::SendMetrics(int iter, const std::vector<double>& metrics) {
@@ -287,8 +335,8 @@ void XgbPulsarService::SendMetrics(int iter, const std::vector<double>& metrics)
                   [&](auto t) { content += "_" + std::to_string(t); });
 
     client->Send(MetricsTopic(iter), content);
-    LOG(CONSOLE) << "[S]iter: " << iter << ", metrics size: " << metrics.size()
-                 << ", content: " << content << std::endl;
+    DEBUG << "[S]iter: " << iter << ", metrics size: " << metrics.size() << ", content: " << content
+          << std::endl;
   }
 }
 
@@ -298,9 +346,13 @@ void XgbPulsarService::GetMetrics(int iter, std::vector<std::string>& metrics) {
   std::vector<std::string> ms;
   boost::split(ms, content, boost::is_any_of("_"));
   std::for_each(ms.begin(), ms.end(), [&](auto& t) { metrics.emplace_back(std::move(t)); });
-  LOG(CONSOLE) << "[R]iter: " << iter << ", metrics size: " << metrics.size()
-               << ", content: " << content << std::endl;
+  DEBUG << "[R]iter: " << iter << ", metrics size: " << metrics.size() << ", content: " << content
+        << std::endl;
 }
 
 template void XgbPulsarService::SendBestSplit(int bestIdx, xgboost::tree::CPUExpandEntry& entry,
                                               const xgbcomm::SplitsRequest& sr);
+
+template void XgbPulsarService::HandleBestSplit(int bestIdx, xgboost::tree::CPUExpandEntry& entry,
+                                                const xgbcomm::SplitsRequest& sr,
+                                                xgbcomm::SplitsResponse& response);

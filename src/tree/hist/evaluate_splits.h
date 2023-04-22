@@ -337,12 +337,13 @@ class HistEvaluator {
   }
 
   void UpdateForDataHolder(ExpandEntry &e,
-                           const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) const {
+                           const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator,
+                           const SplitsRequest *sr, std::atomic<int> &bestIdx) const {
     if (IsFederated()) {
       e.split.part_id = fparam_->fl_part_id;
       if (IsPulsar()) {
+        /*
         SplitsRequest sr;
-        std::atomic<int> bestIdx{-1};
         xgb_pulsar_->GetEncryptedSplits(e.nid, sr,
                                         [&](uint32_t i, GradStats<double> &left_sum,
                                             GradStats<double> &right_sum, const SplitsRequest &) {
@@ -355,7 +356,18 @@ class HistEvaluator {
                                             bestIdx = i;
                                           }
                                         });
-        xgb_pulsar_->SendBestSplit(bestIdx.load(), e, sr);
+        xgb_pulsar_->SendBestSplit(bestIdx.load(), e, sr);*/
+        xgb_pulsar_->HandleSplitUpdate(
+            *sr, [&](uint32_t i, GradStats<double> &left_sum, GradStats<double> &right_sum,
+                     const SplitsRequest &) {
+              auto es = sr->encrypted_splits()[i];
+              auto updated = EnumerateUpdate(-1, 0, sr->nidx(), 0.0, evaluator, left_sum, right_sum,
+                                             e.split, es.d_step(), es.default_left(), es.is_cat());
+              if (updated) {
+                e.split.part_id = sr->part_id();
+                bestIdx = i;
+              }
+            });
       } else {
         xgb_server_->UpdateFinishSplits(e.nid, false);
         // update expand entry for the data holder part
@@ -377,9 +389,9 @@ class HistEvaluator {
 
   void DataHolderUpdate(const common::HistogramCuts &cut,
                         common::Span<const FeatureType> &feature_types, ExpandEntry &e,
-                        SplitsRequest &sr) const {
+                        SplitsRequest &sr,
+                        function<void(function<void(SplitsResponse &)>)> update) const {
     auto const &cut_ptrs = cut.Ptrs();
-    sr.set_part_id(fparam_->fl_part_id);
     auto process_best_split = [&](SplitsResponse &response) {
       bst_feature_t fidx = 0;
       bst_float split_pt = 0;
@@ -421,12 +433,13 @@ class HistEvaluator {
         e.split.Update(fidx, split_pt, es.default_left(), response.part_id(), left_sum, right_sum);
       }
     };
-    if (IsPulsar()) {
+    update(process_best_split);
+    /*if (IsPulsar()) {
       xgb_pulsar_->SendEncryptedSplits(sr);
       xgb_pulsar_->GetBestSplit(e.nid, process_best_split);
     } else {
       xgb_client_->SendEncryptedSplits(sr, process_best_split);
-    }
+    }*/
   }
 
   void EvaluateSplits(const common::HistCollection<H> &hist, common::HistogramCuts const &cut,
@@ -495,22 +508,66 @@ class HistEvaluator {
       }
     });
 
+    SplitsRequests splitsRequests;
+    SplitsResponses splitsResponses;
+    std::uint32_t nids = 0;
     if (is_same<double, H>()) {
       for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {
           entries[nidx_in_set].split.Update(tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
         }
-        UpdateForDataHolder(entries[nidx_in_set], evaluator);
+        if (IsPulsar()) {
+          nids += entries[nidx_in_set].nid;
+        }
       }
-
+      if (IsPulsar()) {
+        xgb_pulsar_->GetEncryptedSplitsByLayer(nids, splitsRequests);
+      }
+      auto srs = splitsResponses.mutable_splits_responses();
+      for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
+        std::atomic<int> bestIdx{-1};
+        UpdateForDataHolder(entries[nidx_in_set], evaluator,
+                            IsPulsar() ? &splitsRequests.splits_requests(nidx_in_set) : nullptr,
+                            bestIdx);
+        if (IsPulsar()) {
+          auto sr = srs->Add();
+          xgb_pulsar_->HandleBestSplit(bestIdx.load(), entries[nidx_in_set],
+                                       splitsRequests.splits_requests(nidx_in_set), *sr);
+        }
+      }
+      if (IsPulsar()) {
+        xgb_pulsar_->SendBestSplitsByLayer(nids, splitsResponses);
+      }
     } else {
+      auto srs = splitsRequests.mutable_splits_requests();
       for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {
           splits_requests[nidx_in_set].mutable_encrypted_splits()->MergeFrom(
               tloc_requests[n_threads_ * nidx_in_set + tidx].encrypted_splits());
         }
         splits_requests[nidx_in_set].set_nidx(entries[nidx_in_set].nid);
-        DataHolderUpdate(cut, feature_types, entries[nidx_in_set], splits_requests[nidx_in_set]);
+        splits_requests[nidx_in_set].set_part_id(fparam_->fl_part_id);
+        if (IsPulsar()) {
+          nids += entries[nidx_in_set].nid;
+          srs->Add(std::move(splits_requests[nidx_in_set]));
+        } else {
+          DataHolderUpdate(cut, feature_types, entries[nidx_in_set], splits_requests[nidx_in_set],
+                           [&](function<void(SplitsResponse &)> process_best_split) {
+                             xgb_client_->SendEncryptedSplits(splits_requests[nidx_in_set],
+                                                              process_best_split);
+                           });
+        }
+      }
+      if (IsPulsar()) {
+        xgb_pulsar_->SendEncryptedSplitsByLayer(nids, splitsRequests);
+        xgb_pulsar_->GetBestSplitsByLayer(nids, splitsResponses);
+        for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
+          auto splitsResponse = splitsResponses.splits_responses(nidx_in_set);
+          DataHolderUpdate(cut, feature_types, entries[nidx_in_set], splits_requests[nidx_in_set],
+                           [&](function<void(SplitsResponse &)> process_best_split) {
+                             process_best_split(splitsResponse);
+                           });
+        }
       }
     }
   }

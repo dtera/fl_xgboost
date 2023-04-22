@@ -8,7 +8,7 @@
 
 namespace xgboost {
 enum class FedratedRole : int { Guest = 0, Host = 1 };
-enum class FedratedCommType : int { Socket = 0, Pulsar = 1 };
+enum class FedratedCommType : int { None = 0, Socket = 1, Pulsar = 2 };
 }  // namespace xgboost
 
 DECLARE_FIELD_ENUM_CLASS(xgboost::FedratedRole);
@@ -34,7 +34,7 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
       case FedratedCommType::Pulsar:
         return "pulsar";
       default:
-        return "";
+        return "none";
     }
   }
   // data split mode, can be row, col, or none.
@@ -68,7 +68,8 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
         .add_enum("host", FedratedRole::Host)
         .describe("Role for Fedrated learning.");
     DMLC_DECLARE_FIELD(fl_comm_type)
-        .set_default(FedratedCommType::Socket)
+        .set_default(FedratedCommType::None)
+        .add_enum("none", FedratedCommType::None)
         .add_enum("socket", FedratedCommType::Socket)
         .add_enum("pulsar", FedratedCommType::Pulsar)
         .describe("Communication type for Fedrated learning.");
