@@ -16,10 +16,10 @@
 package ml.dmlc.xgboost4j.scala.example.test.fedxgb
 
 import ml.dmlc.xgboost4j.java.example.BasicWalkThrough.{checkPredicts, saveDumpModel}
+import ml.dmlc.xgboost4j.scala.app.XGBClassifierRunner.{evaluator, setXgbParams}
 import ml.dmlc.xgboost4j.scala.example.test.SparkTest
 import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
-import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.util.FedMLUtils.FED_LIBSVM
 
 import java.io.File
@@ -28,18 +28,7 @@ import scala.collection.mutable
 class FedXgbTests extends SparkTest {
 
   val params = new mutable.HashMap[String, Any]()
-  params += "booster" -> "gbtree"
-  params += "eta" -> 1.0
-  params += "gamma" -> 1.0
-  params += "max_depth" -> 8
-  params += "seed" -> 0
-  params += "min_child_weight" -> 0
-  params += "missing" -> 0f
-  params += "verbosity" -> 1
-  params += "objective" -> "reg:squarederror"
-  params += "tree_method" -> "hist"
-  params += "eval_metric" -> "auc"
-  params += "dump_format" -> "json"
+  setXgbParams(params)
 
   "[guest]fed spark xgb" should "work with a9a dataset" in {
     val trainInput = spark.read.format(FED_LIBSVM).load("../data/a9a.guest.train")
@@ -48,22 +37,17 @@ class FedXgbTests extends SparkTest {
 
     params += "fl_port" -> "30002"
     params += "fl_role" -> "guest"
-    params += "fl_bit_len" -> 1024
+    params += "fl_pulsar_topic_prefix" -> "federated_spark_xgb_a9a_"
     params += "fl_part_id" -> 0
-    params += "fl_on" -> 1
+    params += "eval_sets" -> Map("test" -> testInput)
 
-    val xgbClassifier = new XGBoostClassifier(params.toMap)
+    val xgbClassifier = new XGBoostClassifier(params.toMap).setNumRound(3)
     val xgbModel = xgbClassifier.fit(trainInput)
     val modelDir = "./model/a9a.guest.xgb.spark"
     xgbModel.write.overwrite().option("format", "json").save(modelDir)
 
-    val evaluator = new BinaryClassificationEvaluator()
-      .setLabelCol("label")
-      .setRawPredictionCol("rawPrediction")
-      .setMetricName("areaUnderROC")
-
-    val testAUC = evaluator.evaluate(xgbModel.transform(testInput))
-    println(s"Test AUC: $testAUC")
+    // val testAUC = evaluator.evaluate(xgbModel.transform(testInput))
+    // println(s"Test AUC: $testAUC")
   }
 
   "[host]fed spark xgb" should "work with a9a dataset" in {
@@ -73,15 +57,17 @@ class FedXgbTests extends SparkTest {
 
     params += "fl_address" -> "0.0.0.0:30002"
     params += "fl_role" -> "host"
+    params += "fl_pulsar_topic_prefix" -> "federated_spark_xgb_a9a_"
     params += "fl_part_id" -> 1
-    params += "fl_on" -> 1
+    params += "eval_sets" -> Map("test" -> testInput)
 
-    val xgbClassifier = new XGBoostClassifier(params.toMap)
+    val xgbClassifier = new XGBoostClassifier(params.toMap).setNumRound(3)
     val xgbModel = xgbClassifier.fit(trainInput)
     val modelDir = "./model/a9a.host.xgb.spark"
     xgbModel.write.overwrite().option("format", "json").save(modelDir)
 
-    xgbModel.transform(testInput).count()
+    // val testAUC = evaluator.evaluate(xgbModel.transform(testInput))
+    // println(s"Test AUC: $testAUC")
   }
 
   "[guest]fed xgb" should "work with a9a dataset" in {
@@ -90,9 +76,9 @@ class FedXgbTests extends SparkTest {
 
     params += "fl_port" -> "30002"
     params += "fl_role" -> "guest"
+    params += "fl_pulsar_topic_prefix" -> "federated_xgb_a9a_"
     params += "fl_bit_len" -> 1024
     params += "fl_part_id" -> 0
-    params += "fl_on" -> 1
 
     val watches = new mutable.HashMap[String, DMatrix]
     watches += "train" -> trainMax
@@ -117,8 +103,8 @@ class FedXgbTests extends SparkTest {
 
     params += "fl_address" -> "0.0.0.0:30002"
     params += "fl_role" -> "host"
+    params += "fl_pulsar_topic_prefix" -> "federated_xgb_a9a_"
     params += "fl_part_id" -> 1
-    params += "fl_on" -> 1
 
     val watches = new mutable.HashMap[String, DMatrix]
     watches += "train" -> trainMax
@@ -146,8 +132,8 @@ class FedXgbTests extends SparkTest {
 
     val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f)
     val xgbModel = xgbClassifier.fit(trainInput)
-    val resDF = xgbModel.transform(testInput)
-    resDF.show(10)
+    val testAUC = evaluator.evaluate(xgbModel.transform(testInput))
+    println(s"Test AUC: $testAUC")
   }
 
   "xgb" should "work with a9a dataset" in {
