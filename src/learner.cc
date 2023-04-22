@@ -534,7 +534,7 @@ class LearnerConfiguration : public Learner {
             cfg_.count("num_round") == 0 ? 1 : std::atoi(cfg_["num_round"].c_str());
         xgb_pulsar_->Start(fparam_->fl_pulsar_url, fparam_->fl_pulsar_topic_prefix,
                            fparam_->fl_pulsar_token, fparam_->fl_pulsar_tenant,
-                           fparam_->fl_pulsar_namespace);
+                           fparam_->fl_pulsar_namespace, fparam_->fl_pulsar_topic_ttl);
         if (IsGuest()) {
           xgb_pulsar_->SetPriKey(pri_);
           xgb_pulsar_->SendPubKey(pub_);

@@ -30,6 +30,7 @@ class PulsarClient {
                const std::string& pulsar_tenant = "fl-tenant",
                const std::string& pulsar_namespace = "fl-algorithm",
                const std::uint32_t pulsar_batch_max_size = 1000000,
+               const std::int32_t pulsar_topic_ttl = 60,
                const std::int32_t n_threads = omp_get_num_procs())
       : pulsar_url(pulsar_url),
         pulsar_topic_prefix("persistent://" + pulsar_tenant + "/" + pulsar_namespace + "/" +
@@ -37,6 +38,7 @@ class PulsarClient {
         pulsar_token(pulsar_token),
         pulsar_tenant(pulsar_tenant),
         pulsar_namespace(pulsar_namespace),
+        pulsar_topic_ttl(pulsar_topic_ttl),
         n_threads(n_threads) {
     client_config.setAuth(pulsar::AuthToken::createWithToken(pulsar_token));
     client_config.setMemoryLimit(std::numeric_limits<std::uint64_t>().max());
@@ -46,6 +48,7 @@ class PulsarClient {
     producer_config.setChunkingEnabled(true);
     producer_config.setPartitionsRoutingMode(pulsar::ProducerConfiguration::UseSinglePartition);
     producer_config.setLazyStartPartitionedProducers(true);
+    producer_config.setProperty("retentionTime", std::to_string(pulsar_topic_ttl * 60 * 1000));
 
     producer_config.setBlockIfQueueFull(true);
     producer_config.setBatchingMaxMessages(pulsar_batch_max_size);
@@ -233,6 +236,7 @@ class PulsarClient {
   std::string pulsar_token;
   std::string pulsar_tenant;
   std::string pulsar_namespace;
+  std::int32_t pulsar_topic_ttl;
   std::mutex mtx{};
   std::condition_variable cv{};
   std::int32_t n_threads;

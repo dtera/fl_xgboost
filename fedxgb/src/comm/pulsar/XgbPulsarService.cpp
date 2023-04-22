@@ -8,22 +8,28 @@
 XgbPulsarService::XgbPulsarService(bool start, const std::string& pulsar_url,
                                    const std::string& topic_prefix, const std::string& pulsar_token,
                                    const std::string& pulsar_tenant,
-                                   const std::string& pulsar_namespace, std::int32_t n_threads)
-    : n_threads(n_threads) {
+                                   const std::string& pulsar_namespace,
+                                   const std::int32_t pulsar_topic_ttl,
+                                   const std::int32_t n_threads)
+    : pulsar_topic_ttl(pulsar_topic_ttl), n_threads(n_threads) {
   if (start) {
-    Start(pulsar_url, topic_prefix, pulsar_token, pulsar_tenant, pulsar_namespace, n_threads);
+    Start(pulsar_url, topic_prefix, pulsar_token, pulsar_tenant, pulsar_namespace, pulsar_topic_ttl,
+          n_threads);
   }
 }
 
 void XgbPulsarService::Start(const std::string& pulsar_url, const std::string& topic_prefix,
                              const std::string& pulsar_token, const std::string& pulsar_tenant,
-                             const std::string& pulsar_namespace, std::int32_t n_threads) {
-  char yyyymmddhh[13];
+                             const std::string& pulsar_namespace,
+                             const std::int32_t pulsar_topic_ttl, const std::int32_t n_threads) {
+  this->n_threads = n_threads;
+  this->pulsar_topic_ttl = pulsar_topic_ttl;
+  char yyyymmddhhMM[13];
   time_t now = time(NULL);
-  strftime(yyyymmddhh, 13, "%Y%m%d%H%M", localtime(&now));
+  strftime(yyyymmddhhMM, 13, "%Y%m%d%H%M", localtime(&now));
   client = std::make_unique<PulsarClient>(
-      pulsar_url, topic_prefix + std::to_string(std::atoll(yyyymmddhh) / 3) + "_", pulsar_token,
-      pulsar_tenant, pulsar_namespace, n_threads);
+      pulsar_url, topic_prefix + std::to_string(std::atoll(yyyymmddhhMM) / pulsar_topic_ttl) + "_",
+      pulsar_token, pulsar_tenant, pulsar_namespace, pulsar_topic_ttl, n_threads);
 }
 
 void XgbPulsarService::SetPriKey(opt_private_key_t* pri_) { pri = pri_; }

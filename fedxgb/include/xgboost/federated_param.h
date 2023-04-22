@@ -48,6 +48,7 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
   std::string fl_pulsar_token;
   std::string fl_pulsar_tenant;
   std::string fl_pulsar_namespace;
+  std::int32_t fl_pulsar_topic_ttl;
   std::string fl_address;  // for data holder part
   uint32_t fl_port;        // for label part
   uint32_t fl_bit_len;
@@ -88,6 +89,7 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
     DMLC_DECLARE_FIELD(fl_pulsar_namespace)
         .set_default("fl-algorithm")
         .describe("Namespace for pulsar communication.");
+    DMLC_DECLARE_FIELD(fl_pulsar_topic_ttl).set_default(60).describe("Pulsar topic ttl(minutes).");
     DMLC_DECLARE_FIELD(fl_address)
         .set_default("0.0.0.0:50001")
         .describe("Address for grpc communication.");
