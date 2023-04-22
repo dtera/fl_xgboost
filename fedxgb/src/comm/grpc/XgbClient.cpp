@@ -88,7 +88,6 @@ bool XgbServiceAsyncClient::AsyncReq(const uint32_t version, XgbCommType t) {
       return false;
     }
     SplitsRequest splitsRequest;
-    splitsRequest.set_version(version);
     splits_stream_->Write(splitsRequest, reinterpret_cast<void*>(XgbCommType::SPLITS_WRITE));
   } else {
     LOG(FATAL) << "Unexpected type: " << static_cast<int>(t) << endl;
@@ -178,7 +177,7 @@ void XgbServiceClient::SendEncryptedSplits(SplitsRequest& splits_request,
 }
 
 void XgbServiceClient::GetEncryptedSplits(XgbEncryptedSplit* encryptedSplits) {
-  RpcRequest(SplitsRequest, SendEncryptedSplits, SplitsResponse, request.set_version(cur_version),
+  RpcRequest(SplitsRequest, SendEncryptedSplits, SplitsResponse, {},
              {
                  /*
                  auto ess = response.encrypted_splits();
@@ -196,7 +195,7 @@ bool XgbServiceClient::IsSplitEntryValid(int nid, xgboost::bst_node_t num_leaves
   RpcRequest(
       SplitEntryValidRequest, IsSplitEntryValid, ValidResponse,
       {
-        request.set_version(cur_version);
+        // request.set_version(cur_version);
         request.set_nidx(nid);
         request.set_num_leaves(num_leaves);
       },

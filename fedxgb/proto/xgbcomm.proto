@@ -59,22 +59,23 @@ message GradPairsResponse {
 }
 
 message SplitsRequest {
-  uint32 version = 1;
-  uint32 nidx = 2;
-  uint32 part_id = 3;
-  repeated EncryptedSplit encrypted_splits = 4;
+  uint32 nidx = 1;
+  uint32 part_id = 2;
+  repeated EncryptedSplit encrypted_splits = 3;
+}
+
+message SplitsRequests {
+  repeated SplitsRequest splits_requests = 1;
 }
 
 message SplitsResponse {
-  uint32 version = 1;
-  EncryptedSplit encrypted_split = 2;
-  uint32 part_id = 3;
+  EncryptedSplit encrypted_split = 1;
+  uint32 part_id = 2;
 }
 
 message SplitEntryValidRequest {
-  uint32 version = 1;
-  uint32 nidx = 2;
-  int32 num_leaves = 3;
+  uint32 nidx = 1;
+  int32 num_leaves = 2;
 }
 
 message ValidResponse {

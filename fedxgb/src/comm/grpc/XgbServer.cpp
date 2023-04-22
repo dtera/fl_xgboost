@@ -77,8 +77,7 @@ void XgbServiceAsyncServer::setGradPairsResponse(GradPairsResponse& gradPairsRes
 }
 
 void XgbServiceAsyncServer::setSplitsResponse(SplitsResponse& splitsResponse) {
-  splitsResponse.set_version(splits_request_.version());
-  cout << "splitsResponse: " << splitsResponse.version() << endl;
+  // cout << "splitsResponse: " << splitsResponse.version() << endl;
 }
 
 namespace {
@@ -427,8 +426,6 @@ Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const Split
     mpz_t2_mpz_type(left_sum, encrypted_left_sum);
     mpz_t2_mpz_type(right_sum, encrypted_right_sum);
   }
-
-  response->set_version(cur_version);
 
   return Status::OK;
 }

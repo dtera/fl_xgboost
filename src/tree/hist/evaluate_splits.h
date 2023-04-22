@@ -446,7 +446,7 @@ class HistEvaluator {
         grain_size);
 
     std::vector<SplitsRequest> splits_requests;
-    splits_requests.resize(entries.size(), SplitsRequest());
+    splits_requests.resize(entries.size());
     std::vector<ExpandEntry> tloc_candidates(n_threads_ * entries.size());
     std::vector<SplitsRequest> tloc_requests(n_threads_ * entries.size());
     for (size_t i = 0; i < entries.size(); ++i) {
