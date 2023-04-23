@@ -28,17 +28,23 @@ object XGBClassifierRunner extends AbstractSparkApp {
 
   def train(inputDF: DataFrame, params: mutable.HashMap[String, Any],
             xgbClassifier: XGBoostClassifier): Unit = {
+    if (params.contains("test_input_path")) {
+      val testInputDF = spark.read.format(FED_LIBSVM).load(params("test_input_path").toString)
+      params += "eval_sets" -> Map("test" -> testInputDF)
+    }
     // training
     val xgbModel = xgbClassifier.fit(inputDF)
     // output model
     val model_output_path = if (params.contains("model_output_path")) params("model_output_path").toString else ""
     xgbModel.write.overwrite().option("format", "json").save(model_output_path)
 
+    /*
     if (params.contains("test_input_path")) {
       val testInputDF = spark.read.format(FED_LIBSVM).load(params("test_input_path").toString)
       val testAUC = evaluator.evaluate(xgbModel.transform(testInputDF))
       println(s"Test AUC: $testAUC")
     }
+    */
   }
 
   def setXgbParams(params: mutable.HashMap[String, Any]) {
