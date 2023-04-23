@@ -11,7 +11,8 @@
 #include "xgboost/base.h"
 #include "xgboost/logging.h"
 
-#define DEBUG LOG(DEBUG)  // std::cout
+// #define DEBUG LOG(CONSOLE)
+#define DEBUG LOG(DEBUG)
 #define INFO LOG(INFO)
 #define ERROR LOG(FATAL)
 
