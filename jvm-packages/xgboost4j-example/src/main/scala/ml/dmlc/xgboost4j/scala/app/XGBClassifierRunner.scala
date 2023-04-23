@@ -4,6 +4,7 @@ import ml.dmlc.xgboost4j.java.app.{AbstractSparkApp, ParamUtils}
 import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.util.FedMLUtils.FED_LIBSVM
+import org.apache.spark.sql.DataFrame
 
 import scala.collection.mutable
 
@@ -18,13 +19,26 @@ object XGBClassifierRunner extends AbstractSparkApp {
     setXgbParams(ParamUtils.params)
     val params = ParamUtils.fromArgs(args)
 
-    val trainInput = spark.read.format(FED_LIBSVM).load(params("input").toString)
+    val inputDF = spark.read.format(FED_LIBSVM).load(params("input_path").toString)
     val xgbClassifier = new XGBoostClassifier(params.toMap)
       .setNumRound(params("num_round").toString.toInt)
+
+    train(inputDF, params, xgbClassifier)
+  }
+
+  def train(inputDF: DataFrame, params: mutable.HashMap[String, Any],
+            xgbClassifier: XGBoostClassifier): Unit = {
     // training
-    val xgbModel = xgbClassifier.fit(trainInput)
+    val xgbModel = xgbClassifier.fit(inputDF)
     // output model
-    xgbModel.write.overwrite().option("format", "json").save(params("model_output").toString)
+    val model_output_path = if (params.contains("model_output_path")) params("model_output_path").toString else ""
+    xgbModel.write.overwrite().option("format", "json").save(model_output_path)
+
+    if (params.contains("test_input_path")) {
+      val testInputDF = spark.read.format(FED_LIBSVM).load(params("test_input_path").toString)
+      val testAUC = evaluator.evaluate(xgbModel.transform(testInputDF))
+      println(s"Test AUC: $testAUC")
+    }
   }
 
   def setXgbParams(params: mutable.HashMap[String, Any]) {
