@@ -293,7 +293,7 @@ void XgbPulsarService::GetLeftRightNodeSizes(
 }
 
 void XgbPulsarService::SendBlockInfos(
-    const oneapi::tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos) {
+    const tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos) {
   if (!block_infos.empty()) {
     std::string nids = std::to_string(block_infos.begin()->first);
     xgbcomm::BlockInfos bis;
@@ -309,8 +309,7 @@ void XgbPulsarService::SendBlockInfos(
 }
 
 void XgbPulsarService::GetBlockInfos(
-    std::string nids,
-    oneapi::tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos) {
+    std::string nids, tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos) {
   xgbcomm::BlockInfos bis;
   client->Receive(BlockInfosTopic(nids), bis);
   ParallelFor(bis.block_infos_size(), n_threads, [&](auto& i) {

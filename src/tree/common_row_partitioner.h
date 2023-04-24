@@ -237,8 +237,8 @@ class CommonRowPartitioner {
     // 4. Copy elements from partition_builder_ to row_set_collection_ back
     // with updated row-indexes for each tree-node
     if (IsPulsar()) {
-      oneapi::tbb::concurrent_unordered_map<size_t, BlockInfo> block_infos;
-      oneapi::tbb::concurrent_unordered_set<size_t> other_task_ids;
+      tbb::concurrent_unordered_map<size_t, BlockInfo> block_infos;
+      tbb::concurrent_unordered_set<size_t> other_task_ids;
       common::ParallelFor2d(space, ctx->Threads(), [&](size_t node_in_set, common::Range1d r) {
         partition_builder_.MergeToArray(
             node_in_set, r.begin(),

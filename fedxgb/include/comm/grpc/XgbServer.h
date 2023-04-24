@@ -99,7 +99,7 @@ class XgbServiceServer final : public XgbService::Service {
   boost::unordered_map<uint32_t, const CPUExpandEntry> entries_;
   boost::unordered_map<size_t, const pair<size_t, size_t>> left_right_nodes_sizes_;
   boost::unordered_map<uint32_t, EncryptedSplit> best_splits_;
-  oneapi::tbb::concurrent_unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
+  tbb::concurrent_unordered_map<size_t, shared_ptr<PositionBlockInfo>> block_infos_;
   vector<boost::unordered_map<int32_t, const bool>> next_nodes_;
   vector<vector<boost::unordered_map<string, const double>>> metrics_;
   boost::unordered_map<int32_t, google::protobuf::Map<uint32_t, uint32_t>> next_nodes_v2_;

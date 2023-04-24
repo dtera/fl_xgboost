@@ -144,11 +144,10 @@ class XgbPulsarService {
       std::map<std::size_t, const std::pair<std::size_t, std::size_t>>& left_right_nodes_sizes);
 
   void SendBlockInfos(
-      const oneapi::tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos);
+      const tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos);
 
-  void GetBlockInfos(
-      std::string nids,
-      oneapi::tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos);
+  void GetBlockInfos(std::string nids,
+                     tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos);
 
   void SendNextNodes(int idx, const xgbcomm::NextNodesV2& next_nids);
 

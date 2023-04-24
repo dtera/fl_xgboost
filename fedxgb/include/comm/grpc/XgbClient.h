@@ -130,8 +130,7 @@ class XgbServiceClient {
   void GetNextNodesV2(
       int idx, function<void(const google::protobuf::Map<uint32_t, uint32_t> &)> process_part_idxs);
 
-  void SendNextNodesV2(int idx,
-                       oneapi::tbb::concurrent_unordered_map<uint32_t, uint32_t> &part_idxs);
+  void SendNextNodesV2(int idx, tbb::concurrent_unordered_map<uint32_t, uint32_t> &part_idxs);
 
   void GetMetric(int iter, size_t data_idx, const char *metric_name,
                  function<void(double)> process_metric);

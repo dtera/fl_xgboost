@@ -317,7 +317,7 @@ void XgbServiceClient::GetNextNodesV2(
 }
 
 void XgbServiceClient::SendNextNodesV2(
-    int idx, oneapi::tbb::concurrent_unordered_map<uint32_t, uint32_t>& part_idxs) {
+    int idx, tbb::concurrent_unordered_map<uint32_t, uint32_t>& part_idxs) {
   RpcRequest(NextNodesV2, SendNextNodesV2, Response,
              {
                request.set_idx(idx);
