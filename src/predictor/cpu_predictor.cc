@@ -27,7 +27,7 @@
 namespace xgboost {
 namespace predictor {
 
-DMLC_REGISTRY_FILE_TAG(cpu_predictor);
+DMLC_REGISTRY_FILE_TAG(cpu_predictor)
 
 template <bool has_missing, bool has_categorical>
 bst_node_t GetNextNode(const RegTree &tree, bst_node_t nid, const RegTree::FVec &feat,
@@ -145,7 +145,8 @@ void PredictByAllTrees(gbm::GBTreeModel const &model, const size_t tree_begin,
 
 template <bool has_categorical>
 void FlowToByOneTree(const RegTree::FVec &p_feats, RegTree const &tree,
-                     RegTree::CategoricalSplitMatrix const &cats, size_t k, bst_node_t leaf_nids[],
+                     RegTree::CategoricalSplitMatrix const &cats, size_t k,
+                     vector<bst_node_t> &leaf_nids,
                      tbb::concurrent_unordered_map<uint32_t, uint32_t> &self_part_idxs,
                      tbb::concurrent_unordered_set<bst_node_t> &other_part_idxs) {
   if (!tree[leaf_nids[k]].IsLeaf()) {
@@ -327,10 +328,11 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
         xgb_client_->Clear(1);
       }
     }
-    bst_node_t leaf_nids[tree_end - tree_begin][out_preds->size()];
-    std::memset(leaf_nids, 0, sizeof(leaf_nids));
-    tbb::concurrent_unordered_map<uint32_t, uint32_t> self_part_idxs[tree_end - tree_begin];
-    tbb::concurrent_unordered_set<bst_node_t> other_part_idxs[tree_end - tree_begin];
+    vector<vector<bst_node_t>> leaf_nids(tree_end - tree_begin,
+                                         vector<bst_node_t>(out_preds->size(), 0));
+    // std::memset(leaf_nids, 0, sizeof(leaf_nids));
+    vector<tbb::concurrent_unordered_map<uint32_t, uint32_t>> self_part_idxs(tree_end - tree_begin);
+    vector<tbb::concurrent_unordered_set<bst_node_t>> other_part_idxs(tree_end - tree_begin);
 
     std::vector<bst_float> &preds = *out_preds;
 
@@ -374,7 +376,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
           if (IsPulsar() || IsGuest()) {
             for (auto part_idx : self_part_idxs[j]) {
               next_nids.mutable_next_ids()->insert({part_idx.first, part_idx.second});
-            };
+            }
           }
           if (IsPulsar()) {
             xgb_pulsar_->SendNextNodes(idx, next_nids);

@@ -67,6 +67,14 @@
 #=============================================================================
 #  FindTBB helper functions and macros
 #
+#[[include(FetchContent)
+FetchContent_Declare(
+        TBB
+        GIT_REPOSITORY https://github.com/oneapi-src/oneTBB
+        GIT_TAG v2021.8.0
+)
+set(FETCHCONTENT_QUIET OFF)
+FetchContent_MakeAvailable(TBB)]]
 
 # Use TBBConfig.cmake if possible.
 

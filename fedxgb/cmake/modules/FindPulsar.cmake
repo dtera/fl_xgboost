@@ -14,6 +14,15 @@
 #  target_link_libraries(MyApp ${PULSAR_LIBRARIES})
 
 # Check for required inputs
+#[[
+include(FetchContent)
+FetchContent_Declare(
+        Pulsar
+        GIT_REPOSITORY https://github.com/apache/pulsar-client-cpp
+        GIT_TAG v3.1.2
+)
+set(FETCHCONTENT_QUIET OFF)
+FetchContent_MakeAvailable(Pulsar)]]
 if (NOT PULSAR_ROOT_DIR)
     message(FATAL_ERROR "PULSAR_ROOT_DIR must be set to the Pulsar installation directory")
 endif ()
@@ -38,11 +47,11 @@ else ()
 endif ()
 
 # Determine Pulsar version
-file(STRINGS ${PULSAR_INCLUDE_DIRS}/pulsar/version.h PULSAR_VERSION_MAJOR REGEX "#define PULSAR_VERSION_MAJOR ([0-9]+)")
+#[[file(STRINGS ${PULSAR_INCLUDE_DIRS}/pulsar/version.h PULSAR_VERSION_MAJOR REGEX "#define PULSAR_VERSION_MAJOR ([0-9]+)")
 file(STRINGS ${PULSAR_INCLUDE_DIRS}/pulsar/version.h PULSAR_VERSION_MINOR REGEX "#define PULSAR_VERSION_MINOR ([0-9]+)")
 file(STRINGS ${PULSAR_INCLUDE_DIRS}/pulsar/version.h PULSAR_VERSION_PATCH REGEX "#define PULSAR_VERSION_PATCH ([0-9]+)")
 
-set(PULSAR_VERSION ${PULSAR_VERSION_MAJOR}.${PULSAR_VERSION_MINOR}.${PULSAR_VERSION_PATCH})
+set(PULSAR_VERSION ${PULSAR_VERSION_MAJOR}.${PULSAR_VERSION_MINOR}.${PULSAR_VERSION_PATCH})]]
 
 # Report status
 if (PULSAR_FOUND)

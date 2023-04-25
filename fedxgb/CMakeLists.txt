@@ -13,7 +13,8 @@ option(GRPC_FETCHCONTENT "GRPC FETCH CONTENT" ON)
 option(CMAKE_CROSSCOMPILING "CMAKE CROSS COMPILING" ON)
 
 file(GLOB_RECURSE SOURCES *.cpp *.cc *.h *.hpp)
-file(GLOB RM_SRCS src/comm/grpc/demo/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
+file(GLOB RM_SRCS src/comm/grpc/demo/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/src/fed_cli_main.cc
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc)
 list(REMOVE_ITEM SOURCES ${RM_SRCS})
 
@@ -31,17 +32,23 @@ list(REMOVE_ITEM SOURCES ${RM_SRCS})
 #        )
 
 # brew install grpc googletest helib libomp openssl protobuf tbb xgboost libpulsar
+# yum install -y openssl tbb boost boost-devel boost-build gtest-devel gmp-devel
 if (APPLE)
     # execute_process(COMMAND brew install grpc googletest helib libomp protobuf xgboost tbb)
     set(OPENSSL_ROOT_DIR /usr/local/opt/openssl /opt/homebrew/opt/openssl)
     set(OPENSSL_INCLUDE_DIR /usr/local/opt/openssl/include /opt/homebrew/opt/openssl/include)
     set(OPENSSL_LIBRARIES /usr/local/opt/openssl/lib /opt/homebrew/opt/openssl/lib)
     set(PULSAR_ROOT_DIR /opt/homebrew/opt/libpulsar)
+    set(GRPC_ROOT_DIR /opt/homebrew/opt/grpc)
 else ()
     set(PULSAR_ROOT_DIR /usr)
+    set(GRPC_ROOT_DIR /usr/local/grpc)
+    # set(CMAKE_EXE_LINKER_FLAGS -Wl,--copy-dt-needed-entries -Wl,-rpath -Wl,/usr/local/grpc/lib)
+    set(CMAKE_INSTALL_RPATH "/usr/local/grpc/lib")
+    set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 endif ()
 
-foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest:CONFIG helib OpenMP OpenSSL
+foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest Opt@helib OpenMP OpenSSL
         Protobuf Pulsar Opt@TBB Threads)
     string(REGEX REPLACE "(:(.*)?)|(Opt@)" "" pkg_name ${pkg})
     string(REGEX MATCH ":(.*)?$" f1 ${pkg})
@@ -70,6 +77,11 @@ if (NOT TARGET OpenMP::OpenMP_CXX)
             PROPERTY INTERFACE_COMPILE_OPTIONS ${OpenMP_CXX_FLAGS})
     set_property(TARGET OpenMP::OpenMP_CXX
             PROPERTY INTERFACE_LINK_LIBRARIES ${OpenMP_CXX_FLAGS} Threads::Threads)
+endif ()
+if (OPENMP_FOUND)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    add_definitions(-DWITH_OPENMP)
 endif ()
 
 # link the related libraries for mac
@@ -106,7 +118,7 @@ include_directories(./include ./src ../src ${PROTO_GENERATED_DIR}  # ${TBB_PREFI
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
 target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES} protobuf::libprotobuf protobuf::libprotobuf-lite
-        OpenMP::OpenMP_CXX gRPC::gpr gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection helib TBB::tbb ${PULSAR_LIBRARIES})
+        OpenMP::OpenMP_CXX gRPC::gpr gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection TBB::tbb ${PULSAR_LIBRARIES} gmp)
 #add_dependencies(${PROJECT_NAME}_lib tbb)
 
 set(EXE_TARGETS)
@@ -142,12 +154,13 @@ foreach (xgb_client_file ${XGB_CLIENT_FILES})
 endforeach ()
 
 # Building tests
+enable_testing()
 add_executable(${PROJECT_NAME}_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc)
 target_link_libraries(${PROJECT_NAME}_tests ${PROJECT_NAME}_lib
         objxgboost
-        GTest::gtest GTest::gtest_main GTest::gmock GTest::gmock_main
+        GTest::gtest GTest::gtest_main # GTest::gmock GTest::gmock_main
         )
-file(GLOB_RECURSE TEST_SOURCES "tests/test_*.cc")
+file(GLOB TEST_SOURCES "tests/test_*.cc")
 target_sources(${PROJECT_NAME}_tests PRIVATE ${TEST_SOURCES})
 list(APPEND EXE_TARGETS ${PROJECT_NAME}_tests)
 

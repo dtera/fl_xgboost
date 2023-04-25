@@ -80,11 +80,11 @@ if (NOT DEFINED PROTOBUF_GENERATE_CPP_APPEND_PATH)
 endif ()
 
 # Find the include directory
-find_path(PROTOBUF_INCLUDE_DIR google/protobuf/service.h)
+find_path(PROTOBUF_INCLUDE_DIR google/protobuf/service.h PATHS ${GRPC_ROOT_DIR}/include)
 mark_as_advanced(PROTOBUF_INCLUDE_DIR)
 
 # The Protobuf library
-find_library(PROTOBUF_LIBRARY NAMES protobuf)
+find_library(PROTOBUF_LIBRARY NAMES protobuf PATHS ${GRPC_ROOT_DIR}/lib ${GRPC_ROOT_DIR}/lib64)
 mark_as_advanced(PROTOBUF_LIBRARY)
 add_library(protobuf::libprotobuf UNKNOWN IMPORTED)
 set_target_properties(protobuf::libprotobuf PROPERTIES
@@ -94,7 +94,7 @@ set_target_properties(protobuf::libprotobuf PROPERTIES
         )
 
 # The Protobuf lite library
-find_library(PROTOBUF_LITE_LIBRARY NAMES protobuf-lite)
+find_library(PROTOBUF_LITE_LIBRARY NAMES protobuf-lite PATHS ${GRPC_ROOT_DIR}/lib ${GRPC_ROOT_DIR}/lib64)
 mark_as_advanced(PROTOBUF_LITE_LIBRARY)
 add_library(protobuf::libprotobuf-lite UNKNOWN IMPORTED)
 set_target_properties(protobuf::libprotobuf-lite PROPERTIES
@@ -104,7 +104,7 @@ set_target_properties(protobuf::libprotobuf-lite PROPERTIES
         )
 
 # The Protobuf Protoc Library
-find_library(PROTOBUF_PROTOC_LIBRARY NAMES protoc)
+find_library(PROTOBUF_PROTOC_LIBRARY NAMES protoc PATHS ${GRPC_ROOT_DIR}/lib ${GRPC_ROOT_DIR}/lib64)
 mark_as_advanced(PROTOBUF_PROTOC_LIBRARY)
 add_library(protobuf::libprotoc UNKNOWN IMPORTED)
 set_target_properties(protobuf::libprotoc PROPERTIES
@@ -114,7 +114,7 @@ set_target_properties(protobuf::libprotoc PROPERTIES
         )
 
 # Find the protoc Executable
-find_program(PROTOBUF_PROTOC_EXECUTABLE NAMES protoc)
+find_program(PROTOBUF_PROTOC_EXECUTABLE NAMES protoc PATHS ${GRPC_ROOT_DIR}/bin NO_DEFAULT_PATH)
 mark_as_advanced(PROTOBUF_PROTOC_EXECUTABLE)
 add_executable(protobuf::protoc IMPORTED)
 set_target_properties(protobuf::protoc PROPERTIES

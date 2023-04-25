@@ -367,12 +367,11 @@ namespace {
 
 Status XgbServiceServer::GetEncryptedGradPairs(ServerContext* context,
                                                const GradPairsRequest* request,
-                                               GradPairsResponse* response) {
-  // GetEncryptedData(grad_pair, mpz_t, { mpz_t2_mpz_type(encrypted_grad_pair,
-  // encrypted_grad_pairs[i]); });
-  GetEncryptedData(grad_pair, vector<xgboost::EncryptedGradientPair>,
-                   { mpz_t2_mpz_type(encrypted_grad_pair, grad_pairs[i]); });
-}
+                                               GradPairsResponse* response){
+    // GetEncryptedData(grad_pair, mpz_t, { mpz_t2_mpz_type(encrypted_grad_pair,
+    // encrypted_grad_pairs[i]); });
+    GetEncryptedData(grad_pair, vector<xgboost::EncryptedGradientPair>,
+                     { mpz_t2_mpz_type(encrypted_grad_pair, grad_pairs[i]); })}
 
 Status XgbServiceServer::SendEncryptedSplits(ServerContext* context, const SplitsRequest* request,
                                              SplitsResponse* response) {

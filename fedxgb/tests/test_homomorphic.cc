@@ -3,7 +3,7 @@
 //
 #include <common/timer.h>
 #include <gtest/gtest.h>
-#include <helib/helib.h>
+//#include <helib/helib.h>
 
 #include <algorithm>
 #include <iostream>
@@ -67,7 +67,7 @@ TEST(homomorphic, test) {
   cout << "std::is_standard_layout<T>: " << is_standard_layout<EncryptedType<float>>::value << endl;
 }
 
-TEST(homomorphic, helib) {
+/*TEST(homomorphic, helib) {
   cout << "=========Homomorphic encryption Begin=======" << endl;
   helib::Context context =
       helib::ContextBuilder<helib::CKKS>().m(16 * 1024).bits(119).precision(20).c(2).build();
@@ -120,7 +120,7 @@ TEST(homomorphic, helib) {
   double distance = Distance(p3, pp3);
   cout << "distance=" << distance << "\n";
   cout << "=========Homomorphic encryption End=========" << endl;
-}
+}*/
 
 TEST(homomorphic, paillier) {
   for (int i = 0; i < 1; ++i) {
