@@ -1,27 +1,27 @@
 /*
- * Copyright 2023 SparkX Authors. All Rights Reserved.
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-package ml.dmlc.xgboost4j.java.app
+ Copyright (c) 2023 by Contributors
 
-import org.apache.commons.lang3.math.NumberUtils
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+ http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+ */
+package ml.dmlc.xgboost4j.scala.fl
+
+import org.apache.commons.lang.math.NumberUtils
 
 import java.util
 import scala.collection.mutable
 
 object ParamUtils {
-  val NO_VALUE_KEY = "__NO_VALUE_KEY"
+  private val NO_VALUE_KEY = "__NO_VALUE_KEY"
   val params = new mutable.HashMap[String, Any]()
 
   def fromArgs(args: Array[String]): mutable.HashMap[String, Any] = {
@@ -42,7 +42,7 @@ object ParamUtils {
     params
   }
 
-  def fromUnixArgs(args: Array[String]): mutable.HashMap[String, Any] = {
+  private def fromUnixArgs(args: Array[String]): mutable.HashMap[String, Any] = {
     var i = 0
     while (i < args.length) {
       var key: String = null

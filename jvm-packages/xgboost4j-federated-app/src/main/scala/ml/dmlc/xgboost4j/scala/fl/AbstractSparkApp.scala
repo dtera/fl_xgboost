@@ -13,13 +13,12 @@
  See the License for the specific language governing permissions and
  limitations under the License.
  */
-package ml.dmlc.xgboost4j.scala.example.test
+package ml.dmlc.xgboost4j.scala.fl
 
-import org.apache.spark.sql.{SQLContext, SparkSession}
 import org.apache.spark.{SparkConf, SparkContext}
-import org.scalatest.{BeforeAndAfterAll, FlatSpec}
+import org.apache.spark.sql.{SQLContext, SparkSession}
 
-class SparkTest extends FlatSpec with BeforeAndAfterAll with Serializable {
+trait AbstractSparkApp {
   lazy implicit val spark: SparkSession = {
     val sparkBuild = SparkSession
       .builder
@@ -39,7 +38,7 @@ class SparkTest extends FlatSpec with BeforeAndAfterAll with Serializable {
 
   def appName: String = this.getClass.getSimpleName
 
-  def isLocal: Boolean = true
+  def isLocal: Boolean = false
 
   def enableHiveSupport: Boolean = false
 

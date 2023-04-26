@@ -35,8 +35,10 @@ import org.apache.spark.util.SerializableConfiguration
 
 import java.io.IOException
 
+// noinspection ScalaUnusedSymbol
 class FedLibSVMDataSource private() {}
 
+// noinspection SpellCheckingInspection,ScalaUnusedSymbol,ScalaWeakerAccess,SameParameterValue
 private[libsvm] class FedLibSVMFileFormat extends LibSVMFileFormat {
   override def shortName(): String = "fedlibsvm"
 
@@ -89,7 +91,7 @@ private[libsvm] class FedLibSVMFileFormat extends LibSVMFileFormat {
                             filters: Seq[Filter],
                             options: Map[String, String],
                             hadoopConf: Configuration): PartitionedFile => Iterator[InternalRow] = {
-    verifySchema(dataSchema, false)
+    verifySchema(dataSchema, forWriting = false)
     val numFeatures = dataSchema("features").metadata.getLong(LibSVMOptions.NUM_FEATURES).toInt
     assert(numFeatures > 0)
 

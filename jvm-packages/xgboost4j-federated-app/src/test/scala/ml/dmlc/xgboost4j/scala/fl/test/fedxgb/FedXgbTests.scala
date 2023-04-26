@@ -13,11 +13,11 @@
  See the License for the specific language governing permissions and
  limitations under the License.
  */
-package ml.dmlc.xgboost4j.scala.example.test.fedxgb
+package ml.dmlc.xgboost4j.scala.fl.test.fedxgb
 
-import ml.dmlc.xgboost4j.java.example.BasicWalkThrough.{checkPredicts, saveDumpModel}
-import ml.dmlc.xgboost4j.scala.app.XGBClassifierRunner.{evaluator, setXgbParams}
-import ml.dmlc.xgboost4j.scala.example.test.SparkTest
+import ml.dmlc.xgboost4j.scala.fl.XGBClassifierRunner.{evaluator, setXgbParams}
+import ml.dmlc.xgboost4j.scala.fl.util.XgbUtils.{checkPredicts, saveDumpModel}
+import ml.dmlc.xgboost4j.scala.fl.test.SparkTest
 import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
 import org.apache.spark.ml.util.FedMLUtils.FED_LIBSVM

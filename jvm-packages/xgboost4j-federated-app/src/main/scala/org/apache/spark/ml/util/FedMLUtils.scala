@@ -31,6 +31,7 @@ import org.apache.spark.storage.StorageLevel
 /**
  * Helper methods to load, save and pre-process data used in federated learning.
  */
+// noinspection ScalaUnusedSymbol,ScalaWeakerAccess,SpellCheckingInspection
 object FedMLUtils extends Logging {
   val FED_LIBSVM = "fedlibsvm"
 

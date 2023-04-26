@@ -13,9 +13,8 @@
  See the License for the specific language governing permissions and
  limitations under the License.
  */
-package ml.dmlc.xgboost4j.scala.app
+package ml.dmlc.xgboost4j.scala.fl
 
-import ml.dmlc.xgboost4j.java.app.{AbstractSparkApp, ParamUtils}
 import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.util.FedMLUtils.FED_LIBSVM
@@ -30,7 +29,7 @@ object XGBClassifierRunner extends AbstractSparkApp {
     .setRawPredictionCol("rawPrediction")
     .setMetricName("areaUnderROC")
 
-  var local = false
+  private var local = false
 
   override def isLocal: Boolean = local
 
