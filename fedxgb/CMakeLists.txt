@@ -40,13 +40,14 @@ if (APPLE)
     set(OPENSSL_LIBRARIES /usr/local/opt/openssl/lib /opt/homebrew/opt/openssl/lib)
     set(PULSAR_ROOT_DIR /opt/homebrew/opt/libpulsar)
     set(GRPC_ROOT_DIR /opt/homebrew/opt/grpc)
-    set(GMP_ROOT_DIR "/opt/homebrew/opt/gmp")
-    link_directories(${GMP_ROOT_DIR}/lib)
+    set(LIB_SUFFIX dylib)
+    link_directories(/opt/homebrew/opt/gmp/lib)
 else ()
     set(PULSAR_ROOT_DIR /usr)
     set(GRPC_ROOT_DIR /usr/local/grpc)
     # set(CMAKE_EXE_LINKER_FLAGS -Wl,--copy-dt-needed-entries -Wl,-rpath -Wl,/usr/local/grpc/lib)
     set(CMAKE_INSTALL_RPATH "/usr/local/grpc/lib")
+    set(LIB_SUFFIX so)
 endif ()
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 
@@ -114,13 +115,13 @@ grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 include_directories(./include ./src ../src ${PROTO_GENERATED_DIR}  # ${TBB_PREFIX_DIR}/include
         ${xgboost_SOURCE_DIR}/include ${xgboost_SOURCE_DIR}/dmlc-core/include ${xgboost_SOURCE_DIR}/rabit/include)
 #link_directories(${TBB_PREFIX_DIR}/lib)
-#link_libraries(libtbb.${LIB_SUFFIX})
+link_libraries(libgmp.${LIB_SUFFIX}) # libtbb.${LIB_SUFFIX}
 
 # link libraries for the target
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
 target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES} protobuf::libprotobuf protobuf::libprotobuf-lite
-        OpenMP::OpenMP_CXX gRPC::gpr gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection TBB::tbb ${PULSAR_LIBRARIES} gmp)
+        OpenMP::OpenMP_CXX gRPC::gpr gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection TBB::tbb ${PULSAR_LIBRARIES})
 #add_dependencies(${PROJECT_NAME}_lib tbb)
 
 set(EXE_TARGETS)
