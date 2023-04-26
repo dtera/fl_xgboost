@@ -128,6 +128,7 @@ class FedXgbTests extends SparkTest {
     val testInput = spark.read.format("libsvm").load("../data/a9a.test")
 
     params += "fl_on" -> 0
+    params += "fl_comm_type" -> "none"
     // params += "num_workers" -> 2
     // params += "timeout_request_workers" -> 60000L
 
@@ -146,6 +147,7 @@ class FedXgbTests extends SparkTest {
     watches += "test" -> testMax
 
     params += "fl_on" -> 0
+    params += "fl_comm_type" -> "none"
     val round = 3
     // train a model
     val booster = XGBoost.train(trainMax, params.toMap, round, watches.toMap)
@@ -178,6 +180,7 @@ class FedXgbTests extends SparkTest {
     watches += "test" -> testMax
 
     params += "fl_on" -> 0
+    params += "fl_comm_type" -> "none"
     val round = 3
     // train a model
     val booster = XGBoost.train(trainMax, params.toMap, round, watches.toMap)
