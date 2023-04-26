@@ -17,7 +17,6 @@ package ml.dmlc.xgboost4j.scala.fl
 
 import org.apache.commons.lang.math.NumberUtils
 
-import java.util
 import scala.collection.mutable
 
 object ParamUtils {
@@ -34,7 +33,7 @@ object ParamUtils {
     for (arg <- args) {
       if (!arg.contains(sep)) {
         throw new IllegalArgumentException(String.format("Error parsing arguments '%s' on '%s'. " +
-          "Please make sure args with = in them.", util.Arrays.asList(args), arg))
+          "Please make sure args with = in them.", java.util.Arrays.asList(args), arg))
       }
       val splits: Array[String] = arg.split(sep, -1)
       params.put(splits(0), splits(1))
@@ -51,10 +50,10 @@ object ParamUtils {
       else {
         throw new IllegalArgumentException(
           String.format("Error parsing arguments '%s' on '%s'. " +
-            "Please prefix keys with -- or -.", util.Arrays.asList(args), args(i)))
+            "Please prefix keys with -- or -.", java.util.Arrays.asList(args), args(i)))
       }
       if (key.isEmpty) throw new IllegalArgumentException("The input " +
-        util.Arrays.asList(args) + " contains an empty argument")
+        java.util.Arrays.asList(args) + " contains an empty argument")
       i += 1 // try to find the value
 
       if (i >= args.length) params.put(key, NO_VALUE_KEY)
