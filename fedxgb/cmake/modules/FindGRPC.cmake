@@ -93,8 +93,11 @@ endif ()
 find_path(GRPC_INCLUDE_DIR grpc/grpc.h PATHS ${GRPC_ROOT_DIR}/include)
 mark_as_advanced(GRPC_INCLUDE_DIR)
 
+set(GRPC_LIB_PATH ${GRPC_ROOT_DIR}/lib ${GRPC_ROOT_DIR}/lib64 /opt/homebrew/lib)
+set(GRPC_BIN_PATH ${GRPC_ROOT_DIR}/bin /opt/homebrew/bin)
+
 # Find gRPC library
-find_library(GRPC_LIBRARY NAMES grpc PATHS ${GRPC_ROOT_DIR}/lib ${GRPC_ROOT_DIR}/lib64)
+find_library(GRPC_LIBRARY NAMES grpc PATHS ${GRPC_LIB_PATH})
 mark_as_advanced(GRPC_LIBRARY)
 add_library(gRPC::grpc UNKNOWN IMPORTED)
 set_target_properties(gRPC::grpc PROPERTIES
@@ -104,7 +107,7 @@ set_target_properties(gRPC::grpc PROPERTIES
         )
 
 # Find gRPC C++ library
-find_library(GRPC_GRPC++_LIBRARY NAMES grpc++ PATHS ${GRPC_ROOT_DIR}/lib ${GRPC_ROOT_DIR}/lib64)
+find_library(GRPC_GRPC++_LIBRARY NAMES grpc++ PATHS ${GRPC_LIB_PATH})
 mark_as_advanced(GRPC_GRPC++_LIBRARY)
 add_library(gRPC::grpc++ UNKNOWN IMPORTED)
 set_target_properties(gRPC::grpc++ PROPERTIES
@@ -114,7 +117,7 @@ set_target_properties(gRPC::grpc++ PROPERTIES
         )
 
 # Find gRPC C++ reflection library
-find_library(GRPC_GRPC++_REFLECTION_LIBRARY NAMES grpc++_reflection PATHS ${GRPC_ROOT_DIR}/lib ${GRPC_ROOT_DIR}/lib64)
+find_library(GRPC_GRPC++_REFLECTION_LIBRARY NAMES grpc++_reflection PATHS ${GRPC_LIB_PATH})
 mark_as_advanced(GRPC_GRPC++_REFLECTION_LIBRARY)
 add_library(gRPC::grpc++_reflection UNKNOWN IMPORTED)
 set_target_properties(gRPC::grpc++_reflection PROPERTIES
@@ -124,7 +127,7 @@ set_target_properties(gRPC::grpc++_reflection PROPERTIES
         )
 
 # Find gRPC gpr library
-find_library(GPR_LIBRARY NAMES gpr PATHS ${GRPC_ROOT_DIR}/lib ${GRPC_ROOT_DIR}/lib64)
+find_library(GPR_LIBRARY NAMES gpr PATHS ${GRPC_LIB_PATH})
 mark_as_advanced(GPR_LIBRARY)
 add_library(gRPC::gpr UNKNOWN IMPORTED)
 set_target_properties(gRPC::gpr PROPERTIES
@@ -134,7 +137,7 @@ set_target_properties(gRPC::gpr PROPERTIES
         )
 
 # Find grpc_plugin_support library
-find_library(GRPC_PLUGIN_SUPPORT_LIBRARY NAMES grpc_plugin_support PATHS ${GRPC_ROOT_DIR}/lib ${GRPC_ROOT_DIR}/lib64)
+find_library(GRPC_PLUGIN_SUPPORT_LIBRARY NAMES grpc_plugin_support PATHS ${GRPC_LIB_PATH})
 mark_as_advanced(GRPC_PLUGIN_SUPPORT_LIBRARY)
 add_library(gRPC::grpc_plugin_support UNKNOWN IMPORTED)
 set_target_properties(gRPC::grpc_plugin_support PROPERTIES
@@ -144,7 +147,7 @@ set_target_properties(gRPC::grpc_plugin_support PROPERTIES
         )
 
 # Find protoc library
-find_library(PROTOC_LIBRARY NAMES grpc_plugin_support PATHS ${GRPC_ROOT_DIR}/lib ${GRPC_ROOT_DIR}/lib64)
+find_library(PROTOC_LIBRARY NAMES grpc_plugin_support PATHS ${GRPC_LIB_PATH})
 mark_as_advanced(PROTOC_LIBRARY)
 add_library(gRPC::protoc UNKNOWN IMPORTED)
 set_target_properties(gRPC::protoc PROPERTIES
@@ -154,7 +157,7 @@ set_target_properties(gRPC::protoc PROPERTIES
         )
 
 # Find gRPC CPP generator
-find_program(GRPC_CPP_PLUGIN NAMES grpc_cpp_plugin PATHS ${GRPC_ROOT_DIR}/bin NO_DEFAULT_PATH)
+find_program(GRPC_CPP_PLUGIN NAMES grpc_cpp_plugin PATHS ${GRPC_BIN_PATH} NO_DEFAULT_PATH)
 mark_as_advanced(GRPC_CPP_PLUGIN)
 add_executable(gRPC::grpc_cpp_plugin IMPORTED)
 set_target_properties(gRPC::grpc_cpp_plugin PROPERTIES
