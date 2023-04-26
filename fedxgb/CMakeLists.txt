@@ -87,6 +87,9 @@ if (OPENMP_FOUND)
     add_definitions(-DWITH_OPENMP)
 endif ()
 
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+
 # link the related libraries for mac
 #set(LIB_SUFFIX so)
 #if (APPLE)
