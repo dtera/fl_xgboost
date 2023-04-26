@@ -51,7 +51,6 @@ else ()
     set(LIB_SUFFIX so)
 endif ()
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
-set(ENV{PKG_CONFIG_PATH} /usr/local/lib/pkgconfig:$ENV{PKG_CONFIG_PATH})
 
 foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest Opt@helib OpenMP OpenSSL
         Protobuf Pulsar Opt@TBB Threads)
