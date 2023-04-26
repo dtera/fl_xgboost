@@ -40,16 +40,18 @@ if (APPLE)
     set(OPENSSL_LIBRARIES /usr/local/opt/openssl/lib /opt/homebrew/opt/openssl/lib)
     set(PULSAR_ROOT_DIR /opt/homebrew/opt/libpulsar)
     set(GRPC_ROOT_DIR /opt/homebrew/opt/grpc)
+    set(GMP_LIB_DIR /opt/homebrew/opt/gmp/lib)
     set(LIB_SUFFIX dylib)
-    link_directories(/opt/homebrew/opt/gmp/lib)
 else ()
     set(PULSAR_ROOT_DIR /usr)
     set(GRPC_ROOT_DIR /usr/local/grpc)
     # set(CMAKE_EXE_LINKER_FLAGS -Wl,--copy-dt-needed-entries -Wl,-rpath -Wl,/usr/local/grpc/lib)
-    set(CMAKE_INSTALL_RPATH "/usr/local/grpc/lib")
+    set(CMAKE_INSTALL_RPATH "${GRPC_ROOT_DIR}/lib")
+    set(GMP_LIB_DIR /usr/lib64)
     set(LIB_SUFFIX so)
 endif ()
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+set(ENV{PKG_CONFIG_PATH} /usr/local/lib/pkgconfig:$ENV{PKG_CONFIG_PATH})
 
 foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest Opt@helib OpenMP OpenSSL
         Protobuf Pulsar Opt@TBB Threads)
@@ -118,7 +120,7 @@ grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 include_directories(./include ./src ../src ${PROTO_GENERATED_DIR}  # ${TBB_PREFIX_DIR}/include
         ${xgboost_SOURCE_DIR}/include ${xgboost_SOURCE_DIR}/dmlc-core/include ${xgboost_SOURCE_DIR}/rabit/include)
 #link_directories(${TBB_PREFIX_DIR}/lib)
-link_libraries(libgmp.${LIB_SUFFIX}) # libtbb.${LIB_SUFFIX}
+link_libraries(${GMP_LIB_DIR}/libgmp.${LIB_SUFFIX}) # libtbb.${LIB_SUFFIX}
 
 # link libraries for the target
 add_library(${PROJECT_NAME}_lib)
