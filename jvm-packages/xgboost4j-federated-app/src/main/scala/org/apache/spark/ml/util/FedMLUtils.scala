@@ -15,6 +15,7 @@
  */
 package org.apache.spark.ml.util
 
+import org.apache.commons.lang3.math.NumberUtils
 import org.apache.spark.SparkContext
 import org.apache.spark.annotation.Since
 import org.apache.spark.internal.Logging
@@ -108,8 +109,8 @@ object FedMLUtils extends Logging {
     var head = items.head
     var sampleId = ""
     var zeroBased = false
-    if (head.startsWith("@")) {
-      sampleId = head.stripPrefix("@")
+    if (head.startsWith("@") || !NumberUtils.isParsable(head)) {
+      sampleId = if (head.startsWith("@")) head.stripPrefix("@") else head
       zeroBased = true
       items = items.tail
       head = items.head
