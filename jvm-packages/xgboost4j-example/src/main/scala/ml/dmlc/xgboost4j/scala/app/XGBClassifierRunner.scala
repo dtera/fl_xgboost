@@ -25,7 +25,7 @@ import scala.collection.mutable
 
 object XGBClassifierRunner extends AbstractSparkApp {
 
-  val evaluator = new BinaryClassificationEvaluator()
+  val evaluator: BinaryClassificationEvaluator = new BinaryClassificationEvaluator()
     .setLabelCol("label")
     .setRawPredictionCol("rawPrediction")
     .setMetricName("areaUnderROC")
@@ -67,7 +67,7 @@ object XGBClassifierRunner extends AbstractSparkApp {
     */
   }
 
-  def setXgbParams(params: mutable.HashMap[String, Any]) {
+  def setXgbParams(params: mutable.HashMap[String, Any]): Unit = {
     params += "fl_on" -> 1
     params += "fl_bit_len" -> 1024
     params += "fl_comm_type" -> "pulsar"

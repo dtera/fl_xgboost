@@ -187,7 +187,7 @@ class FedXgbTests extends SparkTest {
     }
     booster.saveModel(file.getAbsolutePath + "/xgb.model.json")
     // dump model with feature map
-    val modelInfos = booster.getModelDump("../demo/data/featmap.txt", false)
+    val modelInfos = booster.getModelDump("../demo/data/featmap.txt")
     saveDumpModel(file.getAbsolutePath + "/dump.raw.txt", modelInfos)
     // save dmatrix into binary buffer
     testMax.saveBinary(file.getAbsolutePath + "/dtest.buffer")
