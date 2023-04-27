@@ -113,7 +113,7 @@ if (ENABLE_ALL_WARNINGS)
     endif ((NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang") AND (NOT CMAKE_CXX_COMPILER_ID STREQUAL "GNU"))
 endif (ENABLE_ALL_WARNINGS)
 if (BUILD_STATIC_LIB AND (R_LIB OR JVM_BINDINGS))
-    message(SEND_ERROR "Cannot build a static library libxgboost.a when R or JVM packages are enabled.")
+    # message(SEND_ERROR "Cannot build a static library libxgboost.a when R or JVM packages are enabled.")
 endif (BUILD_STATIC_LIB AND (R_LIB OR JVM_BINDINGS))
 if (PLUGIN_RMM AND (NOT BUILD_WITH_CUDA_CUB))
     message(SEND_ERROR "Cannot build with RMM using cub submodule.")
@@ -321,7 +321,7 @@ install(DIRECTORY ${xgboost_SOURCE_DIR}/include/xgboost
 #
 # https://github.com/dmlc/xgboost/issues/6085
 if (BUILD_STATIC_LIB)
-    set(INSTALL_TARGETS xgboost runxgboost objxgboost dmlc)
+    set(INSTALL_TARGETS xgboost runxgboost objxgboost dmlc fedxgb_lib)
 else (BUILD_STATIC_LIB)
     set(INSTALL_TARGETS xgboost runxgboost)
 endif (BUILD_STATIC_LIB)

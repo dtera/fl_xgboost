@@ -41,6 +41,7 @@
         <maven.wagon.http.retryHandler.count>5</maven.wagon.http.retryHandler.count>
         <log.capi.invocation>OFF</log.capi.invocation>
         <use.cuda>OFF</use.cuda>
+        <build.static.lib>ON</build.static.lib>
         <cudf.version>21.08.2</cudf.version>
         <spark.rapids.version>21.08.0</spark.rapids.version>
         <cudf.classifier>cuda11</cudf.classifier>
@@ -255,7 +256,9 @@
                         <artifactId>maven-deploy-plugin</artifactId>
                         <version>2.8.2</version>
                         <configuration>
-                            <altDeploymentRepository>internal.repo::default::file://${project.build.directory}/mvn-repo</altDeploymentRepository>
+                            <altDeploymentRepository>
+                                internal.repo::default::file://${project.build.directory}/mvn-repo
+                            </altDeploymentRepository>
                         </configuration>
                     </plugin>
                     <plugin>
@@ -327,21 +330,21 @@
         </resources>
 
         <pluginManagement>
-          <plugins>
-            <plugin>
-              <groupId>org.scalatest</groupId>
-              <artifactId>scalatest-maven-plugin</artifactId>
-              <version>1.0</version>
-              <executions>
-                <execution>
-                  <id>test</id>
-                  <goals>
-                    <goal>test</goal>
-                  </goals>
-                </execution>
-              </executions>
-            </plugin>
-          </plugins>
+            <plugins>
+                <plugin>
+                    <groupId>org.scalatest</groupId>
+                    <artifactId>scalatest-maven-plugin</artifactId>
+                    <version>1.0</version>
+                    <executions>
+                        <execution>
+                            <id>test</id>
+                            <goals>
+                                <goal>test</goal>
+                            </goals>
+                        </execution>
+                    </executions>
+                </plugin>
+            </plugins>
         </pluginManagement>
 
         <plugins>

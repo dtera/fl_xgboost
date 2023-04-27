@@ -86,6 +86,8 @@
                             <argument>create_jni.py</argument>
                             <argument>--log-capi-invocation</argument>
                             <argument>${log.capi.invocation}</argument>
+                            <argument>--build_static_lib</argument>
+                            <argument>${build.static.lib}</argument>
                           </arguments>
                           <workingDirectory>${user.dir}</workingDirectory>
                       </configuration>

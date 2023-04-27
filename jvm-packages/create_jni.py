@@ -23,7 +23,8 @@ CONFIG = {
     "USE_CUDA": "OFF",
     "USE_NCCL": "OFF",
     "JVM_BINDINGS": "ON",
-    "LOG_CAPI_INVOCATION": "OFF"
+    "LOG_CAPI_INVOCATION": "OFF",
+    "BUILD_STATIC_LIB": "OFF"
 }
 
 
@@ -74,6 +75,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--log-capi-invocation', type=str, choices=['ON', 'OFF'], default='OFF')
     parser.add_argument('--use-cuda', type=str, choices=['ON', 'OFF'], default='OFF')
+    parser.add_argument('--build_static_lib', type=str, choices=['ON', 'OFF'], default='OFF')
     cli_args = parser.parse_args()
 
     if sys.platform == "darwin":
@@ -103,6 +105,9 @@ if __name__ == "__main__":
             if cli_args.use_cuda == 'ON':
                 CONFIG['USE_CUDA'] = 'ON'
                 CONFIG['USE_NCCL'] = 'ON'
+
+            if cli_args.build_static_lib == 'ON':
+                CONFIG['BUILD_STATIC_LIB'] = 'ON'
 
             args = ["-D{0}:BOOL={1}".format(k, v) for k, v in CONFIG.items()]
 
@@ -145,6 +150,8 @@ if __name__ == "__main__":
     }[platform.machine().lower()]
     output_folder = "{}/src/main/resources/lib/{}/{}".format(xgboost4j, os_folder, arch_folder)
     maybe_makedirs(output_folder)
+    if cli_args.build_static_lib == 'ON':
+        library_name = 'libxgboost4j.a'
     cp("../lib/" + library_name, output_folder)
 
     print("copying pure-Python tracker")
