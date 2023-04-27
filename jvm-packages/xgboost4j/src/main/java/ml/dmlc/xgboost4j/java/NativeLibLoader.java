@@ -21,7 +21,9 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.reflect.Field;
 import java.util.Locale;
+import java.util.Objects;
 
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -41,10 +43,7 @@ class NativeLibLoader {
    * Supported OS enum.
    */
   enum OS {
-    WINDOWS("windows"),
-    MACOS("macos"),
-    LINUX("linux"),
-    SOLARIS("solaris");
+    WINDOWS("windows"), MACOS("macos"), LINUX("linux"), SOLARIS("solaris");
 
     final String name;
 
@@ -79,9 +78,7 @@ class NativeLibLoader {
    * Supported architecture enum.
    */
   enum Arch {
-    X86_64("x86_64"),
-    AARCH64("aarch64"),
-    SPARC("sparc");
+    X86_64("x86_64"), AARCH64("aarch64"), SPARC("sparc");
 
     final String name;
 
@@ -92,6 +89,7 @@ class NativeLibLoader {
     /**
      * Detects the chip architecture using the system properties.
      * Throws IllegalStateException if the architecture is not recognized.
+     *
      * @return The architecture.
      */
     static Arch detectArch() {
@@ -132,9 +130,8 @@ class NativeLibLoader {
       String libraryPath = System.getProperty(getPropertyNameForLibrary(libName));
 
       if (libraryPath == null) {
-        libraryPath = nativeResourcePath + "/" +
-                getPlatformFor(os, arch) + "/" +
-                System.mapLibraryName(libName);
+        libraryPath = nativeResourcePath + "/" + getPlatformFor(os, arch) +
+          "/" + System.mapLibraryName(libName);
       }
 
       logger.debug("Using path " + libraryPath + " for library with name " + libName);
@@ -144,8 +141,34 @@ class NativeLibLoader {
 
   }
 
+  static String getLibraryBasePathFor(OS os, Arch arch) {
+    return LibraryPathProvider.nativeResourcePath + "/" + getPlatformFor(os, arch) + "/";
+  }
+
   private static boolean initialized = false;
   private static final String[] libNames = new String[]{"xgboost4j"};
+
+  static {
+    OS os = OS.detectOS();
+    Arch arch = Arch.detectArch();
+    String cpPath = Objects.requireNonNull(NativeLibLoader.class.getResource("/")).getPath();
+    String libBasePath = cpPath.substring(0, cpPath.length() - 1) + getLibraryBasePathFor(os, arch);
+    String[] paths = {"lib", "boost@lib", "grpc@lib64", "grpc@lib"};
+    for (String path : paths) {
+      String[] ps = path.split("@");
+      String libPath = libBasePath + (ps.length == 2 ? (ps[0] + "/" + ps[1]) : path);
+      System.setProperty("java.library.path", System.getProperty("java.library.path") + ":" + libPath);
+      // NativeUtils.addPath(libPath + ps[0] + "/" + ps[1]);
+    }
+    try {
+      Field field = ClassLoader.class.getDeclaredField("sys_paths");
+      field.setAccessible(true);
+      field.set(null, null);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    System.out.println("java.library.path: " + System.getProperty("java.library.path"));
+  }
 
   /**
    * Loads the XGBoost library.
@@ -156,54 +179,53 @@ class NativeLibLoader {
    *   <li>Supported Architectures: x86_64, aarch64, sparc.</li>
    * </ul>
    * Throws UnsatisfiedLinkError if the library failed to load its dependencies.
-   * @throws IOException If the library could not be extracted from the jar.
    */
-  static synchronized void initXGBoost() throws IOException {
+  static synchronized void initXGBoost() {
     if (!initialized) {
       OS os = OS.detectOS();
       Arch arch = Arch.detectArch();
       for (String libName : libNames) {
-        try {
-          String libraryPathInJar = getLibraryPathFor(os, arch, libName);
-          loadLibraryFromJar(libraryPathInJar);
-        } catch (UnsatisfiedLinkError ule) {
-          String failureMessageIncludingOpenMPHint = "Failed to load " + libName + " " +
-              "due to missing native dependencies for " +
-              "platform " + getPlatformFor(os, arch) + ", " +
-              "this is likely due to a missing OpenMP dependency";
-
-          switch (os) {
-            case WINDOWS:
-              logger.error(failureMessageIncludingOpenMPHint);
-              logger.error("You may need to install 'vcomp140.dll' or 'libgomp-1.dll'");
-              break;
-            case MACOS:
-              logger.error(failureMessageIncludingOpenMPHint);
-              logger.error("You may need to install 'libomp.dylib', via `brew install libomp` " +
-                  "or similar");
-              break;
-            case LINUX:
-              logger.error(failureMessageIncludingOpenMPHint);
-              logger.error("You may need to install 'libgomp.so' (or glibc) via your package " +
-                  "manager.");
-              logger.error("Alternatively, if your Linux OS is musl-based, you should set " +
-                      "the path for the native library " + libName + " " +
-                      "via the system property " + getPropertyNameForLibrary(libName));
-              break;
-            case SOLARIS:
-              logger.error(failureMessageIncludingOpenMPHint);
-              logger.error("You may need to install 'libgomp.so' (or glibc) via your package " +
-                  "manager.");
-              break;
-          }
-          throw ule;
-        } catch (IOException ioe) {
-          logger.error("Failed to load " + libName + " library from jar for platform " +
-                  getPlatformFor(os, arch));
-          throw ioe;
-        }
+        String libraryPathInJar = getLibraryPathFor(os, arch, libName);
+        loadLibraryFromJar(os, arch, libName, libraryPathInJar);
       }
       initialized = true;
+    }
+  }
+
+  private static void loadLibraryFromJar(OS os, Arch arch, String libName, String libraryPathInJar) {
+    try {
+      loadLibraryFromJar(libraryPathInJar);
+    } catch (UnsatisfiedLinkError ule) {
+      String failureMessageIncludingOpenMPHint = "Failed to load " + libName +
+        " due to missing native dependencies for platform " + getPlatformFor(os, arch) +
+        ", this is likely due to a missing OpenMP dependency";
+
+      switch (os) {
+        case WINDOWS:
+          logger.error(failureMessageIncludingOpenMPHint);
+          logger.error("You may need to install 'vcomp140.dll' or 'libgomp-1.dll'");
+          break;
+        case MACOS:
+          logger.error(failureMessageIncludingOpenMPHint);
+          logger.error("You may need to install 'libomp.dylib', via `brew install libomp` " + "or similar");
+          break;
+        case LINUX:
+          logger.error(failureMessageIncludingOpenMPHint);
+          logger.error("You may need to install 'libgomp.so' (or glibc) via your package " + "manager.");
+          logger.error("Alternatively, if your Linux OS is musl-based, you should set " +
+            "the path for the native library " + libName + " " + "via the system property " +
+            getPropertyNameForLibrary(libName));
+          break;
+        case SOLARIS:
+          logger.error(failureMessageIncludingOpenMPHint);
+          logger.error("You may need to install 'libgomp.so' (or glibc) via your package " + "manager.");
+          break;
+      }
+      throw ule;
+    } catch (IOException ioe) {
+      logger.error("Failed to load " + libName + " library from jar for platform " +
+        getPlatformFor(os, arch));
+      throw new RuntimeException(ioe);
     }
   }
 
@@ -222,7 +244,7 @@ class NativeLibLoader {
    * @throws IOException              If temporary file creation or read/write operation fails
    * @throws IllegalArgumentException If source file (param path) does not exist
    * @throws IllegalArgumentException If the path is not absolute or if the filename is shorter than
-   * three characters
+   *                                  three characters
    */
   private static void loadLibraryFromJar(String path) throws IOException, IllegalArgumentException {
     String temp = createTempFileFromResource(path);
@@ -238,13 +260,13 @@ class NativeLibLoader {
    * <p/>
    * The restrictions of {@link File#createTempFile(java.lang.String, java.lang.String)} apply to
    * {@code path}.
+   *
    * @param path Path to the resources in the jar
    * @return The created temp file.
-   * @throws IOException If it failed to read the file.
+   * @throws IOException              If it failed to read the file.
    * @throws IllegalArgumentException If the filename is invalid.
    */
-  static String createTempFileFromResource(String path) throws
-          IOException, IllegalArgumentException {
+  static String createTempFileFromResource(String path) throws IOException, IllegalArgumentException {
     // Obtain filename from path
     if (!path.startsWith("/")) {
       throw new IllegalArgumentException("The path has to be absolute (start with '/').");

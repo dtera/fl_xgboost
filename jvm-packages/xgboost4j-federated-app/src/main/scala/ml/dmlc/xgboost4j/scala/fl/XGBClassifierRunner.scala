@@ -16,10 +16,12 @@
 package ml.dmlc.xgboost4j.scala.fl
 
 import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
+import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.util.FedMLUtils.FED_LIBSVM
 import org.apache.spark.sql.DataFrame
 
+import java.io.File
 import scala.collection.mutable
 
 object XGBClassifierRunner extends AbstractSparkApp {
@@ -36,26 +38,59 @@ object XGBClassifierRunner extends AbstractSparkApp {
   def main(args: Array[String]): Unit = {
     setXgbParams(ParamUtils.params)
     val params = ParamUtils.fromArgs(args)
-    local = if (params.contains("local")) params("local").toString.toBoolean else false
+    val isSpark = params.getOrElse("is_spark", true).toString.toBoolean
+    val inputPath = params("input_path").toString
+    val testInputPath = params.getOrElse("test_input_path", "").toString
+    val modelOutputPath = params.getOrElse("model_output_path", "").toString
+    val numRound = params.getOrElse("num_round", 1).toString.toInt
 
-    val inputDF = spark.read.format(FED_LIBSVM).load(params("input_path").toString)
-    val xgbClassifier = new XGBoostClassifier(params.toMap)
-      .setNumRound(params("num_round").toString.toInt)
+    if (isSpark) {
+      local = params.getOrElse("local", true).toString.toBoolean
+      val inputDF = spark.read.format(FED_LIBSVM).load(inputPath)
+      val xgbClassifier = new XGBoostClassifier(params.toMap)
+        .setNumRound(numRound)
 
-    train(inputDF, params, xgbClassifier)
+      train(inputDF, modelOutputPath, params, xgbClassifier, testInputPath)
+    } else {
+      val inputMax = new DMatrix(inputPath)
+
+      trainDMatrix(inputMax, modelOutputPath, params, numRound, testInputPath)
+    }
   }
 
-  def train(inputDF: DataFrame, params: mutable.HashMap[String, Any],
-            xgbClassifier: XGBoostClassifier): Unit = {
-    if (params.contains("test_input_path") && params("test_input_path").toString.nonEmpty) {
-      val testInputDF = spark.read.format(FED_LIBSVM).load(params("test_input_path").toString)
+  // noinspection ScalaWeakerAccess
+  def trainDMatrix(inputMax: DMatrix, modelOutputPath: String,
+                   params: mutable.HashMap[String, Any], numRound: Int = 3,
+                   testInputPath: String = ""): Unit = {
+    val watches = new mutable.HashMap[String, DMatrix]
+    watches += "train" -> inputMax
+    if (testInputPath.nonEmpty) {
+      val testMax = new DMatrix(testInputPath)
+      watches += "test" -> testMax
+    }
+
+    // train a model
+    val booster = XGBoost.train(inputMax, params.toMap, numRound, watches.toMap)
+    // save model to model path
+    val file = new File(modelOutputPath)
+    if (!file.exists()) {
+      file.mkdirs()
+    }
+    booster.saveModel(file.getAbsolutePath + "/xgb.model.json")
+  }
+
+  def train(inputDF: DataFrame, modelOutputPath: String, params: mutable.HashMap[String, Any],
+            xgbClassifier: XGBoostClassifier, testInputPath: String = ""): Unit = {
+    if (testInputPath.nonEmpty) {
+      val testInputDF = spark.read.format(FED_LIBSVM).load(testInputPath)
       params += "eval_sets" -> Map("test" -> testInputDF)
     }
     // training
     val xgbModel = xgbClassifier.fit(inputDF)
     // output model
-    val model_output_path = if (params.contains("model_output_path")) params("model_output_path").toString else ""
-    xgbModel.write.overwrite().option("format", "json").save(model_output_path)
+    xgbModel.write.overwrite()
+      .option("format", params.getOrElse("dump_format", "json").toString)
+      .save(modelOutputPath)
 
     /*
     if (params.contains("test_input_path") && params("test_input_path").toString.nonEmpty) {
