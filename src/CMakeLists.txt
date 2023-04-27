@@ -21,13 +21,10 @@ target_include_directories(objxgboost
         ${xgboost_SOURCE_DIR}/include
         ${xgboost_SOURCE_DIR}/dmlc-core/include
         ${xgboost_SOURCE_DIR}/rabit/include
-        )
-
-target_include_directories(objxgboost
         PUBLIC
-        ${xgboost_SOURCE_DIR}/src
-        ${xgboost_SOURCE_DIR}/fedxgb/include
-        ${CMAKE_CURRENT_BINARY_DIR}/../fedxgb/proto-generated
+        $<BUILD_INTERFACE:${xgboost_SOURCE_DIR}/src>
+        $<BUILD_INTERFACE:${xgboost_SOURCE_DIR}/fedxgb/include>
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/../fedxgb/proto-generated>
         )
 
 if (LOG_CAPI_INVOCATION)
