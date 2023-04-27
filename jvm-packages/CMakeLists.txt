@@ -9,7 +9,11 @@ if (USE_CUDA)
     ${PROJECT_SOURCE_DIR}/jvm-packages/xgboost4j-gpu/src/native/xgboost4j-gpu.cu)
 endif (USE_CUDA)
 
-add_library(xgboost4j SHARED ${JVM_SOURCES} ${XGBOOST_OBJ_SOURCES})
+if (BUILD_STATIC_LIB)
+    add_library(xgboost4j STATIC ${JVM_SOURCES} ${XGBOOST_OBJ_SOURCES})
+else (BUILD_STATIC_LIB)
+    add_library(xgboost4j SHARED ${JVM_SOURCES} ${XGBOOST_OBJ_SOURCES})
+endif (BUILD_STATIC_LIB)
 
 if (ENABLE_ALL_WARNINGS)
   target_compile_options(xgboost4j PUBLIC -Wall -Wextra)
