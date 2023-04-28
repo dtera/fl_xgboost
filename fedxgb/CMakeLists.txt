@@ -11,6 +11,7 @@ list(APPEND CMAKE_MODULE_PATH ${CMAKE_LOCAL}/modules)
 option(USE_OPENMP "Build with OpenMP" ON)
 option(GRPC_FETCHCONTENT "GRPC FETCH CONTENT" ON)
 option(CMAKE_CROSSCOMPILING "CMAKE CROSS COMPILING" ON)
+option(LINK_STATIC "CMAKE LINK STATIC LIBRARY" OFF)
 
 file(GLOB_RECURSE SOURCES *.cpp *.cc *.h *.hpp)
 file(GLOB RM_SRCS src/comm/grpc/demo/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/src/fed_cli_main.cc
@@ -51,6 +52,9 @@ else ()
     set(LIB_SUFFIX so)
 endif ()
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
+if (LINK_STATIC)
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
+endif ()
 
 foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest Opt@helib OpenMP OpenSSL
         Protobuf Pulsar Opt@TBB Threads)
