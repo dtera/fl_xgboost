@@ -15,22 +15,13 @@
  */
 package ml.dmlc.xgboost4j.java;
 
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.lang.reflect.Field;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-
 import cn.hutool.core.io.resource.ResourceUtil;
-import cn.hutool.core.util.RuntimeUtil;
-import org.apache.commons.lang.ClassUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
+
+import java.io.*;
+import java.lang.reflect.Field;
+import java.util.Locale;
 
 import static ml.dmlc.xgboost4j.java.NativeLibLoader.LibraryPathProvider.getLibraryPathFor;
 import static ml.dmlc.xgboost4j.java.NativeLibLoader.LibraryPathProvider.getPropertyNameForLibrary;
