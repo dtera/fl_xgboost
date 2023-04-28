@@ -23,8 +23,12 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Objects;
 
+import cn.hutool.core.io.resource.ResourceUtil;
+import cn.hutool.core.util.RuntimeUtil;
+import org.apache.commons.lang.ClassUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -36,6 +40,7 @@ import static ml.dmlc.xgboost4j.java.NativeLibLoader.LibraryPathProvider.getProp
  *
  * @author hzx
  */
+@SuppressWarnings("CommentedOutCode")
 class NativeLibLoader {
   private static final Log logger = LogFactory.getLog(NativeLibLoader.class);
 
@@ -151,14 +156,27 @@ class NativeLibLoader {
   static {
     OS os = OS.detectOS();
     Arch arch = Arch.detectArch();
-    String cpPath = Objects.requireNonNull(NativeLibLoader.class.getResource("/")).getPath();
-    String libBasePath = cpPath.substring(0, cpPath.length() - 1) + getLibraryBasePathFor(os, arch);
+    String cpPath = ResourceUtil.getResource("", NativeLibLoader.class).getPath();
+    cpPath = cpPath.substring(0, cpPath.length() - 1);
+    cpPath = cpPath.replace("/" +
+      NativeLibLoader.class.getPackage().getName().replaceAll("\\.", "/"), "");
+    String libBasePath = cpPath + getLibraryBasePathFor(os, arch);
     String[] paths = {"lib", "boost@lib", "grpc@lib64", "grpc@lib"};
+    StringBuilder libPaths = new StringBuilder();
     for (String path : paths) {
       String[] ps = path.split("@");
       String libPath = libBasePath + (ps.length == 2 ? (ps[0] + "/" + ps[1]) : path);
-      System.setProperty("java.library.path", System.getProperty("java.library.path") + ":" + libPath);
+      libPaths.append(":").append(libPath);
       // NativeUtils.addPath(libPath + ps[0] + "/" + ps[1]);
+    }
+    String lps = libPaths.toString();
+    if (!lps.isEmpty()) {
+      lps = lps.substring(1);
+    }
+    String sysLibPaths = System.getProperty("java.library.path");
+    if (!lps.isEmpty() && !sysLibPaths.contains(lps)) {
+      // System.setProperty("java.library.path", sysLibPaths + ":" + lps);
+      System.setProperty("java.library.path", lps);
     }
     try {
       Field field = ClassLoader.class.getDeclaredField("sys_paths");
@@ -167,7 +185,18 @@ class NativeLibLoader {
     } catch (Exception e) {
       e.printStackTrace();
     }
+
+    /*String exportLd = "export LD_LIBRARY_PATH=" + System.getProperty("java.library.path");
+    Process p = RuntimeUtil.exec("sh", "-c", "grep -q 'export LD_LIBRARY_PATH' ~/.bashrc || " +
+      "echo '" + exportLd + "' >> ~/.bashrc && . ~/.bashrc && " + exportLd);
+    try {
+      p.waitFor();
+      p.destroy();
+    } catch (InterruptedException e) {
+      throw new RuntimeException(e);
+    }*/
     System.out.println("java.library.path: " + System.getProperty("java.library.path"));
+    System.out.println("LD_LIBRARY_PATH: " + System.getenv("LD_LIBRARY_PATH"));
   }
 
   /**

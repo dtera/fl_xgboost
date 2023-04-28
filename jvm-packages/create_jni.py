@@ -13,7 +13,6 @@ from contextlib import contextmanager
 if sys.platform.startswith("linux"):
     sys.platform = "linux"
 
-
 CONFIG = {
     "USE_OPENMP": "ON",
     "USE_HDFS": "OFF",
@@ -77,6 +76,8 @@ if __name__ == "__main__":
     parser.add_argument('--use-cuda', type=str, choices=['ON', 'OFF'], default='OFF')
     parser.add_argument('--build_static_lib', type=str, choices=['ON', 'OFF'], default='OFF')
     cli_args = parser.parse_args()
+    if cli_args.build_static_lib == 'ON':
+        exit(0)
 
     if sys.platform == "darwin":
         # Enable of your compiler supports OpenMP.
