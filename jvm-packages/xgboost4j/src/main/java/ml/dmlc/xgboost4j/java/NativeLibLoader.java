@@ -25,6 +25,7 @@ import java.lang.reflect.Field;
 import java.util.Locale;
 
 import cn.hutool.core.io.resource.ResourceUtil;
+import cn.hutool.core.util.RuntimeUtil;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 
@@ -36,7 +37,6 @@ import static ml.dmlc.xgboost4j.java.NativeLibLoader.LibraryPathProvider.getProp
  *
  * @author hzx
  */
-@SuppressWarnings("CommentedOutCode")
 class NativeLibLoader {
   private static final Log logger = LogFactory.getLog(NativeLibLoader.class);
 
@@ -156,7 +156,8 @@ class NativeLibLoader {
     cpPath = cpPath.substring(0, cpPath.length() - 1);
     cpPath = cpPath.replace("/" +
       NativeLibLoader.class.getPackage().getName().replaceAll("\\.", "/"), "");
-    String libBasePath = cpPath + getLibraryBasePathFor(os, arch);
+    String libBasePath = "/tmp/xgboost4j" + getLibraryBasePathFor(os, arch);
+    //String libBasePath = cpPath + getLibraryBasePathFor(os, arch);
     String[] paths = {"lib", "boost@lib", "grpc@lib64", "grpc@lib"};
     StringBuilder libPaths = new StringBuilder();
     for (String path : paths) {
@@ -182,15 +183,18 @@ class NativeLibLoader {
       e.printStackTrace();
     }
 
-    /*String exportLd = "export LD_LIBRARY_PATH=" + System.getProperty("java.library.path");
-    Process p = RuntimeUtil.exec("sh", "-c", "grep -q 'export LD_LIBRARY_PATH' ~/.bashrc || " +
-      "echo '" + exportLd + "' >> ~/.bashrc && . ~/.bashrc && " + exportLd);
+    String exportLd = "export LD_LIBRARY_PATH=" + System.getProperty("java.library.path");
+    String cmd = "[ -d /tmp/xgboost4j ] || (mkdir /tmp/xgboost4j && " +
+      "unzip " + cpPath + "/lib.zip -d /tmp/xgboost4j/ && grep -q '" +
+      exportLd + "' ~/.bashrc || " +
+      "echo '" + exportLd + "' >> ~/.bashrc && . ~/.bashrc)";
+    Process p = RuntimeUtil.exec("sh", "-c", cmd);
     try {
       p.waitFor();
       p.destroy();
     } catch (InterruptedException e) {
       throw new RuntimeException(e);
-    }*/
+    }
     System.out.println("java.library.path: " + System.getProperty("java.library.path"));
     System.out.println("LD_LIBRARY_PATH: " + System.getenv("LD_LIBRARY_PATH"));
   }

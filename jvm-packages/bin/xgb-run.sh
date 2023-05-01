@@ -5,7 +5,7 @@ CD=$(cd $(dirname "$0") || exit; pwd)
 # shellcheck disable=SC2034
 WD=$(cd $(dirname "$CD") || exit; pwd)
 
-base_path=$WD/xgboost4j/src/main/resources/lib/linux/x86_64
+base_path=/tmp/xgboost4j/lib/linux/x86_64
 export LD_LIBRARY_PATH=$base_path/boost/lib:$base_path/grpc/lib:$base_path/grpc/lib64
 
 input_path=../data/a9a.train
