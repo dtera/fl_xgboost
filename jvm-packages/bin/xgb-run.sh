@@ -54,7 +54,8 @@ done
 
 scala_v=2.12
 spark_v=3.0.1
-java -classpath xgboost4j-federated-app/target/xgboost4j-federated-app_$scala_v-2.0.0-SNAPSHOT-jar-with-dependencies.jar:\
+java -Djava.library.path=$LD_LIBRARY_PATH \
+-classpath xgboost4j-federated-app/target/xgboost4j-federated-app_$scala_v-2.0.0-SNAPSHOT-jar-with-dependencies.jar:\
 "$HOME"/.m2/repository/org/apache/spark/spark-core_$scala_v/$spark_v/spark-core_$scala_v-$spark_v.jar:\
 "$HOME"/.m2/repository/org/apache/spark/spark-sql_$scala_v/$spark_v/spark-sql_$scala_v-$spark_v.jar:\
 "$HOME"/.m2/repository/org/apache/spark/spark-mllib_$scala_v/$spark_v/spark-mllib_$scala_v-$spark_v.jar:\

@@ -37,6 +37,7 @@ import static ml.dmlc.xgboost4j.java.NativeLibLoader.LibraryPathProvider.getProp
  *
  * @author hzx
  */
+@SuppressWarnings("CommentedOutCode")
 class NativeLibLoader {
   private static final Log logger = LogFactory.getLog(NativeLibLoader.class);
 
@@ -152,10 +153,11 @@ class NativeLibLoader {
   static {
     OS os = OS.detectOS();
     Arch arch = Arch.detectArch();
+    /*
     String cpPath = ResourceUtil.getResource("", NativeLibLoader.class).getPath();
     cpPath = cpPath.substring(0, cpPath.length() - 1);
     cpPath = cpPath.replace("/" +
-      NativeLibLoader.class.getPackage().getName().replaceAll("\\.", "/"), "");
+      NativeLibLoader.class.getPackage().getName().replaceAll("\\.", "/"), "");*/
     String libBasePath = "/tmp/xgboost4j" + getLibraryBasePathFor(os, arch);
     //String libBasePath = cpPath + getLibraryBasePathFor(os, arch);
     String[] paths = {"lib", "boost@lib", "grpc@lib64", "grpc@lib"};
@@ -182,17 +184,18 @@ class NativeLibLoader {
     } catch (Exception e) {
       e.printStackTrace();
     }
-
-    String exportLd = "export LD_LIBRARY_PATH=" + System.getProperty("java.library.path");
-    String cmd = "[ -d /tmp/xgboost4j ] || (mkdir /tmp/xgboost4j && " +
-      "unzip " + cpPath + "/lib.zip -d /tmp/xgboost4j/ && grep -q '" +
-      exportLd + "' ~/.bashrc || " +
-      "echo '" + exportLd + "' >> ~/.bashrc && . ~/.bashrc)";
-    Process p = RuntimeUtil.exec("sh", "-c", cmd);
     try {
+      String zippedLibPath = createTempFileFromResource("/lib.zip");
+      System.out.println(zippedLibPath);
+      String exportLd = "export LD_LIBRARY_PATH=" + System.getProperty("java.library.path");
+      String cmd = "[ -d /tmp/xgboost4j ] || (mkdir /tmp/xgboost4j && " +
+        "unzip " + zippedLibPath + " -d /tmp/xgboost4j/ && grep -q '" +
+        exportLd + "' ~/.bashrc || " +
+        "echo '" + exportLd + "' >> ~/.bashrc && . ~/.bashrc)";
+      Process p = RuntimeUtil.exec("sh", "-c", cmd);
       p.waitFor();
       p.destroy();
-    } catch (InterruptedException e) {
+    } catch (Exception e) {
       throw new RuntimeException(e);
     }
     System.out.println("java.library.path: " + System.getProperty("java.library.path"));
