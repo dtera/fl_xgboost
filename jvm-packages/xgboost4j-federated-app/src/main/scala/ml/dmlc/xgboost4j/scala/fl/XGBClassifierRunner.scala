@@ -15,8 +15,10 @@
  */
 package ml.dmlc.xgboost4j.scala.fl
 
+import ml.dmlc.xgboost4j.java.NativeLibLoader
 import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
+import org.apache.spark.SparkConf
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
 import org.apache.spark.ml.util.FedMLUtils.FED_LIBSVM
 import org.apache.spark.sql.DataFrame
@@ -34,6 +36,15 @@ object XGBClassifierRunner extends AbstractSparkApp {
   private var local = false
 
   override def isLocal: Boolean = local
+
+  override def initSparkConf(): SparkConf = {
+    val conf = super.initSparkConf()
+    conf.set("spark.executor.extraLibraryPath", NativeLibLoader.ldPath)
+    conf.set("spark.driver.extraLibraryPath", NativeLibLoader.ldPath)
+    conf.set("spark.executor.extraJavaOptions", "-Djava.library.path=" + NativeLibLoader.ldPath)
+    conf.set("spark.driver.extraJavaOptions", "-Djava.library.path=" + NativeLibLoader.ldPath)
+    conf
+  }
 
   def main(args: Array[String]): Unit = {
     setXgbParams(ParamUtils.params)

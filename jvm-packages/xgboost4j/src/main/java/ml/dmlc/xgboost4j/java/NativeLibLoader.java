@@ -38,7 +38,7 @@ import static ml.dmlc.xgboost4j.java.NativeLibLoader.LibraryPathProvider.getProp
  * @author hzx
  */
 @SuppressWarnings("CommentedOutCode")
-class NativeLibLoader {
+public class NativeLibLoader {
   private static final Log logger = LogFactory.getLog(NativeLibLoader.class);
 
   /**
@@ -149,8 +149,43 @@ class NativeLibLoader {
 
   private static boolean initialized = false;
   private static final String[] libNames = new String[]{"xgboost4j"};
+  public static String ldPath;
 
   static {
+    ldPath = getLDPath();
+    initLDLibrary();
+  }
+
+  private static void initLDLibrary() {
+    String sysLibPaths = System.getProperty("java.library.path");
+    if (!ldPath.isEmpty() && !sysLibPaths.contains(ldPath)) {
+      // System.setProperty("java.library.path", sysLibPaths + ":" + ldPath);
+      System.setProperty("java.library.path", ldPath);
+    }
+    try {
+      Field field = ClassLoader.class.getDeclaredField("sys_paths");
+      field.setAccessible(true);
+      field.set(null, null);
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    try {
+      String zippedLibPath = createTempFileFromResource("/lib.zip");
+      String exportLd = "export LD_LIBRARY_PATH=" + System.getProperty("java.library.path");
+      String cmd = "([ -d /tmp/xgboost4j ] || (mkdir /tmp/xgboost4j && " +
+        "unzip " + zippedLibPath + " -d /tmp/xgboost4j/)) && (grep -q '" + exportLd + "' ~/.bashrc || (echo '" +
+        exportLd + "' >> ~/.bashrc && source ~/.bashrc && " + exportLd + "))";
+      Process p = RuntimeUtil.exec("sh", "-c", cmd);
+      p.waitFor();
+      p.destroy();
+    } catch (Exception e) {
+      throw new RuntimeException(e);
+    }
+    System.out.println("java.library.path: " + System.getProperty("java.library.path"));
+    System.out.println("LD_LIBRARY_PATH: " + System.getenv("LD_LIBRARY_PATH"));
+  }
+
+  private static String getLDPath() {
     OS os = OS.detectOS();
     Arch arch = Arch.detectArch();
     /*
@@ -172,34 +207,7 @@ class NativeLibLoader {
     if (!lps.isEmpty()) {
       lps = lps.substring(1);
     }
-    String sysLibPaths = System.getProperty("java.library.path");
-    if (!lps.isEmpty() && !sysLibPaths.contains(lps)) {
-      // System.setProperty("java.library.path", sysLibPaths + ":" + lps);
-      System.setProperty("java.library.path", lps);
-    }
-    try {
-      Field field = ClassLoader.class.getDeclaredField("sys_paths");
-      field.setAccessible(true);
-      field.set(null, null);
-    } catch (Exception e) {
-      e.printStackTrace();
-    }
-    try {
-      String zippedLibPath = createTempFileFromResource("/lib.zip");
-      System.out.println(zippedLibPath);
-      String exportLd = "export LD_LIBRARY_PATH=" + System.getProperty("java.library.path");
-      String cmd = "[ -d /tmp/xgboost4j ] || (mkdir /tmp/xgboost4j && " +
-        "unzip " + zippedLibPath + " -d /tmp/xgboost4j/ && grep -q '" +
-        exportLd + "' ~/.bashrc || " +
-        "echo '" + exportLd + "' >> ~/.bashrc && . ~/.bashrc)";
-      Process p = RuntimeUtil.exec("sh", "-c", cmd);
-      p.waitFor();
-      p.destroy();
-    } catch (Exception e) {
-      throw new RuntimeException(e);
-    }
-    System.out.println("java.library.path: " + System.getProperty("java.library.path"));
-    System.out.println("LD_LIBRARY_PATH: " + System.getenv("LD_LIBRARY_PATH"));
+    return lps;
   }
 
   /**
