@@ -54,7 +54,9 @@ endif ()
 set(CMAKE_INSTALL_RPATH_USE_LINK_PATH TRUE)
 if (LINK_STATIC)
     set(CMAKE_FIND_LIBRARY_SUFFIXES .a)
-endif ()
+else ()
+    set(CMAKE_FIND_LIBRARY_SUFFIXES .so)
+endif (LINK_STATIC)
 
 foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest Opt@helib OpenMP OpenSSL
         Protobuf Pulsar Opt@TBB Threads)
