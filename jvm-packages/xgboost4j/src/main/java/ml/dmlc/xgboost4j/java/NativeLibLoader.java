@@ -132,8 +132,7 @@ public class NativeLibLoader {
       String libraryPath = System.getProperty(getPropertyNameForLibrary(libName));
 
       if (libraryPath == null) {
-        libraryPath = nativeResourcePath + "/" + getPlatformFor(os, arch) +
-          "/" + System.mapLibraryName(libName);
+        libraryPath = getLibraryBasePathFor(os, arch) + System.mapLibraryName(libName);
       }
 
       logger.debug("Using path " + libraryPath + " for library with name " + libName);
@@ -141,10 +140,10 @@ public class NativeLibLoader {
       return libraryPath;
     }
 
-  }
+    static String getLibraryBasePathFor(OS os, Arch arch) {
+      return nativeResourcePath + "/" + getPlatformFor(os, arch) + "/";
+    }
 
-  static String getLibraryBasePathFor(OS os, Arch arch) {
-    return LibraryPathProvider.nativeResourcePath + "/" + getPlatformFor(os, arch) + "/";
   }
 
   private static boolean initialized = false;
@@ -159,8 +158,8 @@ public class NativeLibLoader {
   private static void initLDLibrary() {
     String sysLibPaths = System.getProperty("java.library.path");
     if (!ldPath.isEmpty() && !sysLibPaths.contains(ldPath)) {
-      // System.setProperty("java.library.path", sysLibPaths + ":" + ldPath);
-      System.setProperty("java.library.path", ldPath);
+      System.setProperty("java.library.path", sysLibPaths + ":" + ldPath);
+      // System.setProperty("java.library.path", ldPath);
     }
     try {
       Field field = ClassLoader.class.getDeclaredField("sys_paths");
@@ -193,7 +192,7 @@ public class NativeLibLoader {
     cpPath = cpPath.substring(0, cpPath.length() - 1);
     cpPath = cpPath.replace("/" +
       NativeLibLoader.class.getPackage().getName().replaceAll("\\.", "/"), "");*/
-    String libBasePath = "/tmp/xgboost4j" + getLibraryBasePathFor(os, arch);
+    String libBasePath = "/tmp/xgboost4j" + LibraryPathProvider.getLibraryBasePathFor(os, arch);
     //String libBasePath = cpPath + getLibraryBasePathFor(os, arch);
     String[] paths = {"lib", "boost@lib", "grpc@lib64", "grpc@lib"};
     StringBuilder libPaths = new StringBuilder();
