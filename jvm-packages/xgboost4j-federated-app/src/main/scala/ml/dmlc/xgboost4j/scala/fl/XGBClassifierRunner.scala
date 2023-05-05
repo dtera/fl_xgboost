@@ -54,14 +54,20 @@ object XGBClassifierRunner extends AbstractSparkApp {
     val testInputPath = params.getOrElse("test_input_path", "").toString
     val modelOutputPath = params.getOrElse("model_output_path", "").toString
     val numRound = params.getOrElse("num_round", 1).toString.toInt
+    val numFeatures = params.getOrElse("numFeatures", 0).toString.toInt
 
     if (isSpark) {
       local = params.getOrElse("local", true).toString.toBoolean
-      val inputDF = spark.read.format(FED_LIBSVM).load(inputPath)
+      val inputDF = spark.read.format(FED_LIBSVM).option("numFeatures", numFeatures).load(inputPath)
+      println(s"input count=${inputDF.count()}")
+      if (testInputPath.nonEmpty) {
+        val testInputDF = spark.read.format(FED_LIBSVM).option("numFeatures", numFeatures).load(testInputPath)
+        params += "eval_sets" -> Map("test" -> testInputDF)
+      }
       val xgbClassifier = new XGBoostClassifier(params.toMap)
         .setNumRound(numRound)
 
-      train(inputDF, modelOutputPath, params, xgbClassifier, testInputPath)
+      train(inputDF, modelOutputPath, params, xgbClassifier)
     } else {
       val inputMax = new DMatrix(inputPath)
 
@@ -91,11 +97,7 @@ object XGBClassifierRunner extends AbstractSparkApp {
   }
 
   def train(inputDF: DataFrame, modelOutputPath: String, params: mutable.HashMap[String, Any],
-            xgbClassifier: XGBoostClassifier, testInputPath: String = ""): Unit = {
-    if (testInputPath.nonEmpty) {
-      val testInputDF = spark.read.format(FED_LIBSVM).load(testInputPath)
-      params += "eval_sets" -> Map("test" -> testInputDF)
-    }
+            xgbClassifier: XGBoostClassifier): Unit = {
     // training
     val xgbModel = xgbClassifier.fit(inputDF)
     // output model
