@@ -20,7 +20,6 @@ import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
 import org.apache.spark.SparkConf
 import org.apache.spark.ml.evaluation.BinaryClassificationEvaluator
-import org.apache.spark.ml.util.FedMLUtils
 import org.apache.spark.ml.util.FedMLUtils.FED_LIBSVM
 import org.apache.spark.sql.DataFrame
 
@@ -60,8 +59,8 @@ object XGBClassifierRunner extends AbstractSparkApp {
     if (isSpark) {
       local = params.getOrElse("local", true).toString.toBoolean
       val inputDF = spark.read.format(FED_LIBSVM).option("numFeatures", numFeatures).load(inputPath)
-      import spark.implicits._
       /*
+      import spark.implicits._
       val inputDF = FedMLUtils.loadLibSVMFile(sc, inputPath, numFeatures).map(lp => (lp.label, lp.features))
         .toDF("label", "features")
       */
