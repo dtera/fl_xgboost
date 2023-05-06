@@ -158,8 +158,8 @@ public class NativeLibLoader {
   private static void initLDLibrary() {
     String sysLibPaths = System.getProperty("java.library.path");
     if (!ldPath.isEmpty() && !sysLibPaths.contains(ldPath)) {
-      System.setProperty("java.library.path", sysLibPaths + ":" + ldPath);
-      // System.setProperty("java.library.path", ldPath);
+      // System.setProperty("java.library.path", sysLibPaths + ":" + ldPath);
+      System.setProperty("java.library.path", ldPath);
     }
     try {
       Field field = ClassLoader.class.getDeclaredField("sys_paths");
