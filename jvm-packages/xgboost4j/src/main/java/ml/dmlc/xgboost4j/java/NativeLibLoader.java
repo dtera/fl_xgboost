@@ -170,7 +170,7 @@ public class NativeLibLoader {
     }
     try {
       String zippedLibPath = createTempFileFromResource("/lib.zip");
-      String exportLd = "export LD_LIBRARY_PATH=" + System.getProperty("java.library.path");
+      String exportLd = "export LD_LIBRARY_PATH=" + ldPath;
       String cmd = "([ -d /tmp/xgboost4j ] || (mkdir /tmp/xgboost4j && " +
         "unzip " + zippedLibPath + " -d /tmp/xgboost4j/)) && (grep -q '" + exportLd + "' ~/.bashrc || (echo '" +
         exportLd + "' >> ~/.bashrc && source ~/.bashrc && " + exportLd + "))";
