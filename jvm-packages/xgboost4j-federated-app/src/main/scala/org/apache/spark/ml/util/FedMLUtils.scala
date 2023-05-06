@@ -105,24 +105,30 @@ object FedMLUtils extends Logging {
   }
 
   private[spark] def parseLibSVMRecord(line: String): (Double, Array[Int], Array[Double]) = {
-    var items = line.split(' ')
-    var head = items.head
-    var sampleId = ""
+    val items = line.split(' ')
     var zeroBased = false
-    if (head.startsWith("@") || !NumberUtils.isParsable(head)) {
-      sampleId = if (head.startsWith("@")) head.stripPrefix("@") else head
-      zeroBased = true
-      items = items.tail
-      head = items.head
+    var nonFeatures = Array[String]()
+    var features = items
+    while (!features.head.contains(":")) {
+      nonFeatures = nonFeatures :+ features.head
+      features = features.tail
     }
-    var features = items.tail
-    val label = if (head.contains(":")) {
-      features = items
-      -1
-    } else {
-      val i = head.indexOf("#")
-      (if (i == -1) head else head.substring(0, i)).toDouble
+    val (sampleId, label: Double) = nonFeatures.length match {
+      case 0 =>
+        ("", -1)
+      case 1 =>
+        if (nonFeatures(0).startsWith("@")) {
+          zeroBased = true
+          (nonFeatures(0).stripPrefix("@"), -1)
+        } else (nonFeatures(0), if (NumberUtils.isParsable(nonFeatures(0))) nonFeatures(0).toDouble else -1)
+      case 2 =>
+        zeroBased = true
+        val i = nonFeatures(1).indexOf("#")
+        (nonFeatures(0).stripPrefix("@"), (if (i == -1) nonFeatures(1) else nonFeatures(1).substring(0, i)).toDouble)
+      case _ =>
+        ("", -1)
     }
+
     val (indices, values) = features.filter(_.nonEmpty).map { item =>
       val indexAndValue = item.split(':')
       // Convert 1-based indices to 0-based.
