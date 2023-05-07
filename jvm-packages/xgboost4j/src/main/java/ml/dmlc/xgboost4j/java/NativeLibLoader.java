@@ -178,7 +178,8 @@ public class NativeLibLoader {
         "unzip " + zippedLibPath + " -d /tmp/xgboost4j/)) && (grep -q '" + exportLd + "' ~/.bashrc || (echo '" +
         exportLd + "' >> ~/.bashrc && source ~/.bashrc && " + exportLd + "))";
       */
-      String cmd = "rm -rf /tmp/xgboost4j && mkdir /tmp/xgboost4j && unzip " + zippedLibPath + " -d /tmp/xgboost4j/";
+      String basePath = "/tmp/xgboost4j";
+      String cmd = "rm -rf " + basePath + " && mkdir " + basePath + " && unzip " + zippedLibPath + " -d " + basePath;
       Process p = RuntimeUtil.exec("sh", "-c", cmd);
       p.waitFor();
       p.destroy();
