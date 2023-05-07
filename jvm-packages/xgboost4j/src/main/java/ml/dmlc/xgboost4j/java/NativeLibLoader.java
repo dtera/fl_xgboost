@@ -178,6 +178,7 @@ public class NativeLibLoader {
       p.waitFor();
       p.destroy();
     } catch (Exception e) {
+      e.printStackTrace();
       throw new RuntimeException(e);
     }
     System.out.println("java.library.path: " + System.getProperty("java.library.path"));
