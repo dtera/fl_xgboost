@@ -65,6 +65,7 @@ object XGBClassifierRunner extends AbstractSparkApp {
         .toDF("label", "features")
       */
       println(s"input count=${inputDF.count()}")
+
       if (testInputPath.nonEmpty) {
         val testInputDF = spark.read.format(FED_LIBSVM).option("numFeatures", numFeatures).load(testInputPath)
         params += "eval_sets" -> Map("test" -> testInputDF)

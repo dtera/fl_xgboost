@@ -148,6 +148,7 @@ public class NativeLibLoader {
 
   private static boolean initialized = false;
   private static final String[] libNames = new String[]{"xgboost4j"};
+  private static final String ldBasePath = "./xgboost4j-libs";
   public static String ldPath;
 
   static {
@@ -178,8 +179,10 @@ public class NativeLibLoader {
         "unzip " + zippedLibPath + " -d /tmp/xgboost4j/)) && (grep -q '" + exportLd + "' ~/.bashrc || (echo '" +
         exportLd + "' >> ~/.bashrc && source ~/.bashrc && " + exportLd + "))";
       */
-      String basePath = "/tmp/xgboost4j";
-      String cmd = "rm -rf " + basePath + " && mkdir " + basePath + " && unzip " + zippedLibPath + " -d " + basePath;
+      // String cmd = "rm -rf " + ldBasePath + " && mkdir " + ldBasePath + " && unzip " + zippedLibPath +
+      // " -d " + ldBasePath;
+      String cmd = "[ -d " + ldBasePath + " ] || (mkdir " + ldBasePath + " && unzip " + zippedLibPath +
+        " -d " + ldBasePath + ")";
       Process p = RuntimeUtil.exec("sh", "-c", cmd);
       p.waitFor();
       p.destroy();
@@ -199,7 +202,7 @@ public class NativeLibLoader {
     cpPath = cpPath.substring(0, cpPath.length() - 1);
     cpPath = cpPath.replace("/" +
       NativeLibLoader.class.getPackage().getName().replaceAll("\\.", "/"), "");*/
-    String libBasePath = "/tmp/xgboost4j" + LibraryPathProvider.getLibraryBasePathFor(os, arch);
+    String libBasePath = ldBasePath + LibraryPathProvider.getLibraryBasePathFor(os, arch);
     //String libBasePath = cpPath + getLibraryBasePathFor(os, arch);
     String[] paths = {"lib", "boost@lib", "grpc@lib64", "grpc@lib"};
     StringBuilder libPaths = new StringBuilder();
