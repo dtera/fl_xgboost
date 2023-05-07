@@ -161,6 +161,7 @@ public class NativeLibLoader {
       // System.setProperty("java.library.path", sysLibPaths + ":" + ldPath);
       System.setProperty("java.library.path", ldPath);
     }
+    /*
     try {
       Field field = ClassLoader.class.getDeclaredField("sys_paths");
       field.setAccessible(true);
@@ -168,12 +169,16 @@ public class NativeLibLoader {
     } catch (Exception e) {
       e.printStackTrace();
     }
+    */
     try {
       String zippedLibPath = createTempFileFromResource("/lib.zip");
+      /*
       String exportLd = "export LD_LIBRARY_PATH=" + ldPath;
       String cmd = "([ -d /tmp/xgboost4j ] || (mkdir /tmp/xgboost4j && " +
         "unzip " + zippedLibPath + " -d /tmp/xgboost4j/)) && (grep -q '" + exportLd + "' ~/.bashrc || (echo '" +
         exportLd + "' >> ~/.bashrc && source ~/.bashrc && " + exportLd + "))";
+      */
+      String cmd = "rm -rf /tmp/xgboost4j && mkdir /tmp/xgboost4j && unzip " + zippedLibPath + " -d /tmp/xgboost4j/";
       Process p = RuntimeUtil.exec("sh", "-c", cmd);
       p.waitFor();
       p.destroy();
@@ -201,13 +206,39 @@ public class NativeLibLoader {
       String[] ps = path.split("@");
       String libPath = libBasePath + (ps.length == 2 ? (ps[0] + "/" + ps[1]) : path);
       libPaths.append(":").append(libPath);
-      // NativeUtils.addPath(libPath + ps[0] + "/" + ps[1]);
+      addNativeDir(libPath);
     }
     String lps = libPaths.toString();
     if (!lps.isEmpty()) {
       lps = lps.substring(1);
     }
     return lps;
+  }
+
+  private static void addNativeDir(String libPath) {
+    try {
+      Field field = ClassLoader.class.getDeclaredField("usr_paths");
+      field.setAccessible(true);
+      String[] paths = (String[]) field.get(null);
+      String[] tmp = paths;
+      for (int i = 0; i < paths.length; ++i) {
+        String path = tmp[i];
+        if (libPath.equals(path)) {
+          return;
+        }
+      }
+
+      tmp = new String[paths.length + 1];
+      System.arraycopy(paths, 0, tmp, 0, paths.length);
+      tmp[paths.length] = libPath;
+      field.set(null, tmp);
+    } catch (IllegalAccessException e) {
+      logger.error(e.getMessage());
+      throw new RuntimeException("Failed to get permissions to set library path");
+    } catch (NoSuchFieldException e) {
+      logger.error(e.getMessage());
+      throw new RuntimeException("Failed to get field handle to set library path");
+    }
   }
 
   /**

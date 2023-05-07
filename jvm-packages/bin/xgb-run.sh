@@ -6,7 +6,7 @@ CD=$(cd $(dirname "$0") || exit; pwd)
 WD=$(cd $(dirname "$CD") || exit; pwd)
 
 base_path=/tmp/xgboost4j/lib/linux/x86_64
-export LD_LIBRARY_PATH=$base_path/boost/lib:$base_path/grpc/lib:$base_path/grpc/lib64
+export LD_LIBRARY_PATH=$base_path/lib:$base_path/boost/lib:$base_path/grpc/lib:$base_path/grpc/lib64
 
 input_path=../data/a9a.train
 test_input_path=../data/a9a.test
