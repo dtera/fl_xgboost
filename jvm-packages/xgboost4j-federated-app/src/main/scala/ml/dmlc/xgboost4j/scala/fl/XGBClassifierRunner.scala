@@ -57,7 +57,7 @@ object XGBClassifierRunner extends AbstractSparkApp {
     val numFeatures = params.getOrElse("numFeatures", 0).toString.toInt
 
     if (isSpark) {
-      local = params.getOrElse("local", true).toString.toBoolean
+      local = params.getOrElse("local", false).toString.toBoolean
       val inputDF = spark.read.format(FED_LIBSVM).option("numFeatures", numFeatures).load(inputPath)
       /*
       import spark.implicits._
