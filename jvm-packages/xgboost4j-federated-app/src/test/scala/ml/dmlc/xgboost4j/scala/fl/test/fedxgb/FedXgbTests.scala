@@ -124,13 +124,14 @@ class FedXgbTests extends SparkTest {
   }
 
   "spark xgb" should "work with a9a dataset" in {
-    val trainInput = spark.read.format("libsvm").load("../data/a9a.train")
-    val testInput = spark.read.format("libsvm").load("../data/a9a.test")
+    val trainInput = spark.read.format(FED_LIBSVM).load("../data/a9a.train")
+    val testInput = spark.read.format(FED_LIBSVM).load("../data/a9a.test")
 
     params += "fl_on" -> 0
     params += "fl_comm_type" -> "none"
     // params += "num_workers" -> 2
     // params += "timeout_request_workers" -> 60000L
+    params += "eval_sets" -> Map("test" -> testInput)
 
     val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f)
     val xgbModel = xgbClassifier.fit(trainInput)

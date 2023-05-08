@@ -115,15 +115,16 @@ object FedMLUtils extends Logging {
 
     val (sampleId: String, label: Double) = nonFeatures.length match {
       case 0 =>
-        ("", -1d)
+        ("", 0d)
       case 1 =>
-        if (nonFeatures(0).startsWith("@")) (nonFeatures(0).stripPrefix("@"), -1d)
-        else (nonFeatures(0), if (NumberUtils.isParsable(nonFeatures(0))) nonFeatures(0).toDouble else -1d)
+        if (nonFeatures(0).startsWith("@")) (nonFeatures(0).stripPrefix("@"), 0d)
+        else (nonFeatures(0), if (NumberUtils.isParsable(nonFeatures(0).stripPrefix("+"))) nonFeatures(0).toDouble
+        else 0d)
       case 2 =>
         val i = nonFeatures(1).indexOf("#")
         (nonFeatures(0).stripPrefix("@"), (if (i == -1) nonFeatures(1) else nonFeatures(1).substring(0, i)).toDouble)
       case _ =>
-        ("", -1d)
+        ("", 0d)
     }
 
     val (indices, values) = features.filter(_.nonEmpty).map { item =>
@@ -145,7 +146,7 @@ object FedMLUtils extends Logging {
       previous = current
       i += 1
     }
-    (label, indices, values)
+    (if (label < 0) 0 else label, indices, values)
   }
 
   /**
