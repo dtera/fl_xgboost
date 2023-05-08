@@ -43,12 +43,16 @@ object XGBClassifierRunner extends AbstractSparkApp {
     conf.set("spark.driver.extraLibraryPath", NativeLibLoader.ldPath)
     conf.set("spark.executor.extraJavaOptions", "-Djava.library.path=" + NativeLibLoader.ldPath)
     conf.set("spark.driver.extraJavaOptions", "-Djava.library.path=" + NativeLibLoader.ldPath)
+    println(s"spark.executor.extraLibraryPath: ${conf.get("spark.executor.extraLibraryPath")}")
+    println(s"spark.driver.extraLibraryPath: ${conf.get("spark.driver.extraLibraryPath")}")
     conf
   }
 
   def main(args: Array[String]): Unit = {
-    setXgbParams(ParamUtils.params)
+    defaultXgbParams(ParamUtils.params)
     val params = ParamUtils.fromArgs(args)
+    postXgbParams(params)
+
     val isSpark = params.getOrElse("is_spark", true).toString.toBoolean
     val inputPath = params("input_path").toString
     val testInputPath = params.getOrElse("test_input_path", "").toString
@@ -120,8 +124,9 @@ object XGBClassifierRunner extends AbstractSparkApp {
     */
   }
 
-  def setXgbParams(params: mutable.HashMap[String, Any]): Unit = {
+  def defaultXgbParams(params: mutable.HashMap[String, Any]): Unit = {
     params += "fl_on" -> 1
+    params += "fl_role" -> "guest"
     params += "fl_bit_len" -> 1024
     params += "fl_comm_type" -> "pulsar"
     params += "fl_pulsar_url" -> "pulsar://localhost:6650"
@@ -140,6 +145,14 @@ object XGBClassifierRunner extends AbstractSparkApp {
     params += "tree_method" -> "hist"
     params += "eval_metric" -> "auc"
     params += "dump_format" -> "json"
+  }
+
+  private def postXgbParams(params: mutable.HashMap[String, Any]): Unit = {
+    val fl_part_id = params("fl_role").toString match {
+      case "guest" => 0
+      case "host" => 1
+    }
+    params += "fl_part_id" -> fl_part_id
   }
 
 }

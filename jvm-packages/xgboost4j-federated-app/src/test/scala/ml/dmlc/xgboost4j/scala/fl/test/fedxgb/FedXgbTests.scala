@@ -15,7 +15,7 @@
  */
 package ml.dmlc.xgboost4j.scala.fl.test.fedxgb
 
-import ml.dmlc.xgboost4j.scala.fl.XGBClassifierRunner.{evaluator, setXgbParams}
+import ml.dmlc.xgboost4j.scala.fl.XGBClassifierRunner.{evaluator, defaultXgbParams}
 import ml.dmlc.xgboost4j.scala.fl.util.XgbUtils.{checkPredicts, saveDumpModel}
 import ml.dmlc.xgboost4j.scala.fl.test.SparkTest
 import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
@@ -28,7 +28,7 @@ import scala.collection.mutable
 class FedXgbTests extends SparkTest {
 
   val params = new mutable.HashMap[String, Any]()
-  setXgbParams(params)
+  defaultXgbParams(params)
 
   "[guest]fed spark xgb" should "work with a9a dataset" in {
     val trainInput = spark.read.format(FED_LIBSVM).load("../data/a9a.guest.train")
