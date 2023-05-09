@@ -3,8 +3,6 @@
 //
 #include "comm/pulsar/XgbPulsarService.h"
 
-#include "comm/pulsar/PulsarClient.hpp"
-
 XgbPulsarService::XgbPulsarService(bool start, const std::string& pulsar_url,
                                    const std::string& topic_prefix, const std::string& pulsar_token,
                                    const std::string& pulsar_tenant,
