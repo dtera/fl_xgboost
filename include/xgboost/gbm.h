@@ -22,6 +22,8 @@
 #include <utility>
 #include <vector>
 
+#include "learner.h"
+
 namespace xgboost {
 
 class Json;
@@ -39,9 +41,13 @@ class PredictionContainer;
 class GradientBooster : public Model, public Configurable {
  protected:
   GenericParameter const* ctx_;
+  Learner const* learner_;
+
   explicit GradientBooster(GenericParameter const* ctx) : ctx_{ctx} {}
 
  public:
+  void SetLearner(Learner const* learner) { learner_ = learner; }
+
   /*! \brief virtual destructor */
   ~GradientBooster() override = default;
   /*!

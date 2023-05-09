@@ -39,6 +39,7 @@ inline void QuantileHistMaker::UpdateT(HostDeviceVector<GradientPairT<T>> *gpair
   const size_t n_trees = trees.size();
   if (!pimpl_) {
     pimpl_.reset(new Builder(n_trees, param_, dmat, task_, ctx_));
+    pimpl_->SetLearner(learner_);
   }
 
   size_t t_idx{0};
@@ -137,8 +138,8 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
     auto ft = p_fmat->Info().feature_types.ConstHostSpan();
     for (auto const &gmat : p_fmat->GetBatches<GHistIndexMatrix>(HistBatch(param_))) {
       if (is_same<float, T>()) {
-        if (IsFederated() && !IsPulsar()) {
-          xgb_server_->SetTrainParam(&param_);
+        if (learner_->IsFederated() && !learner_->IsPulsar()) {
+          learner_->xgb_server_->SetTrainParam(&param_);
         }
         evaluator_->EvaluateSplits(histogram_builder_->Histogram(), gmat.cut, ft, *p_tree,
                                    &entries);
@@ -168,16 +169,16 @@ void QuantileHistMaker::Builder::BuildHistogram(DMatrix *p_fmat, RegTree *p_tree
     auto left_nidx = (*p_tree)[c.nid].LeftChild();
     auto right_nidx = (*p_tree)[c.nid].RightChild();
     bool fewer_right = false;
-    if (!IsPulsar()) {
+    if (!learner_->IsPulsar()) {
       if (is_same<float, T>()) {
         fewer_right = c.split.right_sum.GetHess() < c.split.left_sum.GetHess();
-        if (IsFederated()) {
-          xgb_server_->SendFewerRight(c.nid, fewer_right);
+        if (learner_->IsFederated()) {
+          learner_->xgb_server_->SendFewerRight(c.nid, fewer_right);
         }
       } else {
-        /*fewer_right = xgb_client_->IsFewerRight(c.split.encrypted_left_sum->sum_hess,
+        /*fewer_right = learner_->xgb_client_->IsFewerRight(c.split.encrypted_left_sum->sum_hess,
                                                 c.split.encrypted_right_sum->sum_hess);*/
-        fewer_right = xgb_client_->FewerRight(c.nid);
+        fewer_right = learner_->xgb_client_->FewerRight(c.nid);
       }
     }
 
@@ -236,18 +237,18 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
   Driver<CPUExpandEntry> driver(param_);
   driver.Push(this->InitRoot<T>(p_fmat, p_tree, gpair_h));
   auto const &tree = *p_tree;
-  auto expand_set = driver.Pop([](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
+  auto expand_set = driver.Pop([&](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
     if (is_same<float, T>()) {
       auto is_valid = e.IsValid(param, num_leaves);
-      if (IsPulsar()) {
-        xgb_pulsar_->SendSplitValid(e.nid, is_valid);
+      if (learner_->IsPulsar()) {
+        learner_->xgb_pulsar_->SendSplitValid(e.nid, is_valid);
       }
       return is_valid;
     } else {
-      if (IsPulsar()) {
-        return xgb_pulsar_->GetSplitValid(e.nid);
+      if (learner_->IsPulsar()) {
+        return learner_->xgb_pulsar_->GetSplitValid(e.nid);
       } else {
-        return xgb_client_->IsSplitEntryValid(e.nid, num_leaves);
+        return learner_->xgb_client_->IsSplitEntryValid(e.nid, num_leaves);
       }
     }
   });
@@ -296,8 +297,8 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
         if (is_same<float, T>()) {
           evaluator_->EvaluateSplits(histograms, gmat.cut, ft, *p_tree, &best_splits);
         } else {
-          if (!IsPulsar()) {
-            xgb_client_->Clear();
+          if (!learner_->IsPulsar()) {
+            learner_->xgb_client_->Clear();
           }
           encrypted_evaluator_->EvaluateSplits(encrypted_histograms, gmat.cut, ft, *p_tree,
                                                &best_splits);
@@ -309,7 +310,7 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
     if (is_same<float, T>()) {
       driver.Push(best_splits.begin(), best_splits.end(), [&](const CPUExpandEntry &e) {
         auto is_valid = e.split.loss_chg > kRtEps;
-        if (IsPulsar()) {
+        if (learner_->IsPulsar()) {
           splits_valid.insert({e.nid, {false, is_valid}});
           ;
         }
@@ -318,40 +319,40 @@ void QuantileHistMaker::Builder::ExpandTree(DMatrix *p_fmat, RegTree *p_tree,
 
       expand_set = driver.Pop([&](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
         auto is_valid = e.IsValid(param, num_leaves);
-        if (IsPulsar() && is_valid) {
+        if (learner_->IsPulsar() && is_valid) {
           splits_valid[e.nid].first = true;
         }
         return is_valid;
       });
-      if (IsPulsar()) {
-        xgb_pulsar_->SendSplitsValid(splits_valid);
+      if (learner_->IsPulsar()) {
+        learner_->xgb_pulsar_->SendSplitsValid(splits_valid);
       }
     } else {
-      if (IsPulsar()) {
+      if (learner_->IsPulsar()) {
         std::for_each(best_splits.begin(), best_splits.end(), [&](auto &e) {
           splits_valid.insert({e.nid, {false, false}});
         });
-        xgb_pulsar_->GetSplitsValid(splits_valid);
+        learner_->xgb_pulsar_->GetSplitsValid(splits_valid);
       }
       driver.Push(best_splits.begin(), best_splits.end(), [&](const CPUExpandEntry &e) {
-        if (IsPulsar()) {
+        if (learner_->IsPulsar()) {
           return splits_valid[e.nid].second;
         } else {
-          return xgb_client_->IsSplitEntryValid(e.nid, -1);
+          return learner_->xgb_client_->IsSplitEntryValid(e.nid, -1);
         }
       });
       expand_set = driver.Pop([&](CPUExpandEntry &e, TrainParam &param, bst_node_t num_leaves) {
-        if (IsPulsar()) {
+        if (learner_->IsPulsar()) {
           return splits_valid[e.nid].first;
         } else {
-          return xgb_client_->IsSplitEntryValid(e.nid, num_leaves);
+          return learner_->xgb_client_->IsSplitEntryValid(e.nid, num_leaves);
         }
       });
     }
   }
 
-  if (!is_same<float, T>() && !IsPulsar()) {
-    xgb_client_->Clear();
+  if (!is_same<float, T>() && !learner_->IsPulsar()) {
+    learner_->xgb_client_->Clear();
   }
 
   auto &h_out_position = p_out_position->HostVector();
@@ -513,6 +514,7 @@ void QuantileHistMaker::Builder::InitData(DMatrix *fmat, const RegTree &tree,
         CHECK_EQ(n_total_bins, page.cut.TotalBins());
       }
       partitioner_.emplace_back(this->ctx_, page.Size(), page.base_rowid);
+      partitioner_.at(page_id).SetLearner(learner_);
       ++page_id;
     }
     if (is_same<float, T>()) {
@@ -520,11 +522,13 @@ void QuantileHistMaker::Builder::InitData(DMatrix *fmat, const RegTree &tree,
                                 collective::IsDistributed());
       evaluator_.reset(
           new HistEvaluator<CPUExpandEntry>{param_, info, this->ctx_->Threads(), column_sampler_});
+      evaluator_->SetLearner(learner_);
     } else {
       encrypted_histogram_builder_->Reset(n_total_bins, HistBatch(param_), ctx_->Threads(), page_id,
                                           collective::IsDistributed());
       encrypted_evaluator_.reset(new HistEvaluator<CPUExpandEntry, EncryptedType<double>>{
           param_, info, this->ctx_->Threads(), column_sampler_});
+      encrypted_evaluator_->SetLearner(learner_);
     }
 
     if (param_.subsample < 1.0f) {

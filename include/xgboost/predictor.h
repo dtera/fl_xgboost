@@ -12,19 +12,20 @@
 
 #include <functional>
 #include <memory>
+#include <mutex>
 #include <string>
 #include <unordered_map>
 #include <utility>
 #include <vector>
-#include <mutex>
 
 // Forward declarations
 namespace xgboost {
+class Learner;
 class TreeUpdater;
 namespace gbm {
 struct GBTreeModel;
 }  // namespace gbm
-}
+}  // namespace xgboost
 
 namespace xgboost {
 /**
@@ -36,24 +37,22 @@ struct PredictionCacheEntry {
   // A storage for caching prediction values
   HostDeviceVector<bst_float> predictions;
   // The version of current cache, corresponding number of layers of trees
-  uint32_t version { 0 };
+  uint32_t version{0};
   // A weak pointer for checking whether the DMatrix object has expired.
-  std::weak_ptr< DMatrix > ref;
+  std::weak_ptr<DMatrix> ref;
 
   PredictionCacheEntry() = default;
   /* \brief Update the cache entry by number of versions.
    *
    * \param v Added versions.
    */
-  void Update(uint32_t v) {
-    version += v;
-  }
+  void Update(uint32_t v) { version += v; }
 };
 
 /* \brief A container for managed prediction caches.
  */
 class PredictionContainer {
-  std::unordered_map<DMatrix *, PredictionCacheEntry> container_;
+  std::unordered_map<DMatrix*, PredictionCacheEntry> container_;
   void ClearExpiredEntries();
 
  public:
@@ -103,8 +102,11 @@ class PredictionContainer {
 class Predictor {
  protected:
   Context const* ctx_;
+  Learner const* learner_;
 
  public:
+  void SetLearner(Learner const* learner) { learner_ = learner; }
+
   explicit Predictor(Context const* ctx) : ctx_{ctx} {}
 
   virtual ~Predictor() = default;
@@ -168,10 +170,8 @@ class Predictor {
    * \param           tree_end    (Optional) The tree end index.
    */
 
-  virtual void PredictInstance(const SparsePage::Inst& inst,
-                               std::vector<bst_float>* out_preds,
-                               const gbm::GBTreeModel& model,
-                               unsigned tree_end = 0) const = 0;
+  virtual void PredictInstance(const SparsePage::Inst& inst, std::vector<bst_float>* out_preds,
+                               const gbm::GBTreeModel& model, unsigned tree_end = 0) const = 0;
 
   /**
    * \brief predict the leaf index of each tree, the output will be nsample *
@@ -184,8 +184,7 @@ class Predictor {
    */
 
   virtual void PredictLeaf(DMatrix* dmat, HostDeviceVector<bst_float>* out_preds,
-                           const gbm::GBTreeModel& model,
-                           unsigned tree_end = 0) const = 0;
+                           const gbm::GBTreeModel& model, unsigned tree_end = 0) const = 0;
 
   /**
    * \brief feature contributions to individual predictions; the output will be
@@ -198,22 +197,22 @@ class Predictor {
    * \param           tree_end           The tree end index.
    * \param           tree_weights       (Optional) Weights to multiply each tree by.
    * \param           approximate        Use fast approximate algorithm.
-   * \param           condition          Condition on the condition_feature (0=no, -1=cond off, 1=cond on).
-   * \param           condition_feature  Feature to condition on (i.e. fix) during calculations.
+   * \param           condition          Condition on the condition_feature (0=no, -1=cond off,
+   * 1=cond on). \param           condition_feature  Feature to condition on (i.e. fix) during
+   * calculations.
    */
 
-  virtual void
-  PredictContribution(DMatrix *dmat, HostDeviceVector<bst_float> *out_contribs,
-                      const gbm::GBTreeModel &model, unsigned tree_end = 0,
-                      std::vector<bst_float> const *tree_weights = nullptr,
-                      bool approximate = false, int condition = 0,
-                      unsigned condition_feature = 0) const = 0;
+  virtual void PredictContribution(DMatrix* dmat, HostDeviceVector<bst_float>* out_contribs,
+                                   const gbm::GBTreeModel& model, unsigned tree_end = 0,
+                                   std::vector<bst_float> const* tree_weights = nullptr,
+                                   bool approximate = false, int condition = 0,
+                                   unsigned condition_feature = 0) const = 0;
 
-  virtual void PredictInteractionContributions(
-      DMatrix *dmat, HostDeviceVector<bst_float> *out_contribs,
-      const gbm::GBTreeModel &model, unsigned tree_end = 0,
-      std::vector<bst_float> const *tree_weights = nullptr,
-      bool approximate = false) const = 0;
+  virtual void PredictInteractionContributions(DMatrix* dmat,
+                                               HostDeviceVector<bst_float>* out_contribs,
+                                               const gbm::GBTreeModel& model, unsigned tree_end = 0,
+                                               std::vector<bst_float> const* tree_weights = nullptr,
+                                               bool approximate = false) const = 0;
 
   /**
    * \brief Creates a new Predictor*.
@@ -221,19 +220,17 @@ class Predictor {
    * \param name           Name of the predictor.
    * \param generic_param  Pointer to runtime parameters.
    */
-  static Predictor* Create(
-      std::string const& name, GenericParameter const* generic_param);
+  static Predictor* Create(std::string const& name, GenericParameter const* generic_param);
 };
 
 /*!
  * \brief Registry entry for predictor.
  */
 struct PredictorReg
-    : public dmlc::FunctionRegEntryBase<
-  PredictorReg, std::function<Predictor*(GenericParameter const*)>> {};
+    : public dmlc::FunctionRegEntryBase<PredictorReg,
+                                        std::function<Predictor*(GenericParameter const*)>> {};
 
-#define XGBOOST_REGISTER_PREDICTOR(UniqueId, Name)      \
-  static DMLC_ATTRIBUTE_UNUSED ::xgboost::PredictorReg& \
-      __make_##PredictorReg##_##UniqueId##__ =          \
-          ::dmlc::Registry<::xgboost::PredictorReg>::Get()->__REGISTER__(Name)
+#define XGBOOST_REGISTER_PREDICTOR(UniqueId, Name)                                               \
+  static DMLC_ATTRIBUTE_UNUSED ::xgboost::PredictorReg& __make_##PredictorReg##_##UniqueId##__ = \
+      ::dmlc::Registry<::xgboost::PredictorReg>::Get()->__REGISTER__(Name)
 }  // namespace xgboost

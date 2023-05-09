@@ -23,6 +23,8 @@
 #include <utility>
 #include <vector>
 
+#include "learner.h"
+
 namespace xgboost {
 
 class Json;
@@ -33,8 +35,11 @@ class Json;
 class TreeUpdater : public Configurable {
  protected:
   GenericParameter const* ctx_ = nullptr;
+  Learner const* learner_;
 
  public:
+  void SetLearner(Learner const* learner) { learner_ = learner; }
+
   explicit TreeUpdater(const GenericParameter* ctx) : ctx_(ctx) {}
   /*! \brief virtual destructor */
   ~TreeUpdater() override = default;

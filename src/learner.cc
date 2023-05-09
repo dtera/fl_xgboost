@@ -486,10 +486,7 @@ class LearnerConfiguration : public Learner {
     auto old_tparam = tparam_;
     Args args = {cfg_.cbegin(), cfg_.cend()};
 
-    if (fparam_ == nullptr) {
-      fparam_ = FIND_XGB_SERVICE(FederatedParam);
-      fparam_->UpdateAllowUnknown(args);
-    }
+    fparam_.UpdateAllowUnknown(args);
     tparam_.UpdateAllowUnknown(args);
     mparam_.UpdateAllowUnknown(args);
 
@@ -526,15 +523,16 @@ class LearnerConfiguration : public Learner {
     // config rpc service for xgb
     if (IsFederated()) {
       if (IsGuest()) {
-        opt_paillier_keygen(&pub_, &pri_, fparam_->fl_bit_len);
+        opt_paillier_keygen(&pub_, &pri_, fparam_.fl_bit_len);
       }
       if (IsPulsar()) {
-        xgb_pulsar_ = FIND_XGB_SERVICE(XgbPulsarService);
+        // xgb_pulsar_ = FIND_XGB_SERVICE(XgbPulsarService);
+        xgb_pulsar_ = std::make_unique<XgbPulsarService>();
         xgb_pulsar_->max_iter =
             cfg_.count("num_round") == 0 ? 1 : std::atoi(cfg_["num_round"].c_str());
-        xgb_pulsar_->Start(fparam_->fl_pulsar_url, fparam_->fl_pulsar_topic_prefix,
-                           fparam_->fl_pulsar_token, fparam_->fl_pulsar_tenant,
-                           fparam_->fl_pulsar_namespace, fparam_->fl_pulsar_topic_ttl);
+        xgb_pulsar_->Start(fparam_.fl_pulsar_url, fparam_.fl_pulsar_topic_prefix,
+                           fparam_.fl_pulsar_token, fparam_.fl_pulsar_tenant,
+                           fparam_.fl_pulsar_namespace, fparam_.fl_pulsar_topic_ttl);
         if (IsGuest()) {
           xgb_pulsar_->SetPriKey(pri_);
           xgb_pulsar_->SendPubKey(pub_);
@@ -544,18 +542,20 @@ class LearnerConfiguration : public Learner {
       } else {
         if (IsGuest()) {
           // server_.reset(new XgbServiceServer(fparam_->fl_port));
-          xgb_server_ = FIND_XGB_SERVICE(XgbServiceServer);
+          // xgb_server_ = FIND_XGB_SERVICE(XgbServiceServer);
+          xgb_server_ = std::make_unique<XgbServiceServer>();
           xgb_server_->max_iter =
               cfg_.count("num_round") == 0 ? 1 : std::atoi(cfg_["num_round"].c_str());
-          xgb_server_->Start(fparam_->fl_port);
+          xgb_server_->Start(fparam_.fl_port);
 
           xgb_server_->SetPriKey(pri_);
           xgb_server_->SendPubKey(pub_);
         } else {
-          auto p = fparam_->fl_address.find(":");
-          xgb_client_ = FIND_XGB_SERVICE(XgbServiceClient);
-          xgb_client_->Start(atoi(fparam_->fl_address.substr(p + 1).c_str()),
-                             fparam_->fl_address.substr(0, p), omp_get_num_procs());
+          auto p = fparam_.fl_address.find(":");
+          // xgb_client_ = FIND_XGB_SERVICE(XgbServiceClient);
+          xgb_client_ = std::make_unique<XgbServiceClient>();
+          xgb_client_->Start(atoi(fparam_.fl_address.substr(p + 1).c_str()),
+                             fparam_.fl_address.substr(0, p), omp_get_num_procs());
           LOG(CONSOLE) << "** RPC client connect server success! " << endl;
 
           xgb_client_->GetPubKey(&pub_);
@@ -835,6 +835,7 @@ class LearnerConfiguration : public Learner {
     if (gbm_ == nullptr || old.booster != tparam_.booster) {
       gbm_.reset(GradientBooster::Create(tparam_.booster, &ctx_, &learner_model_param_));
     }
+    gbm_->SetLearner(this);
     gbm_->Configure(args);
   }
 

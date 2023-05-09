@@ -144,6 +144,8 @@ class QuantileHistMaker : public TreeUpdater {
 
     bool UpdatePredictionCache(DMatrix const* data, linalg::VectorView<float> out_preds) const;
 
+    void SetLearner(Learner const* learner) { learner_ = learner; }
+
    private:
     // initialize temp data structure
     template <typename T = float>
@@ -198,6 +200,7 @@ class QuantileHistMaker : public TreeUpdater {
    private:
     const size_t n_trees_;
     const TrainParam& param_;
+    Learner const* learner_;
     std::shared_ptr<common::ColumnSampler> column_sampler_{
         std::make_shared<common::ColumnSampler>()};
 

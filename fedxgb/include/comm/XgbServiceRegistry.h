@@ -48,6 +48,7 @@ DMLC_REGISTRY_DECLARE(FederatedParamFactory);
 #define FIND_XGB_SERVICE(ServiceName) \
   dmlc::Registry<ServiceName##Factory>::Find(#ServiceName)->body()
 
+/*
 extern std::unique_ptr<XgbServiceServer> xgb_server_;
 extern std::unique_ptr<XgbServiceClient> xgb_client_;
 extern std::unique_ptr<XgbPulsarService> xgb_pulsar_;
@@ -72,6 +73,7 @@ inline bool NotSelfPart(int32_t part_id) { return part_id != fparam_->fl_part_id
 inline bool IsFederatedAndSelfPartNotBest(int32_t part_id) {
   return IsFederated() && NotSelfPart(part_id);
 }
+*/
 
 //==========================================test to debug==========================================
 inline void test_hist(bst_bin_t nidx, bst_bin_t bin_id, const EncryptedType<double> &grad,
@@ -90,7 +92,7 @@ inline void test_hist(bst_bin_t nidx, bst_bin_t bin_id, const EncryptedType<doub
   GradStats<EncryptedType<double>> stat(EncryptedType<double>(0), EncryptedType<double>(0));
   stat.Add(grad, hess);
   mpz_t2_mpz_type(es->mutable_left_sum(), stat);
-  xgb_client_->SendEncryptedSplits(req, [](SplitsResponse &res) {});
+  // xgb_client_->SendEncryptedSplits(req, [](SplitsResponse &res) {});
 }
 
 inline void test_hist(bst_bin_t nidx, bst_bin_t bin_id, const double &grad, const double &hess,

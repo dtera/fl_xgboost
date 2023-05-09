@@ -51,6 +51,7 @@ void GBTree::Configure(const Args& cfg) {
   if (!cpu_predictor_) {
     cpu_predictor_ = std::unique_ptr<Predictor>(Predictor::Create("cpu_predictor", this->ctx_));
   }
+  cpu_predictor_->SetLearner(learner_);
   cpu_predictor_->Configure(cfg);
 #if defined(XGBOOST_USE_CUDA)
   auto n_gpus = common::AllVisibleGPUs();
@@ -92,6 +93,7 @@ void GBTree::Configure(const Args& cfg) {
     this->InitUpdater(cfg);
   } else {
     for (auto& up : updaters_) {
+      up->SetLearner(learner_);
       up->Configure(cfg);
     }
   }
@@ -333,6 +335,7 @@ void GBTree::InitUpdater(Args const& cfg) {
   for (const std::string& pstr : ups) {
     std::unique_ptr<TreeUpdater> up(
         TreeUpdater::Create(pstr.c_str(), ctx_, model_.learner_model_param->task));
+    up->SetLearner(learner_);
     up->Configure(cfg);
     updaters_.push_back(std::move(up));
   }

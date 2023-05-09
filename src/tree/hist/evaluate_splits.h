@@ -45,18 +45,19 @@ class HistEvaluator {
   FeatureInteractionConstraintHost interaction_constraints_;
   std::vector<NodeEntry> snode_;
   std::string key_;
+  Learner const *learner_;
 
   // if sum of statistics for non-missing values in the node
   // is equal to sum of statistics for all values:
   // then - there are no missing values
   // else - there are missing values
-  bool static SplitContainsMissingValues(const GradStats<H> e, const NodeEntry &snode) {
+  bool SplitContainsMissingValues(const GradStats<H> e, const NodeEntry &snode) {
     bool flag = false;
     if (is_same<double, H>()) {
       flag = e.GetGrad() == snode.stats.GetGrad() && e.GetHess() == snode.stats.GetHess();
     } else {
-      if (!IsPulsar()) {
-        flag = xgb_client_->IsSplitContainsMissingValues(e, snode.stats);
+      if (!learner_->IsPulsar()) {
+        flag = learner_->xgb_client_->IsSplitContainsMissingValues(e, snode.stats);
       }
     }
     if (flag) {
@@ -229,8 +230,8 @@ class HistEvaluator {
     es->set_d_step(d_step);
     es->set_default_left(default_left);
     es->set_is_cat(is_cat);
-    if (!IsPulsar()) {
-      xgb_client_->CacheEncryptedSplit(es->mask_id(), es);
+    if (!learner_->IsPulsar()) {
+      learner_->xgb_client_->CacheEncryptedSplit(es->mask_id(), es);
     }
     return true;
   }
@@ -320,6 +321,8 @@ class HistEvaluator {
   }
 
  public:
+  void SetLearner(Learner const *learner) { learner_ = learner; }
+
   void SortFeatHistogram(std::vector<size_t> &sorted_idx,
                          common::GHistRow<EncryptedType<double>> &feat_hist,
                          TreeEvaluator::SplitEvaluator<TrainParam> &evaluator) {
@@ -339,12 +342,12 @@ class HistEvaluator {
   void UpdateForDataHolder(ExpandEntry &e,
                            const TreeEvaluator::SplitEvaluator<TrainParam> &evaluator,
                            const SplitsRequest *sr, std::atomic<int> &bestIdx) const {
-    if (IsFederated()) {
-      e.split.part_id = fparam_->fl_part_id;
-      if (IsPulsar()) {
+    if (learner_->IsFederated()) {
+      e.split.part_id = learner_->PartId();
+      if (learner_->IsPulsar()) {
         /*
         SplitsRequest sr;
-        xgb_pulsar_->GetEncryptedSplits(e.nid, sr,
+        learner_->xgb_pulsar_->GetEncryptedSplits(e.nid, sr,
                                         [&](uint32_t i, GradStats<double> &left_sum,
                                             GradStats<double> &right_sum, const SplitsRequest &) {
                                           auto es = sr.encrypted_splits()[i];
@@ -356,8 +359,8 @@ class HistEvaluator {
                                             bestIdx = i;
                                           }
                                         });
-        xgb_pulsar_->SendBestSplit(bestIdx.load(), e, sr);*/
-        xgb_pulsar_->HandleSplitUpdate(
+        learner_->xgb_pulsar_->SendBestSplit(bestIdx.load(), e, sr);*/
+        learner_->xgb_pulsar_->HandleSplitUpdate(
             *sr, [&](uint32_t i, GradStats<double> &left_sum, GradStats<double> &right_sum,
                      const SplitsRequest &) {
               auto es = sr->encrypted_splits()[i];
@@ -369,9 +372,9 @@ class HistEvaluator {
               }
             });
       } else {
-        xgb_server_->UpdateFinishSplits(e.nid, false);
+        learner_->xgb_server_->UpdateFinishSplits(e.nid, false);
         // update expand entry for the data holder part
-        xgb_server_->UpdateExpandEntry(
+        learner_->xgb_server_->UpdateExpandEntry(
             e, [&](uint32_t i, GradStats<double> &left_sum, GradStats<double> &right_sum,
                    const SplitsRequest &sr) {
               auto es = sr.encrypted_splits()[i];
@@ -380,7 +383,7 @@ class HistEvaluator {
                                              e.split, es.d_step(), es.default_left(), es.is_cat());
               if (updated) {
                 e.split.part_id = sr.part_id();
-                xgb_server_->UpdateBestEncryptedSplit(sr.nidx(), es);
+                learner_->xgb_server_->UpdateBestEncryptedSplit(sr.nidx(), es);
               }
             });
       }
@@ -434,11 +437,11 @@ class HistEvaluator {
       }
     };
     update(process_best_split);
-    /*if (IsPulsar()) {
-      xgb_pulsar_->SendEncryptedSplits(sr);
-      xgb_pulsar_->GetBestSplit(e.nid, process_best_split);
+    /*if (learner_->IsPulsar()) {
+      learner_->xgb_pulsar_->SendEncryptedSplits(sr);
+      learner_->xgb_pulsar_->GetBestSplit(e.nid, process_best_split);
     } else {
-      xgb_client_->SendEncryptedSplits(sr, process_best_split);
+      learner_->xgb_client_->SendEncryptedSplits(sr, process_best_split);
     }*/
   }
 
@@ -516,27 +519,27 @@ class HistEvaluator {
         for (auto tidx = 0; tidx < n_threads_; ++tidx) {
           entries[nidx_in_set].split.Update(tloc_candidates[n_threads_ * nidx_in_set + tidx].split);
         }
-        if (IsPulsar()) {
+        if (learner_->IsPulsar()) {
           nids += entries[nidx_in_set].nid;
         }
       }
-      if (IsPulsar()) {
-        xgb_pulsar_->GetEncryptedSplitsByLayer(nids, splitsRequests);
+      if (learner_->IsPulsar()) {
+        learner_->xgb_pulsar_->GetEncryptedSplitsByLayer(nids, splitsRequests);
       }
       auto srs = splitsResponses.mutable_splits_responses();
       for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
         std::atomic<int> bestIdx{-1};
-        UpdateForDataHolder(entries[nidx_in_set], evaluator,
-                            IsPulsar() ? &splitsRequests.splits_requests(nidx_in_set) : nullptr,
-                            bestIdx);
-        if (IsPulsar()) {
+        UpdateForDataHolder(
+            entries[nidx_in_set], evaluator,
+            learner_->IsPulsar() ? &splitsRequests.splits_requests(nidx_in_set) : nullptr, bestIdx);
+        if (learner_->IsPulsar()) {
           auto sr = srs->Add();
-          xgb_pulsar_->HandleBestSplit(bestIdx.load(), entries[nidx_in_set],
-                                       splitsRequests.splits_requests(nidx_in_set), *sr);
+          learner_->xgb_pulsar_->HandleBestSplit(bestIdx.load(), entries[nidx_in_set],
+                                                 splitsRequests.splits_requests(nidx_in_set), *sr);
         }
       }
-      if (IsPulsar()) {
-        xgb_pulsar_->SendBestSplitsByLayer(nids, splitsResponses);
+      if (learner_->IsPulsar()) {
+        learner_->xgb_pulsar_->SendBestSplitsByLayer(nids, splitsResponses);
       }
     } else {
       auto srs = splitsRequests.mutable_splits_requests();
@@ -546,21 +549,21 @@ class HistEvaluator {
               tloc_requests[n_threads_ * nidx_in_set + tidx].encrypted_splits());
         }
         splits_requests[nidx_in_set].set_nidx(entries[nidx_in_set].nid);
-        splits_requests[nidx_in_set].set_part_id(fparam_->fl_part_id);
-        if (IsPulsar()) {
+        splits_requests[nidx_in_set].set_part_id(learner_->PartId());
+        if (learner_->IsPulsar()) {
           nids += entries[nidx_in_set].nid;
           srs->Add(std::move(splits_requests[nidx_in_set]));
         } else {
           DataHolderUpdate(cut, feature_types, entries[nidx_in_set], splits_requests[nidx_in_set],
                            [&](function<void(SplitsResponse &)> process_best_split) {
-                             xgb_client_->SendEncryptedSplits(splits_requests[nidx_in_set],
-                                                              process_best_split);
+                             learner_->xgb_client_->SendEncryptedSplits(
+                                 splits_requests[nidx_in_set], process_best_split);
                            });
         }
       }
-      if (IsPulsar()) {
-        xgb_pulsar_->SendEncryptedSplitsByLayer(nids, splitsRequests);
-        xgb_pulsar_->GetBestSplitsByLayer(nids, splitsResponses);
+      if (learner_->IsPulsar()) {
+        learner_->xgb_pulsar_->SendEncryptedSplitsByLayer(nids, splitsRequests);
+        learner_->xgb_pulsar_->GetBestSplitsByLayer(nids, splitsResponses);
         for (unsigned nidx_in_set = 0; nidx_in_set < entries.size(); ++nidx_in_set) {
           auto splitsResponse = splitsResponses.splits_responses(nidx_in_set);
           DataHolderUpdate(cut, feature_types, entries[nidx_in_set], splits_requests[nidx_in_set],

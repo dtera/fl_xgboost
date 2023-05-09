@@ -51,7 +51,7 @@ struct XGBAPIThreadLocalEntry {
   /*! \brief result holder for returning strings */
   std::vector<std::string> ret_vec_str;
   /*! \brief result holder for returning string pointers */
-  std::vector<const char *> ret_vec_charp;
+  std::vector<const char*> ret_vec_charp;
   /*! \brief returning float vector. */
   std::vector<bst_float> ret_vec_float;
   /*! \brief temp variable of gradient pairs. */
@@ -100,8 +100,7 @@ class Learner : public Model, public Configurable, public dmlc::Serializable {
    * \param train reference to the data matrix.
    * \param in_gpair The input gradient statistics.
    */
-  virtual void BoostOneIter(int iter,
-                            std::shared_ptr<DMatrix> train,
+  virtual void BoostOneIter(int iter, std::shared_ptr<DMatrix> train,
                             HostDeviceVector<GradientPair>* in_gpair) = 0;
   /*!
    * \brief evaluate the model for specific iteration using the configured metrics.
@@ -110,8 +109,7 @@ class Learner : public Model, public Configurable, public dmlc::Serializable {
    * \param data_names name of each dataset
    * \return a string corresponding to the evaluation result
    */
-  virtual std::string EvalOneIter(int iter,
-                                  const std::vector<std::shared_ptr<DMatrix>>& data_sets,
+  virtual std::string EvalOneIter(int iter, const std::vector<std::shared_ptr<DMatrix>>& data_sets,
                                   const std::vector<std::string>& data_names) = 0;
   /*!
    * \brief get prediction given the model.
@@ -121,20 +119,15 @@ class Learner : public Model, public Configurable, public dmlc::Serializable {
    * \param layer_begin Beginning of boosted tree layer used for prediction.
    * \param layer_end   End of booster layer. 0 means do not limit trees.
    * \param training Whether the prediction result is used for training
-   * \param pred_leaf whether to only predict the leaf index of each tree in a boosted tree predictor
-   * \param pred_contribs whether to only predict the feature contributions
-   * \param approx_contribs whether to approximate the feature contributions for speed
-   * \param pred_interactions whether to compute the feature pair contributions
+   * \param pred_leaf whether to only predict the leaf index of each tree in a boosted tree
+   * predictor \param pred_contribs whether to only predict the feature contributions \param
+   * approx_contribs whether to approximate the feature contributions for speed \param
+   * pred_interactions whether to compute the feature pair contributions
    */
-  virtual void Predict(std::shared_ptr<DMatrix> data,
-                       bool output_margin,
-                       HostDeviceVector<bst_float> *out_preds,
-                       unsigned layer_begin,
-                       unsigned layer_end,
-                       bool training = false,
-                       bool pred_leaf = false,
-                       bool pred_contribs = false,
-                       bool approx_contribs = false,
+  virtual void Predict(std::shared_ptr<DMatrix> data, bool output_margin,
+                       HostDeviceVector<bst_float>* out_preds, unsigned layer_begin,
+                       unsigned layer_end, bool training = false, bool pred_leaf = false,
+                       bool pred_contribs = false, bool approx_contribs = false,
                        bool pred_interactions = false) = 0;
 
   /*!
@@ -225,7 +218,7 @@ class Learner : public Model, public Configurable, public dmlc::Serializable {
    * \brief Set the feature names for current booster.
    * \param fn Input feature names
    */
-  virtual  void SetFeatureNames(std::vector<std::string> const& fn) = 0;
+  virtual void SetFeatureNames(std::vector<std::string> const& fn) = 0;
   /*!
    * \brief Get the feature names for current booster.
    * \param fn Output feature names
@@ -252,8 +245,8 @@ class Learner : public Model, public Configurable, public dmlc::Serializable {
    *
    * \return a sliced model.
    */
-  virtual Learner *Slice(int32_t begin_layer, int32_t end_layer, int32_t step,
-                         bool *out_of_bound) = 0;
+  virtual Learner* Slice(int32_t begin_layer, int32_t end_layer, int32_t step,
+                         bool* out_of_bound) = 0;
   /*!
    * \brief dump the model in the requested format
    * \param fmap feature map that may help give interpretations of feature
@@ -261,8 +254,7 @@ class Learner : public Model, public Configurable, public dmlc::Serializable {
    * \param format the format to dump the model in
    * \return a vector of dump for boosters.
    */
-  virtual std::vector<std::string> DumpModel(const FeatureMap& fmap,
-                                             bool with_stats,
+  virtual std::vector<std::string> DumpModel(const FeatureMap& fmap, bool with_stats,
                                              std::string format) = 0;
 
   virtual XGBAPIThreadLocalEntry& GetThreadLocal() const = 0;
@@ -271,7 +263,7 @@ class Learner : public Model, public Configurable, public dmlc::Serializable {
    * \param cache_data The matrix to cache the prediction.
    * \return Created learner.
    */
-  static Learner* Create(const std::vector<std::shared_ptr<DMatrix> >& cache_data);
+  static Learner* Create(const std::vector<std::shared_ptr<DMatrix>>& cache_data);
   /**
    * \brief Return the context object of this Booster.
    */
@@ -282,19 +274,46 @@ class Learner : public Model, public Configurable, public dmlc::Serializable {
    */
   virtual const std::map<std::string, std::string>& GetConfigurationArguments() const = 0;
 
+  inline bool IsPulsar() const { return fparam_.fl_comm_type == FedratedCommType::Pulsar; }
+
+  inline bool IsGuest() const { return fparam_.fl_role == FedratedRole::Guest; }
+
+  inline bool IsFederated() const {
+    // return fparam_->dsplit == DataSplitMode::kCol;
+    return fparam_.fl_on == 1;
+  }
+
+  inline bool NotSelfPart(int32_t part_id) const { return part_id != fparam_.fl_part_id; }
+
+  inline bool IsFederatedAndSelfPartNotBest(int32_t part_id) const {
+    return IsFederated() && NotSelfPart(part_id);
+  }
+
+  inline uint32_t PartId() const { return fparam_.fl_part_id; }
+
  protected:
   /*! \brief objective function */
   std::unique_ptr<ObjFunction> obj_;
   /*! \brief The gradient booster used by the model*/
   std::unique_ptr<GradientBooster> gbm_;
   /*! \brief public key*/
-  opt_public_key_t *pub_;
+  opt_public_key_t* pub_;
   /*! \brief private key*/
-  opt_private_key_t *pri_;
+  opt_private_key_t* pri_;
+  /*! \brief federated params*/
+  FederatedParam fparam_;
   /*! \brief The evaluation metrics used to evaluate the model. */
-  std::vector<std::unique_ptr<Metric> > metrics_;
+  std::vector<std::unique_ptr<Metric>> metrics_;
   /*! \brief Training parameter. */
   Context ctx_;
+
+ public:
+  /*! \brief pulsar service*/
+  std::unique_ptr<XgbPulsarService> xgb_pulsar_;
+  /*! \brief grpc server*/
+  std::unique_ptr<XgbServiceServer> xgb_server_;
+  /*! \brief grpc server*/
+  std::unique_ptr<XgbServiceClient> xgb_client_;
 };
 
 struct LearnerModelParamLegacy;
@@ -312,9 +331,9 @@ struct LearnerModelParam {
 
  public:
   /* \brief number of features  */
-  uint32_t num_feature { 0 };
+  uint32_t num_feature{0};
   /* \brief number of classes, if it is multi-class classification  */
-  uint32_t num_output_group { 0 };
+  uint32_t num_output_group{0};
   /* \brief Current task, determined by objective. */
   ObjInfo task{ObjInfo::kRegression};
 

@@ -52,24 +52,24 @@ template <bool has_missing, bool has_categorical>
 bst_node_t GetLeafIndex(RegTree const &tree, const RegTree::FVec &feat,
                         RegTree::CategoricalSplitMatrix const &cats, size_t k) {
   bst_node_t nid = 0;  // , prev_nid = nid;
-  /*if (IsFederated()) {
+  /*if (learner_->IsFederated()) {
     while (!tree[nid].IsLeaf()) {
       int64_t pid = nid;  // (k << 32) | nid;
       if (NotSelfPart(tree[nid].PartId())) {
-        if (IsGuest()) {
-          xgb_server_->GetNextNode(
+        if (learner_->IsGuest()) {
+          learner_->xgb_server_->GetNextNode(
               k, pid, [&](bool flow_left) { nid = tree[nid].LeftChild() + !flow_left; });
         } else {
-          xgb_client_->GetNextNode(
+          learner_->xgb_client_->GetNextNode(
               k, pid, [&](bool flow_left) { nid = tree[nid].LeftChild() + !flow_left; });
         }
       } else {
         auto flow_left = FlowLeft<has_missing, has_categorical>(tree, nid, feat, cats);
         nid = GetNextNode<has_missing, has_categorical>(tree, nid, feat, cats);
-        if (IsGuest()) {
-          xgb_server_->SendNextNode(k, pid, flow_left);
+        if (learner_->IsGuest()) {
+          learner_->xgb_server_->SendNextNode(k, pid, flow_left);
         } else {
-          xgb_client_->SendNextNode(k, pid, flow_left);
+          learner_->xgb_client_->SendNextNode(k, pid, flow_left);
         }
       }
     }
@@ -148,9 +148,10 @@ void FlowToByOneTree(const RegTree::FVec &p_feats, RegTree const &tree,
                      RegTree::CategoricalSplitMatrix const &cats, size_t k,
                      vector<bst_node_t> &leaf_nids,
                      tbb::concurrent_unordered_map<uint32_t, uint32_t> &self_part_idxs,
-                     tbb::concurrent_unordered_set<bst_node_t> &other_part_idxs) {
+                     tbb::concurrent_unordered_set<bst_node_t> &other_part_idxs,
+                     Learner const *learner_) {
   if (!tree[leaf_nids[k]].IsLeaf()) {
-    if (NotSelfPart(tree[leaf_nids[k]].PartId())) {
+    if (learner_->NotSelfPart(tree[leaf_nids[k]].PartId())) {
       other_part_idxs.insert(tree[leaf_nids[k]].PartId());
     } else {
       if (p_feats.HasMissing()) {
@@ -294,7 +295,7 @@ template <typename DataView, size_t block_of_rows_size>
 void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out_preds,
                                      gbm::GBTreeModel const &model, int32_t tree_begin,
                                      int32_t tree_end, std::vector<RegTree::FVec> *p_thread_temp,
-                                     int32_t n_threads) {
+                                     int32_t n_threads, Learner const *learner_) {
   auto &thread_temp = *p_thread_temp;
   int32_t const num_group = model.learner_model_param->num_output_group;
 
@@ -314,18 +315,18 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
     });
   };
 
-  if (IsFederated()) {
+  if (learner_->IsFederated()) {
     std::uint32_t eval_data_idx;
-    if (IsPulsar()) {
-      eval_data_idx = xgb_pulsar_->eval_data_idx;
+    if (learner_->IsPulsar()) {
+      eval_data_idx = learner_->xgb_pulsar_->eval_data_idx;
     } else {
-      if (IsGuest()) {
-        eval_data_idx = xgb_server_->eval_data_idx;
-        // xgb_server_->ResizeNextNode(out_preds->size());
-        xgb_server_->ClearNextNodeV2();
+      if (learner_->IsGuest()) {
+        eval_data_idx = learner_->xgb_server_->eval_data_idx;
+        // learner_->xgb_server_->ResizeNextNode(out_preds->size());
+        learner_->xgb_server_->ClearNextNodeV2();
       } else {
-        eval_data_idx = xgb_client_->eval_data_idx;
-        xgb_client_->Clear(1);
+        eval_data_idx = learner_->xgb_client_->eval_data_idx;
+        learner_->xgb_client_->Clear(1);
       }
     }
     vector<vector<bst_node_t>> leaf_nids(tree_end - tree_begin,
@@ -355,36 +356,36 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
             for (size_t i = 0; i < block_size; ++i) {
               size_t k = (predict_offset + i) * num_group + gid;
               FlowToByOneTree<true>(thread_temp[offset + i], tree, cats, k, leaf_nids[i],
-                                    self_part_idxs[j], other_part_idxs[j]);
+                                    self_part_idxs[j], other_part_idxs[j], learner_);
             }
           } else {
             for (size_t i = 0; i < block_size; ++i) {
               size_t k = (predict_offset + i) * num_group + gid;
               FlowToByOneTree<false>(thread_temp[offset + i], tree, cats, k, leaf_nids[i],
-                                     self_part_idxs[j], other_part_idxs[j]);
+                                     self_part_idxs[j], other_part_idxs[j], learner_);
             }
           }
           FVecDrop(block_size, batch_offset, &batch, offset, p_thread_temp);
         });
 
         if (!self_part_idxs[j].empty()) {
-          auto idx = GenIdxForNextIds(eval_data_idx, batch.base_rowid, tree_id, fparam_->fl_part_id,
-                                      depth);
+          auto idx =
+              GenIdxForNextIds(eval_data_idx, batch.base_rowid, tree_id, learner_->PartId(), depth);
           // send next node id to other part
-          DEBUG << "idx: " << idx << ", self_part_id: " << fparam_->fl_part_id << endl;
+          DEBUG << "idx: " << idx << ", self_part_id: " << learner_->PartId() << endl;
           xgbcomm::NextNodesV2 next_nids;
-          if (IsPulsar() || IsGuest()) {
+          if (learner_->IsPulsar() || learner_->IsGuest()) {
             for (auto part_idx : self_part_idxs[j]) {
               next_nids.mutable_next_ids()->insert({part_idx.first, part_idx.second});
             }
           }
-          if (IsPulsar()) {
-            xgb_pulsar_->SendNextNodes(idx, next_nids);
+          if (learner_->IsPulsar()) {
+            learner_->xgb_pulsar_->SendNextNodes(idx, next_nids);
           } else {
-            if (IsGuest()) {
-              xgb_server_->SendNextNodesV2(idx, next_nids.next_ids());
+            if (learner_->IsGuest()) {
+              learner_->xgb_server_->SendNextNodesV2(idx, next_nids.next_ids());
             } else {
-              xgb_client_->SendNextNodesV2(idx, self_part_idxs[j]);
+              learner_->xgb_client_->SendNextNodesV2(idx, self_part_idxs[j]);
             }
           }
         }
@@ -405,13 +406,13 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
                           });
                     };
                 DEBUG << "idx: " << idx << ", other_part_id: " << other_part_id << endl;
-                if (IsPulsar()) {
-                  xgb_pulsar_->GetNextNodes(idx, process_part_idxs);
+                if (learner_->IsPulsar()) {
+                  learner_->xgb_pulsar_->GetNextNodes(idx, process_part_idxs);
                 } else {
-                  if (IsGuest()) {
-                    xgb_server_->GetNextNodesV2(idx, process_part_idxs);
+                  if (learner_->IsGuest()) {
+                    learner_->xgb_server_->GetNextNodesV2(idx, process_part_idxs);
                   } else {
-                    xgb_client_->GetNextNodesV2(idx, process_part_idxs);
+                    learner_->xgb_client_->GetNextNodesV2(idx, process_part_idxs);
                   }
                 }
               });
@@ -426,7 +427,7 @@ void PredictBatchByBlockOfRowsKernel(DataView batch, std::vector<bst_float> *out
         depth++;
       } while (!self_part_idxs[j].empty() || !other_part_idxs[j].empty());
 
-      if (IsGuest()) {
+      if (learner_->IsGuest()) {
         parallel_for([&](const size_t batch_offset, const size_t block_size, const size_t) {
           auto predict_offset = batch_offset + batch.base_rowid;
           if (has_categorical) {
@@ -509,11 +510,11 @@ class CPUPredictor : public Predictor {
       if (blocked) {
         PredictBatchByBlockOfRowsKernel<GHistIndexMatrixView, kBlockOfRowsSize>(
             GHistIndexMatrixView{batch, p_fmat->Info().num_col_, ft, workspace, n_threads},
-            out_preds, model, tree_begin, tree_end, &feat_vecs, n_threads);
+            out_preds, model, tree_begin, tree_end, &feat_vecs, n_threads, learner_);
       } else {
         PredictBatchByBlockOfRowsKernel<GHistIndexMatrixView, 1>(
             GHistIndexMatrixView{batch, p_fmat->Info().num_col_, ft, workspace, n_threads},
-            out_preds, model, tree_begin, tree_end, &feat_vecs, n_threads);
+            out_preds, model, tree_begin, tree_end, &feat_vecs, n_threads, learner_);
       }
     }
   }
@@ -540,11 +541,13 @@ class CPUPredictor : public Predictor {
                p_fmat->Info().num_row_ * model.learner_model_param->num_output_group);
       if (blocked) {
         PredictBatchByBlockOfRowsKernel<SparsePageView, kBlockOfRowsSize>(
-            SparsePageView{&batch}, out_preds, model, tree_begin, tree_end, &feat_vecs, n_threads);
+            SparsePageView{&batch}, out_preds, model, tree_begin, tree_end, &feat_vecs, n_threads,
+            learner_);
 
       } else {
-        PredictBatchByBlockOfRowsKernel<SparsePageView, 1>(
-            SparsePageView{&batch}, out_preds, model, tree_begin, tree_end, &feat_vecs, n_threads);
+        PredictBatchByBlockOfRowsKernel<SparsePageView, 1>(SparsePageView{&batch}, out_preds, model,
+                                                           tree_begin, tree_end, &feat_vecs,
+                                                           n_threads, learner_);
       }
     }
   }
@@ -587,7 +590,7 @@ class CPUPredictor : public Predictor {
     InitThreadTemp(n_threads * kBlockSize, &thread_temp);
     PredictBatchByBlockOfRowsKernel<AdapterView<Adapter>, kBlockSize>(
         AdapterView<Adapter>(m.get(), missing, common::Span<Entry>{workspace}, n_threads),
-        &predictions, model, tree_begin, tree_end, &thread_temp, n_threads);
+        &predictions, model, tree_begin, tree_end, &thread_temp, n_threads, learner_);
   }
 
   bool InplacePredict(std::shared_ptr<DMatrix> p_m, const gbm::GBTreeModel &model, float missing,
