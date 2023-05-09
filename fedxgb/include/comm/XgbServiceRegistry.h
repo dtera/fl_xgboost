@@ -39,26 +39,26 @@ namespace dmlc {
   template <>                            \
   Registry<EntryType> *Registry<EntryType>::Get();
 
-DMLC_REGISTRY_DECLARE(XgbServiceServerFactory);
-DMLC_REGISTRY_DECLARE(XgbServiceClientFactory);
-DMLC_REGISTRY_DECLARE(XgbPulsarServiceFactory);
-DMLC_REGISTRY_DECLARE(FederatedParamFactory);
+DMLC_REGISTRY_DECLARE(XgbServiceServerFactory)
+DMLC_REGISTRY_DECLARE(XgbServiceClientFactory)
+DMLC_REGISTRY_DECLARE(XgbPulsarServiceFactory)
+DMLC_REGISTRY_DECLARE(FederatedParamFactory)
 }  // namespace dmlc
 
 #define FIND_XGB_SERVICE(ServiceName) \
   dmlc::Registry<ServiceName##Factory>::Find(#ServiceName)->body()
 
+extern std::unique_ptr<XgbServiceServer> xgb_server;
+extern std::unique_ptr<XgbServiceClient> xgb_client;
+extern std::unique_ptr<XgbPulsarService> xgb_pulsar;
+extern std::unique_ptr<FederatedParam> fparam;
+
+REGISTER_XGB_SERVEICE(XgbServiceServer, xgb_server);
+REGISTER_XGB_SERVEICE(XgbServiceClient, xgb_client);
+REGISTER_XGB_SERVEICE(XgbPulsarService, xgb_pulsar);
+REGISTER_XGB_SERVEICE(FederatedParam, fparam);
+
 /*
-extern std::unique_ptr<XgbServiceServer> xgb_server_;
-extern std::unique_ptr<XgbServiceClient> xgb_client_;
-extern std::unique_ptr<XgbPulsarService> xgb_pulsar_;
-extern std::unique_ptr<FederatedParam> fparam_;
-
-REGISTER_XGB_SERVEICE(XgbServiceServer, xgb_server_);
-REGISTER_XGB_SERVEICE(XgbServiceClient, xgb_client_);
-REGISTER_XGB_SERVEICE(XgbPulsarService, xgb_pulsar_);
-REGISTER_XGB_SERVEICE(FederatedParam, fparam_);
-
 inline bool IsPulsar() { return fparam_->fl_comm_type == FedratedCommType::Pulsar; }
 
 inline bool IsGuest() { return fparam_->fl_role == FedratedRole::Guest; }
