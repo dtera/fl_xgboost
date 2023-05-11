@@ -183,7 +183,7 @@ public class NativeLibLoader {
     }
     */
     try {
-      String zippedLibPath = createTempFileFromResource(ldBasePath + "/lib.zip");
+      String zippedLibPath = createTempFileFromResource(ldBasePath + "lib.zip");
       /*
       String exportLd = "export LD_LIBRARY_PATH=" + ldPath;
       String cmd = "([ -d /tmp/xgboost4j ] || (mkdir /tmp/xgboost4j && " +
@@ -200,7 +200,7 @@ public class NativeLibLoader {
         String libPath = libBasePath + (ps.length == 2 ? (ps[0] + "/" + ps[1]) : path);
         cmd += libPath + "/* ";
       }
-      cmd += libBasePath + "/lib/)";
+      cmd += libBasePath + "lib/)";
 
       Process p = RuntimeUtil.exec("sh", "-c", cmd);
       p.waitFor();
