@@ -357,5 +357,6 @@ void data_retrieve_crt_t(
 }
 
 //====================================datapack end======================================
+extern std::mutex mtx;
 
 #endif  // OPT_PAILLIER_H

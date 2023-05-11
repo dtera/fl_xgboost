@@ -493,4 +493,6 @@ void free_crt(CrtMod* crtmod) {
   free(crtmod);
   crtmod = nullptr;
 }
+
+std::mutex mtx{};
 //====================================datapack end======================================

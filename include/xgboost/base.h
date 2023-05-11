@@ -152,44 +152,52 @@ class EncryptedType {
   }
 
   XGBOOST_DEVICE EncryptedType& operator+=(const EncryptedType<float>& et) {
+    std::lock_guard<std::mutex> lk(mtx);
     opt_paillier_add(data_, data_, et.data_, pub);
     return *this;
   }
 
   XGBOOST_DEVICE EncryptedType& operator+=(const EncryptedType<double>& et) {
+    std::lock_guard<std::mutex> lk(mtx);
     opt_paillier_add(data_, data_, et.data_, pub);
     return *this;
   }
 
   XGBOOST_DEVICE EncryptedType operator+(const EncryptedType<float>& et) const {
+    std::lock_guard<std::mutex> lk(mtx);
     EncryptedType g;
     opt_paillier_add(g.data_, data_, et.data_, pub);
     return g;
   }
 
   XGBOOST_DEVICE EncryptedType operator+(const EncryptedType<double>& et) const {
+    std::lock_guard<std::mutex> lk(mtx);
     EncryptedType g;
     opt_paillier_add(g.data_, data_, et.data_, pub);
     return g;
   }
 
   XGBOOST_DEVICE EncryptedType& operator-=(const EncryptedType<float>& et) {
+    std::lock_guard<std::mutex> lk(mtx);
     opt_paillier_sub(data_, data_, et.data_, pub);
     return *this;
   }
 
   XGBOOST_DEVICE EncryptedType& operator-=(const EncryptedType<double>& et) {
+    std::lock_guard<std::mutex> lk(mtx);
     opt_paillier_sub(data_, data_, et.data_, pub);
     return *this;
   }
 
   XGBOOST_DEVICE EncryptedType operator-(const EncryptedType<float>& et) const {
+    std::lock_guard<std::mutex> lk(mtx);
     EncryptedType g;
     opt_paillier_sub(g.data_, data_, et.data_, pub);
     return g;
   }
 
   XGBOOST_DEVICE EncryptedType operator-(const EncryptedType<double>& et) const {
+    std::lock_guard<std::mutex> lk(mtx);
     EncryptedType g;
     opt_paillier_sub(g.data_, data_, et.data_, pub);
     return g;
