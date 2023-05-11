@@ -131,6 +131,11 @@ grep -q 'export LDFLAGS' ~/.bashrc || echo "export LDFLAGS=-Wl,--copy-dt-needed-
 #  wget https://archive.apache.org/dist/pulsar/pulsar-client-cpp-${pulsar_ver}/rpm-x86_64/x86_64/${pkg}
 #  rpm -ivh ${pkg} && rm -f ${pkg}
 #done
+#pulsar_ver=2.6.3
+#for pkg in apache-pulsar-client-${pulsar_ver}-1.x86_64.rpm apache-pulsar-client-devel-${pulsar_ver}-1.x86_64.rpm; do
+#  wget https://archive.apache.org/dist/pulsar/pulsar-${pulsar_ver}/RPMS/${pkg};
+#  rpm -ivh ${pkg} && rm -f ${pkg};
+#done
 # =================================================================================================================
 # =============================================Install Pulsar End==================================================
 # =================================================================================================================
