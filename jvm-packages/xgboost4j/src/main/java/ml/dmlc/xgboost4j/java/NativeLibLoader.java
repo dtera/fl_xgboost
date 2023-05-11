@@ -24,7 +24,6 @@ import java.io.OutputStream;
 import java.lang.reflect.Field;
 import java.util.Locale;
 
-import cn.hutool.core.io.resource.ResourceUtil;
 import cn.hutool.core.util.RuntimeUtil;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
@@ -148,18 +147,27 @@ public class NativeLibLoader {
 
   private static boolean initialized = false;
   private static final String[] libNames = new String[]{"xgboost4j"};
-  private static final String ldBasePath = "./xgboost4j-libs";
+  private static final String ldPrefixPath = "./xgboost4j-libs";
   public static String ldPath;
+  public static String ldBasePath;
+  public static String libBasePath;
 
   static {
+    /*
+    String cpPath = ResourceUtil.getResource("", NativeLibLoader.class).getPath();
+    cpPath = cpPath.substring(0, cpPath.length() - 1);
+    cpPath = cpPath.replace("/" + NativeLibLoader.class.getPackage().getName().replaceAll("\\.", "/"), "");*/
+    // String libBasePath = cpPath + getLibraryBasePathFor(os, arch);
     OS os = OS.detectOS();
     Arch arch = Arch.detectArch();
-    ldPath = getLDPath(os, arch);
-    initLDLibrary(os, arch);
+    ldBasePath = LibraryPathProvider.getLibraryBasePathFor(os, arch);
+    libBasePath = ldPrefixPath + ldBasePath;
+    ldPath = getLDPath();
+    initLDLibrary();
   }
 
   @SuppressWarnings("StringConcatenationInLoop")
-  private static void initLDLibrary(OS os, Arch arch) {
+  private static void initLDLibrary() {
     String sysLibPaths = System.getProperty("java.library.path");
     if (!ldPath.isEmpty() && !sysLibPaths.contains(ldPath)) {
       // System.setProperty("java.library.path", sysLibPaths + ":" + ldPath);
@@ -175,7 +183,7 @@ public class NativeLibLoader {
     }
     */
     try {
-      String zippedLibPath = createTempFileFromResource("/lib.zip");
+      String zippedLibPath = createTempFileFromResource(ldBasePath + "/lib.zip");
       /*
       String exportLd = "export LD_LIBRARY_PATH=" + ldPath;
       String cmd = "([ -d /tmp/xgboost4j ] || (mkdir /tmp/xgboost4j && " +
@@ -184,9 +192,8 @@ public class NativeLibLoader {
       */
       // String cmd = "rm -rf " + ldBasePath + " && mkdir " + ldBasePath + " && unzip " + zippedLibPath +
       // " -d " + ldBasePath;
-      String cmd = "[ -d " + ldBasePath + " ] || (mkdir " + ldBasePath + " && unzip " + zippedLibPath +
-        " -d " + ldBasePath + " && mv ";
-      String libBasePath = ldBasePath + LibraryPathProvider.getLibraryBasePathFor(os, arch);
+      String cmd = "[ -d " + ldPrefixPath + " ] || (mkdir " + ldPrefixPath + " && unzip " + zippedLibPath +
+        " -d " + ldPrefixPath + " && mv ";
       String[] paths = {"boost@lib", "grpc@lib64", "grpc@lib"};
       for (String path : paths) {
         String[] ps = path.split("@");
@@ -206,14 +213,7 @@ public class NativeLibLoader {
     System.out.println("LD_LIBRARY_PATH: " + System.getenv("LD_LIBRARY_PATH"));
   }
 
-  private static String getLDPath(OS os, Arch arch) {
-    /*
-    String cpPath = ResourceUtil.getResource("", NativeLibLoader.class).getPath();
-    cpPath = cpPath.substring(0, cpPath.length() - 1);
-    cpPath = cpPath.replace("/" +
-      NativeLibLoader.class.getPackage().getName().replaceAll("\\.", "/"), "");*/
-    String libBasePath = ldBasePath + LibraryPathProvider.getLibraryBasePathFor(os, arch);
-    // String libBasePath = cpPath + getLibraryBasePathFor(os, arch);
+  private static String getLDPath() {
     // String[] paths = {"lib", "boost@lib", "grpc@lib64", "grpc@lib"};
     String[] paths = {"lib"};
     StringBuilder libPaths = new StringBuilder();
