@@ -39,10 +39,28 @@ cd grpc || exit
 #git submodule update --init
 prefix=/usr/local/grpc
 install_prefix=$prefix-$ver
-rm -rf "$install_prefix"
+#rm -rf "$install_prefix"
 min_ver=${ver#*\.}
 #if [ "$ver" == "1.35.0" ]; then
-if [ "${min_ver%\.*}" -le 35 ]; then
+if [ "${min_ver%\.*}" -gt 35 ]; then
+  # wget -q -O cmake-linux.sh https://github.com/Kitware/CMake/releases/download/v3.19.6/cmake-3.19.6-Linux-x86_64.sh
+  # sh cmake-linux.sh -- --skip-license --prefix=/usr/local/cmake && rm cmake-linux.sh
+  # cmk=/usr/local/cmake/bin/cmake
+  # git clone -b "$(curl -L https://grpc.io/release)" https://github.com/grpc/grpc
+  rm -rf cmake/build && mkdir -p cmake/build && pushd cmake/build || exit
+  cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DgRPC_INSTALL=ON \
+    -DgRPC_BUILD_TESTS=OFF \
+    -Dprotobuf_BUILD_TESTS=OFF \
+    -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
+    -DCMAKE_INSTALL_PREFIX="$install_prefix" ../..
+  make -j 4 && make install
+  popd || exit
+  cd third_party/protobuf || exit
+  make && make install
+  cd - && cd ..
+else
   # Install absl
   printf "Trying to install abseil...\n"
   mkdir -p third_party/abseil-cpp/cmake/build && cd third_party/abseil-cpp/cmake/build || exit
@@ -88,25 +106,6 @@ if [ "${min_ver%\.*}" -le 35 ]; then
     -DgRPC_ZLIB_PROVIDER=package \
     -DCMAKE_INSTALL_PREFIX="$install_prefix"
   ../.. && make -j4 install && cd - || exit
-else
-  # wget -q -O cmake-linux.sh https://github.com/Kitware/CMake/releases/download/v3.19.6/cmake-3.19.6-Linux-x86_64.sh
-  # sh cmake-linux.sh -- --skip-license --prefix=/usr/local/cmake && rm cmake-linux.sh
-  # cmk=/usr/local/cmake/bin/cmake
-  # git clone -b "$(curl -L https://grpc.io/release)" https://github.com/grpc/grpc
-  rm -rf cmake/build && mkdir -p cmake/build && pushd cmake/build || exit
-  cmake \
-    -DCMAKE_BUILD_TYPE=Release \
-    -DgRPC_INSTALL=ON \
-    -DBUILD_SHARED_LIBS=ON \
-    -DgRPC_BUILD_TESTS=OFF \
-    -Dprotobuf_BUILD_TESTS=OFF \
-    -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
-    -DCMAKE_INSTALL_PREFIX="$install_prefix" ../..
-  make -j 4 && make install
-  popd || exit
-  cd third_party/protobuf || exit
-  make && make install
-  cd - && cd ..
 fi
 rm -rf $prefix && ln -s "$install_prefix" $prefix
 grep -q 'export LD_LIBRARY_PATH' ~/.bashrc || export LD_LIBRARY_PATH="/usr/local/grpc/lib:/usr/local/grpc/lib64:$LD_LIBRARY_PATH"
