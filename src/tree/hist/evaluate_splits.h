@@ -403,7 +403,8 @@ class HistEvaluator {
       if (!es.mask_id().empty()) {
         // decrypt the feature id and bin id from mask id
         vector<string> ids;
-        boost::split(ids, xor_decrypt(es.mask_id(), key_), boost::is_any_of("_"));
+        auto mask_id = xor_decrypt(es.mask_id(), key_);
+        boost::split(ids, mask_id, boost::is_any_of("_"));
         fidx = atoi(ids[0].c_str());
         bst_bin_t bin_id = atoi(ids[1].c_str());
         bool is_cat = common::IsCat(feature_types, fidx);

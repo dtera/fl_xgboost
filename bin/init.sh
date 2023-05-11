@@ -25,8 +25,9 @@ fi
 # =================================================================================================================
 # grpc@version     protobuf@version
 #   1.4.3              3.3.0
+#   1.41.0             3.17.3
 #   1.54.0             3.21.12
-ver=1.54.0
+ver=1.41.0
 if [ "$1" != "" ] && [ "$1" != "clone" ]; then
   ver="$1"
 fi
@@ -51,6 +52,7 @@ if [ "${min_ver%\.*}" -gt 35 ]; then
   cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DgRPC_INSTALL=ON \
+    -DBUILD_SHARED_LIBS=ON \
     -DgRPC_BUILD_TESTS=OFF \
     -Dprotobuf_BUILD_TESTS=OFF \
     -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
@@ -119,18 +121,24 @@ grep -q 'export LDFLAGS' ~/.bashrc || echo "export LDFLAGS=-Wl,--copy-dt-needed-
 # =================================================================================================================
 # ============================================Install Boost Begin==================================================
 # =================================================================================================================
-#rm -rf /usr/local/include/boost /usr/local/lib/libboost_* /usr/local/lib/cmake/boost* /usr/local/lib/cmake/Boost*
+#boost_ver=1.53.0
+#wget https://github.com/boostorg/boost/archive/refs/tags/boost-${boost_ver}.tar.gz
+#tar xvf boost-${boost_ver}.tar.gz && rm -f boost-${boost_ver}.tar.gz
+#cd boost-boost-${boost_ver} || exit
+
 #boost_ver=1.81.0
+#rm -rf /usr/local/include/boost /usr/local/lib/libboost_* /usr/local/lib/cmake/boost* /usr/local/lib/cmake/Boost*
 #wget https://boostorg.jfrog.io/artifactory/main/release/${boost_ver}/source/boost_${boost_ver//./_}.tar.bz2
 #tar --bzip2 -xvf boost_${boost_ver//./_}.tar.bz2 && rm -f boost_${boost_ver//./_}.tar.bz2
 #cd boost_${boost_ver//./_} || exit
-#./bootstrap.sh --prefix=/usr/local/boost-$boost_ver
+#./bootstrap.sh # --prefix=/usr/local/boost-$boost_ver
 #./b2 --build-type=complete --layout=tagged install
 #for mt in /usr/local/lib/libboost_*-mt-x64.so; do
 #  name=${mt#*libboost_}
 #  name=${name%-mt-x64.so}
-#  ln -s "${mt}" /usr/lib64/libboost_${name}-mt.so
+#  ln -s "${mt}" /usr/lib64/libboost_"${name}"-mt.so
 #done
+#rm -rf /usr/local/boost && ln -s /usr/local/boost-$boost_ver /usr/local/boost
 # =================================================================================================================
 # ============================================Install Boost End====================================================
 # =================================================================================================================

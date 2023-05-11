@@ -197,7 +197,7 @@ class PulsarClient {
       pulsar::Consumer consumer;
       client->subscribe(pulsar_topic_prefix + topic, subscriptionName, consumer_config, consumer);
       if (!listened) {
-        pulsar::Messages msgs;
+        /*pulsar::Messages msgs;
         do {
           consumer.batchReceive(msgs);
           msgSize += msgs.size();
@@ -210,7 +210,7 @@ class PulsarClient {
             data[std::stoul(msgs[i].getOrderingKey())] = std::move(t);
             consumer.acknowledge(msgs[i]);
           });
-        } while (msgSize < data.size() - 1);
+        } while (msgSize < data.size() - 1);*/
       } else {
         if (waited) {
           std::unique_lock<std::mutex> lk(mtx);
