@@ -19,9 +19,9 @@ XgbPulsarService::XgbPulsarService(bool start, const std::string& pulsar_url,
 void XgbPulsarService::Start(const std::string& pulsar_url, const std::string& topic_prefix,
                              const std::string& pulsar_token, const std::string& pulsar_tenant,
                              const std::string& pulsar_namespace,
-                             const std::int32_t pulsar_topic_ttl, const std::int32_t n_threads) {
+                             const std::int32_t pulsar_topic_ttl_, const std::int32_t n_threads) {
   this->n_threads = n_threads;
-  this->pulsar_topic_ttl = pulsar_topic_ttl;
+  this->pulsar_topic_ttl = pulsar_topic_ttl_;
   char yyyymmddhhMM[13];
   time_t now = time(NULL);
   strftime(yyyymmddhhMM, 13, "%Y%m%d%H%M", localtime(&now));

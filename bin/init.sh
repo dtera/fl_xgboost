@@ -23,6 +23,9 @@ fi
 # =================================================================================================================
 # ==============================================Install gRPC Begin=================================================
 # =================================================================================================================
+# grpc@version     protobuf@version
+#   1.4.3              3.3.0
+#   1.54.0             3.21.12
 ver=1.54.0
 if [ "$1" != "" ] && [ "$1" != "clone" ]; then
   ver="$1"
@@ -34,33 +37,41 @@ if [ "$1" == "clone" ]; then
 fi
 cd grpc || exit
 #git submodule update --init
-if [ "$ver" == "1.35.0" ]; then
+prefix=/usr/local/grpc
+install_prefix=$prefix-$ver
+rm -rf "$install_prefix"
+min_ver=${ver#*\.}
+#if [ "$ver" == "1.35.0" ]; then
+if [ "${min_ver%\.*}" -le 35 ]; then
   # Install absl
   printf "Trying to install abseil...\n"
   mkdir -p third_party/abseil-cpp/cmake/build && cd third_party/abseil-cpp/cmake/build || exit
-  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE ../.. && make -j4 install && cd - || exit
+  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
+    -DCMAKE_INSTALL_PREFIX="$install_prefix" ../.. && make -j4 install && cd - || exit
 
   # Install c-ares
   # If the distribution provides a new-enough version of c-ares, this section can be replaced with:
   # apt-get install -y libc-ares-dev
   printf "Trying to install cares...\n"
   mkdir -p third_party/cares/cares/cmake/build && cd third_party/cares/cares/cmake/build || exit
-  cmake -DCMAKE_BUILD_TYPE=Release ../.. && make -j4 install && cd - || exit
+  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$install_prefix" ../.. && make -j4 install && cd - || exit
 
   # Install protobuf
   printf "Trying to install protobuf...\n"
   mkdir -p third_party/protobuf/cmake/build && cd third_party/protobuf/cmake/build || exit
-  cmake -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release .. && make -j4 install && cd - || exit
+  cmake -Dprotobuf_BUILD_TESTS=OFF -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="$install_prefix" .. && make -j4 install && cd - || exit
 
   # Install re2
   printf "Trying to install re2...\n"
   mkdir -p third_party/re2/cmake/build && cd third_party/re2/cmake/build || exit
-  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE ../.. && make -j4 install && cd - || exit
+  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
+    -DCMAKE_INSTALL_PREFIX="$install_prefix" ../.. && make -j4 install && cd - || exit
 
   # Install zlib
   printf "Trying to install zlib...\n"
   mkdir -p third_party/zlib/cmake/build && cd third_party/zlib/cmake/build || exit
-  cmake -DCMAKE_BUILD_TYPE=Release ../.. && make -j4 install && cd - || exit
+  cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$install_prefix" ../.. && make -j4 install && cd - || exit
 
   # Install gRPC
   printf "Trying to install gRPC...\n"
@@ -75,7 +86,8 @@ if [ "$ver" == "1.35.0" ]; then
     -DgRPC_RE2_PROVIDER=package \
     -DgRPC_SSL_PROVIDER=package \
     -DgRPC_ZLIB_PROVIDER=package \
-    ../.. && make -j4 install && cd - || exit
+    -DCMAKE_INSTALL_PREFIX="$install_prefix"
+  ../.. && make -j4 install && cd - || exit
 else
   # wget -q -O cmake-linux.sh https://github.com/Kitware/CMake/releases/download/v3.19.6/cmake-3.19.6-Linux-x86_64.sh
   # sh cmake-linux.sh -- --skip-license --prefix=/usr/local/cmake && rm cmake-linux.sh
@@ -89,13 +101,14 @@ else
     -DgRPC_BUILD_TESTS=OFF \
     -Dprotobuf_BUILD_TESTS=OFF \
     -DCMAKE_POSITION_INDEPENDENT_CODE=TRUE \
-    -DCMAKE_INSTALL_PREFIX=/usr/local/grpc ../..
+    -DCMAKE_INSTALL_PREFIX="$install_prefix" ../..
   make -j 4 && make install
   popd || exit
   cd third_party/protobuf || exit
   make && make install
   cd - && cd ..
 fi
+rm -rf $prefix && ln -s "$install_prefix" $prefix
 grep -q 'export LD_LIBRARY_PATH' ~/.bashrc || export LD_LIBRARY_PATH="/usr/local/grpc/lib:/usr/local/grpc/lib64:$LD_LIBRARY_PATH"
 grep -q 'export LDFLAGS' ~/.bashrc || export LDFLAGS="-Wl,--copy-dt-needed-entries"
 grep -q 'export LD_LIBRARY_PATH' ~/.bashrc || echo "export LD_LIBRARY_PATH=/usr/local/grpc/lib:/usr/local/grpc/lib64:$LD_LIBRARY_PATH" >>~/.bashrc
@@ -112,7 +125,7 @@ grep -q 'export LDFLAGS' ~/.bashrc || echo "export LDFLAGS=-Wl,--copy-dt-needed-
 #wget https://boostorg.jfrog.io/artifactory/main/release/${boost_ver}/source/boost_${boost_ver//./_}.tar.bz2
 #tar --bzip2 -xvf boost_${boost_ver//./_}.tar.bz2 && rm -f boost_${boost_ver//./_}.tar.bz2
 #cd boost_${boost_ver//./_} || exit
-#./bootstrap.sh # --prefix=path/to/installation/prefix
+#./bootstrap.sh --prefix=/usr/local/boost-$boost_ver
 #./b2 --build-type=complete --layout=tagged install
 #for mt in /usr/local/lib/libboost_*-mt-x64.so; do
 #  name=${mt#*libboost_}
@@ -132,6 +145,7 @@ grep -q 'export LDFLAGS' ~/.bashrc || echo "export LDFLAGS=-Wl,--copy-dt-needed-
 #  rpm -ivh ${pkg} && rm -f ${pkg}
 #done
 #pulsar_ver=2.6.3
+#pulsar_ver=2.10.3
 #for pkg in apache-pulsar-client-${pulsar_ver}-1.x86_64.rpm apache-pulsar-client-devel-${pulsar_ver}-1.x86_64.rpm; do
 #  wget https://archive.apache.org/dist/pulsar/pulsar-${pulsar_ver}/RPMS/${pkg};
 #  rpm -ivh ${pkg} && rm -f ${pkg};
