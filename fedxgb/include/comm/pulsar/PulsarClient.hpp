@@ -128,7 +128,7 @@ class PulsarClient {
 
   template <typename T, typename M>
   void BatchSend(const std::string& topic, const std::vector<T>& data,
-                 const std::function<void(M*, const T&)> convertObj2PB, const bool waited = false) {
+                 const std::function<void(M*, const T&)> convertObj2PB, const bool waited = true) {
     try {
       pulsar::Producer producer;
       producer_config.setBatchingEnabled(true);
@@ -149,10 +149,10 @@ class PulsarClient {
                            .build();
         producer.sendAsync(message, [&](pulsar::Result result, const pulsar::MessageId& messageId) {
           msgSize++;
-          if (msgSize % 10000 == 0) {
+          /*if (msgSize % 10000 == 0) {
             LOG(CONSOLE) << "Message Ack with result: " << result << ", messageId: " << messageId
                          << ", msgSize: " << msgSize << std::endl;
-          }
+          }*/
           if (waited && msgSize == data.size()) {
             cv.notify_one();
           }
@@ -163,6 +163,7 @@ class PulsarClient {
         std::unique_lock<std::mutex> lk(mtx);
         while (msgSize < data.size() - 1) {
           cv.wait(lk);
+          // std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
       }
       LOG(CONSOLE) << "Sent " << msgSize.load() << " messages." << std::endl;
@@ -174,8 +175,8 @@ class PulsarClient {
 
   template <typename T, typename M>
   void BatchReceive(const std::string& topic, std::vector<T>& data,
-                    const std::function<void(T&, const M&)> convertPB2Obj,
-                    const bool waited = false, const bool listened = true,
+                    const std::function<void(T&, const M&)> convertPB2Obj, const bool waited = true,
+                    const bool listened = true,
                     const std::string& subscriptionName = "federated_xgb_subscription") {
     try {
       std::atomic<std::uint32_t> msgSize;
@@ -189,10 +190,10 @@ class PulsarClient {
           // data.emplace_back(std::move(t));
           c.acknowledgeAsync(msg.getMessageId(), [&](pulsar::Result result) {
             msgSize++;
-            if (msgSize % 10000 == 0) {
+            /*if (msgSize % 10000 == 0) {
               LOG(CONSOLE) << "Message Ack with result: " << result << ", msgSize: " << msgSize
                            << std::endl;
-            }
+            }*/
             /*if (waited && msgSize == data.size()) {
               cv.notify_one();
             }*/
@@ -218,14 +219,14 @@ class PulsarClient {
         } while (msgSize < data.size() - 1);*/
       } else {
         if (waited) {
-          std::unique_lock<std::mutex> lk(mtx);
+          // std::unique_lock<std::mutex> lk(mtx);
           while (msgSize < data.size() - 1) {
             // cv.wait(lk);
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
           }
         }
       }
-      // consumer.close();
+      consumer.close();
     } catch (const std::exception& ex) {
       throw std::runtime_error(std::string("Failed to receive message: ") + ex.what());
     }

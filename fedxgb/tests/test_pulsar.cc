@@ -49,8 +49,7 @@ TEST(pulsar, BatchSend) {
     grad_pairs.emplace_back(i);
   }
   pulsarClient.BatchSend<int, xgbcomm::Request>(
-      "grad_pair12", grad_pairs, [&](xgbcomm::Request *m, const int &data) { m->set_idx(data); },
-      true);
+      "grad_pair11", grad_pairs, [&](xgbcomm::Request *m, const int &data) { m->set_idx(data); });
 }
 
 TEST(pulsar, BatchReceive) {
@@ -59,8 +58,7 @@ TEST(pulsar, BatchReceive) {
   grad_pairs.resize(n);
 
   pulsarClient.BatchReceive<int, xgbcomm::Request>(
-      "grad_pair12", grad_pairs, [&](int &data, const xgbcomm::Request &m) { data = m.idx(); },
-      true);
+      "grad_pair11", grad_pairs, [&](int &data, const xgbcomm::Request &m) { data = m.idx(); });
 
   for (int i = 0; i < n; ++i) {
     if (i % 1000 == 0) {
