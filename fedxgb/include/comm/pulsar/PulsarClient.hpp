@@ -176,10 +176,11 @@ class PulsarClient {
   template <typename T, typename M>
   void BatchReceive(const std::string& topic, std::vector<T>& data,
                     const std::function<void(T&, const M&)> convertPB2Obj, const bool waited = true,
-                    const bool listened = true,
+                    const bool listened = false,
                     const std::string& subscriptionName = "federated_xgb_subscription") {
     try {
       std::atomic<std::uint32_t> msgSize;
+      std::uint32_t messageSize = 0;
       if (listened) {
         consumer_config.setMessageListener([&](pulsar::Consumer c, const pulsar::Message& msg) {
           M pbMsg;
@@ -217,6 +218,27 @@ class PulsarClient {
             consumer.acknowledge(msgs[i]);
           });
         } while (msgSize < data.size() - 1);*/
+        /*do {
+          consumer.receiveAsync([&](pulsar::Result, const pulsar::Message& msg) {
+            M pbMsg;
+            pbMsg.ParseFromString(msg.getDataAsString());
+            T t;
+            convertPB2Obj(t, pbMsg);
+            data[std::stoul(msg.getOrderingKey())] = std::move(t);
+            consumer.acknowledgeAsync(msg, [&](pulsar::Result result) { msgSize++; });
+          });
+        } while (msgSize < data.size() - 1);*/
+        pulsar::Message msg;
+        while (messageSize < data.size()) {
+          consumer.receive(msg);
+          M pbMsg;
+          pbMsg.ParseFromString(msg.getDataAsString());
+          T t;
+          convertPB2Obj(t, pbMsg);
+          data[std::stoul(msg.getOrderingKey())] = std::move(t);
+          consumer.acknowledge(msg);
+          messageSize++;
+        }
       } else {
         if (waited) {
           // std::unique_lock<std::mutex> lk(mtx);
@@ -225,7 +247,9 @@ class PulsarClient {
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
           }
         }
+        messageSize = msgSize.load();
       }
+      LOG(CONSOLE) << "Receive " << messageSize << " messages." << std::endl;
       consumer.close();
     } catch (const std::exception& ex) {
       throw std::runtime_error(std::string("Failed to receive message: ") + ex.what());
