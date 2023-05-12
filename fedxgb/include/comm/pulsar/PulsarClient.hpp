@@ -46,10 +46,15 @@ class PulsarClient {
 
     producer_config.setBatchingEnabled(false);
     producer_config.setChunkingEnabled(true);
-    producer_config.setPartitionsRoutingMode(pulsar::ProducerConfiguration::UseSinglePartition);
+    producer_config.setPartitionsRoutingMode(pulsar::ProducerConfiguration::RoundRobinDistribution);
+    producer_config.setCompressionType(pulsar::CompressionLZ4);
+    producer_config.setHashingScheme(pulsar::ProducerConfiguration::Murmur3_32Hash);
     producer_config.setLazyStartPartitionedProducers(true);
     producer_config.setProperty("retentionTime", std::to_string(pulsar_topic_ttl * 60 * 1000));
 
+    // Setting the timeout to zero will set the timeout to infinity,
+    // which can be useful when using Pulsar's message deduplication feature.
+    producer_config.setSendTimeout(0);
     producer_config.setBlockIfQueueFull(true);
     producer_config.setBatchingMaxMessages(pulsar_batch_max_size);
     producer_config.setMaxPendingMessages(pulsar_batch_max_size);
