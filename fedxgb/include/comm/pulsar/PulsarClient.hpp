@@ -128,7 +128,7 @@ class PulsarClient {
 
   template <typename T, typename M>
   void BatchSend(const std::string& topic, const std::vector<T>& data,
-                 const std::function<void(M*, const T&)> convertObj2PB, const bool waited = true) {
+                 const std::function<void(M*, const T&)> convertObj2PB, const bool waited = false) {
     try {
       pulsar::Producer producer;
       producer_config.setBatchingEnabled(true);
