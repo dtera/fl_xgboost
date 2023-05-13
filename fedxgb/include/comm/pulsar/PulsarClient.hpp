@@ -62,6 +62,7 @@ class PulsarClient {
     // producer_config.setBatchingMaxPublishDelayMs(10);
 
     consumer_config.setSubscriptionInitialPosition(pulsar::InitialPositionEarliest);
+    consumer_config.setConsumerType(pulsar::ConsumerType::ConsumerExclusive);
   }
 
   ~PulsarClient() { client->close(); }
