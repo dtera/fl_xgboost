@@ -19,6 +19,7 @@ class XgbPulsarService {
   opt_private_key_t* pri;
   opt_public_key_t* pub;
   std::int32_t pulsar_topic_ttl;
+  bool batched = false;
 
   inline std::string PubKeyTopic() { return "pub_key"; }
 
@@ -74,7 +75,7 @@ class XgbPulsarService {
                    const std::string& pulsar_token = "notoken",
                    const std::string& pulsar_tenant = "fl-tenant",
                    const std::string& pulsar_namespace = "fl-algorithm",
-                   const std::int32_t pulsar_topic_ttl = 60,
+                   const std::int32_t pulsar_topic_ttl = 60, const bool batched = false,
                    const std::int32_t n_threads = omp_get_num_procs());
 
   void Start(const std::string& pulsar_url = "pulsar://localhost:6650",
@@ -82,7 +83,7 @@ class XgbPulsarService {
              const std::string& pulsar_token = "notoken",
              const std::string& pulsar_tenant = "fl-tenant",
              const std::string& pulsar_namespace = "fl-algorithm",
-             const std::int32_t pulsar_topic_ttl = 60,
+             const std::int32_t pulsar_topic_ttl = 60, const bool batched = false,
              const std::int32_t n_threads = omp_get_num_procs());
 
   void SetPriKey(opt_private_key_t* pri_);

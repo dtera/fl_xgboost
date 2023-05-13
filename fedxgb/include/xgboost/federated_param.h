@@ -11,8 +11,8 @@ enum class FedratedRole : int { Guest = 0, Host = 1 };
 enum class FedratedCommType : int { None = 0, Socket = 1, Pulsar = 2 };
 }  // namespace xgboost
 
-DECLARE_FIELD_ENUM_CLASS(xgboost::FedratedRole);
-DECLARE_FIELD_ENUM_CLASS(xgboost::FedratedCommType);
+DECLARE_FIELD_ENUM_CLASS(xgboost::FedratedRole)
+DECLARE_FIELD_ENUM_CLASS(xgboost::FedratedCommType)
 
 namespace xgboost {
 
@@ -49,11 +49,12 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
   std::string fl_pulsar_tenant;
   std::string fl_pulsar_namespace;
   std::int32_t fl_pulsar_topic_ttl;
+  bool fl_pulsar_batched;
   std::string fl_address;  // for data holder part
   uint32_t fl_port;        // for label part
   uint32_t fl_bit_len;
   uint32_t fl_part_id;
-  uint32_t fl_on;
+  bool fl_on;
 
   DMLC_DECLARE_PARAMETER(FederatedParam) {
     DMLC_DECLARE_FIELD(dsplit)
@@ -90,6 +91,7 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
         .set_default("fl-algorithm")
         .describe("Namespace for pulsar communication.");
     DMLC_DECLARE_FIELD(fl_pulsar_topic_ttl).set_default(60).describe("Pulsar topic ttl(minutes).");
+    DMLC_DECLARE_FIELD(fl_pulsar_batched).set_default(0).describe("Whether pulsar is batched.");
     DMLC_DECLARE_FIELD(fl_address)
         .set_default("0.0.0.0:50001")
         .describe("Address for grpc communication.");
@@ -102,8 +104,7 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
         .set_default(0)
         .set_lower_bound(0)
         .describe("Part id for federated learning.");
-    DMLC_DECLARE_FIELD(fl_on).set_default(0).set_lower_bound(0).describe(
-        "Whether run with federated learning.");
+    DMLC_DECLARE_FIELD(fl_on).set_default(0).describe("Whether run with federated learning.");
   }
 };
 }  // namespace xgboost
