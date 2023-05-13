@@ -49,6 +49,7 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
   std::string fl_pulsar_tenant;
   std::string fl_pulsar_namespace;
   std::int32_t fl_pulsar_topic_ttl;
+  std::int32_t fl_pulsar_batch_max_size;
   bool fl_pulsar_batched;
   std::string fl_address;  // for data holder part
   uint32_t fl_port;        // for label part
@@ -91,6 +92,9 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
         .set_default("fl-algorithm")
         .describe("Namespace for pulsar communication.");
     DMLC_DECLARE_FIELD(fl_pulsar_topic_ttl).set_default(60).describe("Pulsar topic ttl(minutes).");
+    DMLC_DECLARE_FIELD(fl_pulsar_batch_max_size)
+        .set_default(1000000)
+        .describe("Pulsar batch max size.");
     DMLC_DECLARE_FIELD(fl_pulsar_batched).set_default(0).describe("Whether pulsar is batched.");
     DMLC_DECLARE_FIELD(fl_address)
         .set_default("0.0.0.0:50001")

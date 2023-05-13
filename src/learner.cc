@@ -533,7 +533,7 @@ class LearnerConfiguration : public Learner {
         xgb_pulsar_->Start(fparam_.fl_pulsar_url, fparam_.fl_pulsar_topic_prefix,
                            fparam_.fl_pulsar_token, fparam_.fl_pulsar_tenant,
                            fparam_.fl_pulsar_namespace, fparam_.fl_pulsar_topic_ttl,
-                           fparam_.fl_pulsar_batched);
+                           fparam_.fl_pulsar_batch_max_size, fparam_.fl_pulsar_batched);
         if (IsGuest()) {
           xgb_pulsar_->SetPriKey(pri_);
           xgb_pulsar_->SendPubKey(pub_);

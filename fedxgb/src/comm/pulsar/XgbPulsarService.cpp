@@ -7,19 +7,21 @@ XgbPulsarService::XgbPulsarService(bool start, const std::string& pulsar_url,
                                    const std::string& topic_prefix, const std::string& pulsar_token,
                                    const std::string& pulsar_tenant,
                                    const std::string& pulsar_namespace,
-                                   const std::int32_t pulsar_topic_ttl, const bool batched,
+                                   const std::int32_t pulsar_topic_ttl,
+                                   const std::uint32_t pulsar_batch_max_size, const bool batched,
                                    const std::int32_t n_threads)
     : pulsar_topic_ttl(pulsar_topic_ttl), n_threads(n_threads), batched(batched) {
   if (start) {
     Start(pulsar_url, topic_prefix, pulsar_token, pulsar_tenant, pulsar_namespace, pulsar_topic_ttl,
-          batched, n_threads);
+          pulsar_batch_max_size, batched, n_threads);
   }
 }
 
 void XgbPulsarService::Start(const std::string& pulsar_url, const std::string& topic_prefix,
                              const std::string& pulsar_token, const std::string& pulsar_tenant,
                              const std::string& pulsar_namespace,
-                             const std::int32_t pulsar_topic_ttl_, const bool batched,
+                             const std::int32_t pulsar_topic_ttl_,
+                             const std::uint32_t pulsar_batch_max_size, const bool batched,
                              const std::int32_t n_threads) {
   this->n_threads = n_threads;
   this->pulsar_topic_ttl = pulsar_topic_ttl_;
@@ -29,7 +31,8 @@ void XgbPulsarService::Start(const std::string& pulsar_url, const std::string& t
   strftime(yyyymmddhhMM, 13, "%Y%m%d%H%M", localtime(&now));
   client = std::make_unique<PulsarClient>(
       pulsar_url, topic_prefix + std::to_string(std::atoll(yyyymmddhhMM) / pulsar_topic_ttl) + "_",
-      pulsar_token, pulsar_tenant, pulsar_namespace, pulsar_topic_ttl, n_threads);
+      pulsar_token, pulsar_tenant, pulsar_namespace, pulsar_topic_ttl, pulsar_batch_max_size,
+      n_threads);
 }
 
 void XgbPulsarService::SetPriKey(opt_private_key_t* pri_) { pri = pri_; }

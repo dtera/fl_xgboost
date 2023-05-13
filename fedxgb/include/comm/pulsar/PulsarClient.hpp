@@ -29,8 +29,8 @@ class PulsarClient {
                const std::string& pulsar_token = "notoken",
                const std::string& pulsar_tenant = "fl-tenant",
                const std::string& pulsar_namespace = "fl-algorithm",
-               const std::uint32_t pulsar_batch_max_size = 1000000,
                const std::int32_t pulsar_topic_ttl = 60,
+               const std::uint32_t pulsar_batch_max_size = 1000000,
                const std::int32_t n_threads = omp_get_num_procs())
       : pulsar_url(pulsar_url),
         pulsar_topic_prefix("persistent://" + pulsar_tenant + "/" + pulsar_namespace + "/" +
