@@ -95,7 +95,7 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
     DMLC_DECLARE_FIELD(fl_pulsar_batch_max_size)
         .set_default(1000000)
         .describe("Pulsar batch max size.");
-    DMLC_DECLARE_FIELD(fl_pulsar_batched).set_default(0).describe("Whether pulsar is batched.");
+    DMLC_DECLARE_FIELD(fl_pulsar_batched).set_default(1).describe("Whether pulsar is batched.");
     DMLC_DECLARE_FIELD(fl_address)
         .set_default("0.0.0.0:50001")
         .describe("Address for grpc communication.");
