@@ -42,7 +42,7 @@ class PulsarClient {
         pulsar_namespace(pulsar_namespace),
         pulsar_topic_ttl(pulsar_topic_ttl),
         n_threads(n_threads),
-        batch_size(100) {
+        batch_size(128) {
     client_config.setAuth(pulsar::AuthToken::createWithToken(pulsar_token));
     client_config.setMemoryLimit(std::numeric_limits<std::uint64_t>().max());
     client = std::make_unique<pulsar::Client>(pulsar_url, client_config);
@@ -67,7 +67,7 @@ class PulsarClient {
     consumer_config.setSubscriptionInitialPosition(pulsar::InitialPositionEarliest);
     consumer_config.setConsumerType(pulsar::ConsumerType::ConsumerExclusive);
     consumer_config.setAutoAckOldestChunkedMessageOnQueueFull(true);
-    consumer_config.setMaxPendingChunkedMessage(100);
+    consumer_config.setMaxPendingChunkedMessage(batch_size);
   }
 
   ~PulsarClient() { client->close(); }
