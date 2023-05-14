@@ -10,11 +10,14 @@ XgbPulsarService::XgbPulsarService(bool start, const std::string& pulsar_url,
                                    const std::int32_t pulsar_topic_ttl,
                                    const std::uint32_t pulsar_batch_size,
                                    const std::uint32_t pulsar_batch_max_size, const bool batched,
-                                   const std::int32_t n_threads)
-    : pulsar_topic_ttl(pulsar_topic_ttl), n_threads(n_threads), batched(batched) {
+                                   const std::int32_t batched_mode, const std::int32_t n_threads)
+    : pulsar_topic_ttl(pulsar_topic_ttl),
+      n_threads(n_threads),
+      batched(batched),
+      batched_mode(batched_mode) {
   if (start) {
     Start(pulsar_url, topic_prefix, pulsar_token, pulsar_tenant, pulsar_namespace, pulsar_topic_ttl,
-          pulsar_batch_size, pulsar_batch_max_size, batched, n_threads);
+          pulsar_batch_size, pulsar_batch_max_size, batched, batched_mode, n_threads);
   }
 }
 
@@ -24,10 +27,11 @@ void XgbPulsarService::Start(const std::string& pulsar_url, const std::string& t
                              const std::int32_t pulsar_topic_ttl_,
                              const std::uint32_t pulsar_batch_size,
                              const std::uint32_t pulsar_batch_max_size, const bool batched,
-                             const std::int32_t n_threads) {
+                             const std::int32_t batched_mode, const std::int32_t n_threads) {
   this->n_threads = n_threads;
   this->pulsar_topic_ttl = pulsar_topic_ttl_;
   this->batched = batched;
+  this->batched_mode = batched_mode;
   char yyyymmddhhMM[13];
   time_t now = time(NULL);
   strftime(yyyymmddhhMM, 13, "%Y%m%d%H%M", localtime(&now));
@@ -56,13 +60,18 @@ void XgbPulsarService::GetPubKey(opt_public_key_t** pub_) {
 void XgbPulsarService::SendEncryptedGradPairs(
     const std::vector<xgboost::EncryptedGradientPair>& grad_pairs) {
   if (batched) {
+    std::function<xgbcomm::GradPair*(xgbcomm::GradPairsResponse&)> addBatch =
+        [&](xgbcomm::GradPairsResponse& r) { return r.mutable_encrypted_grad_pairs()->Add(); };
+    if (batched_mode == 0) {
+      addBatch = nullptr;
+    }
     client
         ->BatchSend<xgboost::EncryptedGradientPair, xgbcomm::GradPair, xgbcomm::GradPairsResponse>(
             GradPairTopic(), grad_pairs,
             [&](xgbcomm::GradPair* m, const xgboost::EncryptedGradientPair& data) {
               mpz_t2_mpz_type(m, data);
             },
-            [&](xgbcomm::GradPairsResponse& r) { return r.mutable_encrypted_grad_pairs()->Add(); });
+            addBatch);
   } else {
     client->Send<std::vector<xgboost::EncryptedGradientPair>, xgbcomm::GradPairsResponse>(
         GradPairTopic(), grad_pairs,
@@ -79,13 +88,19 @@ void XgbPulsarService::SendEncryptedGradPairs(
 void XgbPulsarService::GetEncryptedGradPairs(
     std::vector<xgboost::EncryptedGradientPair>& grad_pairs) {
   if (batched) {
+    std::function<google::protobuf::RepeatedPtrField<xgbcomm::GradPair>(
+        const xgbcomm::GradPairsResponse&)>
+        getBatch = [&](const xgbcomm::GradPairsResponse& r) { return r.encrypted_grad_pairs(); };
+    if (batched_mode == 0) {
+      getBatch = nullptr;
+    }
     client->BatchReceive<xgboost::EncryptedGradientPair, xgbcomm::GradPair,
                          xgbcomm::GradPairsResponse>(
         GradPairTopic(), grad_pairs,
         [&](xgboost::EncryptedGradientPair& data, const xgbcomm::GradPair& m) {
           mpz_type2_mpz_t(data, m);
         },
-        [&](const xgbcomm::GradPairsResponse& r) { return r.encrypted_grad_pairs(); });
+        getBatch);
   } else {
     client->Receive<std::vector<xgboost::EncryptedGradientPair>, xgbcomm::GradPairsResponse>(
         GradPairTopic(), grad_pairs,

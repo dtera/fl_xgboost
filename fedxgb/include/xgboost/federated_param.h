@@ -52,6 +52,7 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
   std::int32_t fl_pulsar_batch_size;
   std::int32_t fl_pulsar_batch_max_size;
   bool fl_pulsar_batched;
+  std::int32_t fl_pulsar_batched_mode;
   std::string fl_address;  // for data holder part
   uint32_t fl_port;        // for label part
   uint32_t fl_bit_len;
@@ -98,6 +99,7 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
         .set_default(1000000)
         .describe("Pulsar batch max size.");
     DMLC_DECLARE_FIELD(fl_pulsar_batched).set_default(1).describe("Whether pulsar is batched.");
+    DMLC_DECLARE_FIELD(fl_pulsar_batched_mode).set_default(0).describe("Pulsar batch mode.");
     DMLC_DECLARE_FIELD(fl_address)
         .set_default("0.0.0.0:50001")
         .describe("Address for grpc communication.");
