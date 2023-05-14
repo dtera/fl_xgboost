@@ -132,6 +132,9 @@ object XGBClassifierRunner extends AbstractSparkApp {
     params += "fl_pulsar_url" -> "pulsar://localhost:6650"
     params += "fl_pulsar_topic_ttl" -> 5
     params += "fl_pulsar_topic_prefix" -> "federated_spark_xgb_"
+    params += "fl_pulsar_batch_size" -> 100
+    params += "fl_pulsar_batch_max_size" -> 1000000
+    params += "fl_pulsar_batched" -> 1
 
     params += "booster" -> "gbtree"
     params += "eta" -> 1.0
