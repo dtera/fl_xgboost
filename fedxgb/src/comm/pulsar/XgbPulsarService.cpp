@@ -54,11 +54,13 @@ void XgbPulsarService::GetPubKey(opt_public_key_t** pub_) {
 void XgbPulsarService::SendEncryptedGradPairs(
     const std::vector<xgboost::EncryptedGradientPair>& grad_pairs) {
   if (batched) {
-    client->BatchSend<xgboost::EncryptedGradientPair, xgbcomm::GradPair>(
-        GradPairTopic(), grad_pairs,
-        [&](xgbcomm::GradPair* m, const xgboost::EncryptedGradientPair& data) {
-          mpz_t2_mpz_type(m, data);
-        });
+    client
+        ->BatchSend<xgboost::EncryptedGradientPair, xgbcomm::GradPair, xgbcomm::GradPairsResponse>(
+            GradPairTopic(), grad_pairs,
+            [&](xgbcomm::GradPair* m, const xgboost::EncryptedGradientPair& data) {
+              mpz_t2_mpz_type(m, data);
+            },
+            [&](xgbcomm::GradPairsResponse& r) { return r.mutable_encrypted_grad_pairs()->Add(); });
   } else {
     client->Send<std::vector<xgboost::EncryptedGradientPair>, xgbcomm::GradPairsResponse>(
         GradPairTopic(), grad_pairs,
@@ -75,11 +77,13 @@ void XgbPulsarService::SendEncryptedGradPairs(
 void XgbPulsarService::GetEncryptedGradPairs(
     std::vector<xgboost::EncryptedGradientPair>& grad_pairs) {
   if (batched) {
-    client->BatchReceive<xgboost::EncryptedGradientPair, xgbcomm::GradPair>(
+    client->BatchReceive<xgboost::EncryptedGradientPair, xgbcomm::GradPair,
+                         xgbcomm::GradPairsResponse>(
         GradPairTopic(), grad_pairs,
         [&](xgboost::EncryptedGradientPair& data, const xgbcomm::GradPair& m) {
           mpz_type2_mpz_t(data, m);
-        });
+        },
+        [&](const xgbcomm::GradPairsResponse& r) { return r.encrypted_grad_pairs(); });
   } else {
     client->Receive<std::vector<xgboost::EncryptedGradientPair>, xgbcomm::GradPairsResponse>(
         GradPairTopic(), grad_pairs,

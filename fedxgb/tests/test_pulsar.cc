@@ -66,10 +66,3 @@ TEST(pulsar, BatchReceive) {
     }
   }
 }
-
-TEST(pulsar, test) {
-  char buff[13];
-  time_t now = time(NULL);
-  strftime(buff, 13, "%Y%m%d%H%M", localtime(&now));
-  cout << std::string(buff).substr(0, 11) << endl;
-}
