@@ -76,6 +76,7 @@ class XgbPulsarService {
                    const std::string& pulsar_tenant = "fl-tenant",
                    const std::string& pulsar_namespace = "fl-algorithm",
                    const std::int32_t pulsar_topic_ttl = 60,
+                   const std::uint32_t pulsar_batch_size = 100,
                    const std::uint32_t pulsar_batch_max_size = 1000000, const bool batched = false,
                    const std::int32_t n_threads = omp_get_num_procs());
 
@@ -85,6 +86,7 @@ class XgbPulsarService {
              const std::string& pulsar_tenant = "fl-tenant",
              const std::string& pulsar_namespace = "fl-algorithm",
              const std::int32_t pulsar_topic_ttl = 60,
+             const std::uint32_t pulsar_batch_size = 100,
              const std::uint32_t pulsar_batch_max_size = 1000000, const bool batched = false,
              const std::int32_t n_threads = omp_get_num_procs());
 
