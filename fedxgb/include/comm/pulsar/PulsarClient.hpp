@@ -62,7 +62,7 @@ class PulsarClient {
     producer_config.setBlockIfQueueFull(true);
     producer_config.setBatchingMaxMessages(pulsar_batch_max_size);
     producer_config.setMaxPendingMessages(pulsar_batch_max_size);
-    producer_config.setBatchingMaxAllowedSizeInBytes(std::numeric_limits<unsigned long>().max());
+    producer_config.setBatchingMaxAllowedSizeInBytes(0);
     // producer_config.setBatchingMaxPublishDelayMs(10);
 
     consumer_config.setSubscriptionInitialPosition(pulsar::InitialPositionEarliest);

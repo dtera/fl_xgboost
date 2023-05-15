@@ -60,23 +60,22 @@ void XgbPulsarService::GetPubKey(opt_public_key_t** pub_) {
 void XgbPulsarService::SendEncryptedGradPairs(
     const std::vector<xgboost::EncryptedGradientPair>& grad_pairs) {
   if (batched) {
-    std::function<xgbcomm::GradPair*(xgbcomm::GradPairsResponse&)> addBatch =
-        [&](xgbcomm::GradPairsResponse& r) { return r.mutable_encrypted_grad_pairs()->Add(); };
+    std::function<xgbcomm::GradPair*(xgbcomm::GradPairs&)> addBatch = [&](xgbcomm::GradPairs& r) {
+      return r.mutable_encrypted_grad_pairs()->Add();
+    };
     if (batched_mode == 0) {
       addBatch = nullptr;
     }
-    client
-        ->BatchSend<xgboost::EncryptedGradientPair, xgbcomm::GradPair, xgbcomm::GradPairsResponse>(
-            GradPairTopic(), grad_pairs,
-            [&](xgbcomm::GradPair* m, const xgboost::EncryptedGradientPair& data) {
-              mpz_t2_mpz_type(m, data);
-            },
-            addBatch);
-  } else {
-    client->Send<std::vector<xgboost::EncryptedGradientPair>, xgbcomm::GradPairsResponse>(
+    client->BatchSend<xgboost::EncryptedGradientPair, xgbcomm::GradPair, xgbcomm::GradPairs>(
         GradPairTopic(), grad_pairs,
-        [&](xgbcomm::GradPairsResponse* m,
-            const std::vector<xgboost::EncryptedGradientPair>& data) {
+        [&](xgbcomm::GradPair* m, const xgboost::EncryptedGradientPair& data) {
+          mpz_t2_mpz_type(m, data);
+        },
+        addBatch);
+  } else {
+    client->Send<std::vector<xgboost::EncryptedGradientPair>, xgbcomm::GradPairs>(
+        GradPairTopic(), grad_pairs,
+        [&](xgbcomm::GradPairs* m, const std::vector<xgboost::EncryptedGradientPair>& data) {
           for (auto grad_pair : data) {
             auto gp = m->mutable_encrypted_grad_pairs()->Add();
             mpz_t2_mpz_type(gp, grad_pair);
@@ -88,24 +87,21 @@ void XgbPulsarService::SendEncryptedGradPairs(
 void XgbPulsarService::GetEncryptedGradPairs(
     std::vector<xgboost::EncryptedGradientPair>& grad_pairs) {
   if (batched) {
-    std::function<google::protobuf::RepeatedPtrField<xgbcomm::GradPair>(
-        const xgbcomm::GradPairsResponse&)>
-        getBatch = [&](const xgbcomm::GradPairsResponse& r) { return r.encrypted_grad_pairs(); };
+    std::function<google::protobuf::RepeatedPtrField<xgbcomm::GradPair>(const xgbcomm::GradPairs&)>
+        getBatch = [&](const xgbcomm::GradPairs& r) { return r.encrypted_grad_pairs(); };
     if (batched_mode == 0) {
       getBatch = nullptr;
     }
-    client->BatchReceive<xgboost::EncryptedGradientPair, xgbcomm::GradPair,
-                         xgbcomm::GradPairsResponse>(
+    client->BatchReceive<xgboost::EncryptedGradientPair, xgbcomm::GradPair, xgbcomm::GradPairs>(
         GradPairTopic(), grad_pairs,
         [&](xgboost::EncryptedGradientPair& data, const xgbcomm::GradPair& m) {
           mpz_type2_mpz_t(data, m);
         },
         getBatch);
   } else {
-    client->Receive<std::vector<xgboost::EncryptedGradientPair>, xgbcomm::GradPairsResponse>(
+    client->Receive<std::vector<xgboost::EncryptedGradientPair>, xgbcomm::GradPairs>(
         GradPairTopic(), grad_pairs,
-        [&](std::vector<xgboost::EncryptedGradientPair>& data,
-            const xgbcomm::GradPairsResponse& m) {
+        [&](std::vector<xgboost::EncryptedGradientPair>& data, const xgbcomm::GradPairs& m) {
           auto encrypted_grad_pairs = m.encrypted_grad_pairs();
           ParallelFor(m.encrypted_grad_pairs_size(), n_threads, [&](const size_t i) {
             xgboost::EncryptedGradientPair gp;

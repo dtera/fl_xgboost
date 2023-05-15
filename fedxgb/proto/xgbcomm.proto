@@ -58,6 +58,10 @@ message GradPairsResponse {
   repeated GradPair encrypted_grad_pairs = 2;
 }
 
+message GradPairs {
+  repeated GradPair encrypted_grad_pairs = 1;
+}
+
 message SplitsRequest {
   uint32 nidx = 1;
   uint32 part_id = 2;
