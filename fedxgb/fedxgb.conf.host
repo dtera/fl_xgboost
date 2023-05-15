@@ -29,4 +29,4 @@ fl_comm_type = pulsar
 fl_pulsar_url = pulsar://localhost:6650
 fl_pulsar_batched = 1
 fl_pulsar_batched_mode = 1
-fl_pulsar_batch_size = 1000
+fl_pulsar_batch_size = 200
