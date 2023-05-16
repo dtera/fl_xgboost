@@ -68,7 +68,7 @@ class PulsarClient {
     consumer_config.setSubscriptionInitialPosition(pulsar::InitialPositionEarliest);
     consumer_config.setConsumerType(pulsar::ConsumerType::ConsumerExclusive);
     consumer_config.setAutoAckOldestChunkedMessageOnQueueFull(true);
-    consumer_config.setMaxPendingChunkedMessage(pulsar_batch_size);
+    consumer_config.setMaxPendingChunkedMessage(100);
   }
 
   ~PulsarClient() { client->close(); }
@@ -133,10 +133,25 @@ class PulsarClient {
     }
   }
 
-  template <typename T, typename M, typename BM = xgbcomm::Request>
-  void BatchSend(const std::string& topic, const std::vector<T>& data,
-                 const std::function<void(M*, const T&)> convertObj2PB,
+  template <typename M, typename BM = xgbcomm::Request>
+  void BatchSend(const std::string& topic, const google::protobuf::RepeatedPtrField<M>& data,
                  const std::function<M*(BM&)> addBatch = nullptr, const bool waited = false) {
+    BatchSend<M, M, BM, google::protobuf::RepeatedPtrField<M>>(
+        topic, data, [&](M* m, const M& t) { m = &t; }, addBatch, waited,
+        [&](std::size_t i,
+            const std::function<void(std::size_t i, google::protobuf::MessageLite & pbMsg)>
+                doSendMsg) { doSendMsg(i, data[i]); });
+  }
+
+  template <typename T, typename M, typename BM = xgbcomm::Request, typename R = std::vector<T>>
+  void BatchSend(
+      const std::string& topic, const R& data,
+      const std::function<void(M*, const T&)> convertObj2PB = nullptr,
+      const std::function<M*(BM&)> addBatch = nullptr, const bool waited = false,
+      const std::function<
+          void(std::size_t,
+               const std::function<void(std::size_t i, google::protobuf::MessageLite& pbMsg)>)>
+          sendMsg = nullptr) {
     try {
       pulsar::Producer producer;
       producer_config.setBatchingEnabled(true);
@@ -147,7 +162,7 @@ class PulsarClient {
 
       std::atomic<std::uint32_t> msgSize{0};
       auto n = data.size();
-      auto sendMsg = [&](std::size_t i, google::protobuf::MessageLite& pbMsg) {
+      auto doSendMsg = [&](std::size_t i, google::protobuf::MessageLite& pbMsg) {
         std::string serializedContent;
         pbMsg.SerializeToString(&serializedContent);
         auto message = pulsar::MessageBuilder()
@@ -167,11 +182,15 @@ class PulsarClient {
         });
       };
       if (addBatch == nullptr) {
-        ParallelFor(n, n_threads, [&](std::size_t i) {
-          M pbMsg;
-          convertObj2PB(&pbMsg, data[i]);
-          sendMsg(i, pbMsg);
-        });
+        if (sendMsg == nullptr) {
+          ParallelFor(n, n_threads, [&](std::size_t i) {
+            M pbMsg;
+            convertObj2PB(&pbMsg, data[i]);
+            doSendMsg(i, pbMsg);
+          });
+        } else {
+          ParallelFor(n, n_threads, [&](std::size_t i) { sendMsg(i, doSendMsg); });
+        }
       } else {
         n = n / pulsar_batch_size + (n % pulsar_batch_size == 0 ? 0 : 1);
         ParallelFor(n, n_threads, [&](std::size_t i) {
@@ -182,7 +201,7 @@ class PulsarClient {
             convertObj2PB(pbMsg, data[j]);
           }
 
-          sendMsg(i, bm);
+          doSendMsg(i, bm);
         });
       }
 
@@ -201,13 +220,27 @@ class PulsarClient {
     }
   }
 
-  template <typename T, typename M, typename BM = xgbcomm::Request>
+  template <typename M, typename BM = xgbcomm::Request>
   void BatchReceive(
-      const std::string& topic, std::vector<T>& data,
-      const std::function<void(T&, const M&)> convertPB2Obj,
+      const std::string& topic, google::protobuf::RepeatedPtrField<M>& data, const size_t n,
       const std::function<google::protobuf::RepeatedPtrField<M>(const BM&)> getBatch = nullptr,
       const bool waited = true, const bool listened = false,
       const std::string& subscriptionName = "federated_xgb_subscription") {
+    for (int i = 0; i < n; ++i) {
+      data.Add();
+    }
+    BatchReceive<M, M, BM, google::protobuf::RepeatedPtrField<M>>(
+        topic, data, nullptr, getBatch, waited, listened, subscriptionName,
+        [&](const M& pbMsg, std::uint32_t i) { data[i] = std::move(pbMsg); });
+  }
+
+  template <typename T, typename M, typename BM = xgbcomm::Request, typename R = std::vector<T>>
+  void BatchReceive(
+      const std::string& topic, R& data, const std::function<void(T&, const M&)> convertPB2Obj,
+      const std::function<google::protobuf::RepeatedPtrField<M>(const BM&)> getBatch = nullptr,
+      const bool waited = true, const bool listened = false,
+      const std::string& subscriptionName = "federated_xgb_subscription",
+      const std::function<void((const M& pbMsg, std::uint32_t i))> receiveMsg = nullptr) {
     try {
       std::atomic<std::uint32_t> msgSize;
       std::uint32_t messageSize = 0;
@@ -260,7 +293,7 @@ class PulsarClient {
         } while (msgSize < data.size() - 1);*/
         pulsar::Message msg;
         auto n = data.size();
-        auto receiveMsg = [&](const M& pbMsg, std::uint32_t i) {
+        auto doReceiveMsg = [&](const M& pbMsg, std::uint32_t i) {
           T t;
           convertPB2Obj(t, pbMsg);
           data[i] = std::move(t);
@@ -271,9 +304,11 @@ class PulsarClient {
             M pbMsg;
             consumer.receive(msg);
             pbMsg.ParseFromString(msg.getDataAsString());
-            receiveMsg(pbMsg, std::stoul(msg.getOrderingKey()));
+            receiveMsg == nullptr ? doReceiveMsg(pbMsg, std::stoul(msg.getOrderingKey()))
+                                  : receiveMsg(pbMsg, std::stoul(msg.getOrderingKey()));
             messageSize++;
           }
+
         } else {
           n = n / pulsar_batch_size + (n % pulsar_batch_size == 0 ? 0 : 1);
           while (messageSize < n) {
@@ -284,7 +319,8 @@ class PulsarClient {
             auto offset = std::stoul(msg.getOrderingKey()) * pulsar_batch_size;
             ParallelFor(batch.size(), n_threads, [&](const size_t i) {
               M pbMsg = batch[i];
-              receiveMsg(pbMsg, offset + i);
+              receiveMsg == nullptr ? doReceiveMsg(pbMsg, offset + i)
+                                    : receiveMsg(pbMsg, offset + i);
             });
             messageSize++;
           }
