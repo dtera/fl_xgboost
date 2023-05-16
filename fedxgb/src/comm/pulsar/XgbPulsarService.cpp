@@ -151,21 +151,49 @@ void XgbPulsarService::GetEncryptedSplits(
 
 void XgbPulsarService::SendEncryptedSplitsByLayer(std::uint32_t nids,
                                                   const xgbcomm::SplitsRequests& srs) {
-  client->Send(SplitsByLayerTopic(nids), srs);
-  std::size_t size = 0;
+  if (!batched || batched_mode == 2) {
+    client->Send(SplitsByLayerTopic(nids), srs);
+  } else {
+    client->Send(SizeTopic(nids), std::to_string(srs.splits_requests_size()));
+
+    std::function<xgbcomm::SplitsRequest*(xgbcomm::SplitsRequests&)> addBatch =
+        [&](xgbcomm::SplitsRequests& r) { return r.mutable_splits_requests()->Add(); };
+    if (batched_mode == 0) {
+      addBatch = nullptr;
+    }
+    client->BatchSend<xgbcomm::SplitsRequest, xgbcomm::SplitsRequests>(
+        SplitsByLayerTopic(nids), srs.splits_requests(), addBatch);
+  }
+
+  /*std::size_t size = 0;
   std::for_each(srs.splits_requests().begin(), srs.splits_requests().end(),
                 [&](auto& sr) { size += sr.encrypted_splits_size(); });
   DEBUG << "[S]iter: " << cur_version << ", encrypted splits size: " << size
-        << ", part_id: " << srs.splits_requests(0).part_id() << std::endl;
+        << ", part_id: " << srs.splits_requests(0).part_id() << std::endl;*/
 }
 
 void XgbPulsarService::GetEncryptedSplitsByLayer(std::uint32_t nids, xgbcomm::SplitsRequests& srs) {
-  client->Receive(SplitsByLayerTopic(nids), srs);
-  std::size_t size = 0;
+  if (!batched || batched_mode == 2) {
+    client->Receive(SplitsByLayerTopic(nids), srs);
+  } else {
+    std::string s;
+    client->Receive(SizeTopic(nids), s);
+
+    std::function<google::protobuf::RepeatedPtrField<xgbcomm::SplitsRequest>(
+        const xgbcomm::SplitsRequests&)>
+        getBatch = [&](const xgbcomm::SplitsRequests& r) { return r.splits_requests(); };
+    if (batched_mode == 0) {
+      getBatch = nullptr;
+    }
+    client->BatchReceive<xgbcomm::SplitsRequest, xgbcomm::SplitsRequests>(
+        SplitsByLayerTopic(nids), *(srs.mutable_splits_requests()), atoi(s.c_str()), getBatch);
+  }
+
+  /*std::size_t size = 0;
   std::for_each(srs.splits_requests().begin(), srs.splits_requests().end(),
                 [&](auto& sr) { size += sr.encrypted_splits_size(); });
   DEBUG << "[R]iter: " << cur_version << ", encrypted splits size: " << size
-        << ", part_id: " << srs.splits_requests(0).part_id() << std::endl;
+        << ", part_id: " << srs.splits_requests(0).part_id() << std::endl;*/
 }
 
 template <typename ExpandEntry>

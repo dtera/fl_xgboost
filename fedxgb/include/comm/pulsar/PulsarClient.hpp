@@ -45,7 +45,7 @@ class PulsarClient {
         n_threads(n_threads),
         pulsar_batch_size(pulsar_batch_size) {
     client_config.setAuth(pulsar::AuthToken::createWithToken(pulsar_token));
-    client_config.setMemoryLimit(std::numeric_limits<std::uint64_t>().max());
+    client_config.setMemoryLimit(0);
     client = std::make_unique<pulsar::Client>(pulsar_url, client_config);
 
     producer_config.setBatchingEnabled(false);
@@ -89,6 +89,8 @@ class PulsarClient {
 
   void Send(const std::string& topic, const std::string& content) {
     try {
+      producer_config.setBatchingEnabled(false);
+      producer_config.setChunkingEnabled(true);
       pulsar::Producer producer;
       client->createProducer(pulsar_topic_prefix + topic, producer_config, producer);
 
@@ -137,9 +139,9 @@ class PulsarClient {
   void BatchSend(const std::string& topic, const google::protobuf::RepeatedPtrField<M>& data,
                  const std::function<M*(BM&)> addBatch = nullptr, const bool waited = false) {
     BatchSend<M, M, BM, google::protobuf::RepeatedPtrField<M>>(
-        topic, data, [&](M* m, const M& t) { m = &t; }, addBatch, waited,
+        topic, data, [&](M* m, const M& t) { *m = std::move(t); }, addBatch, waited,
         [&](std::size_t i,
-            const std::function<void(std::size_t i, google::protobuf::MessageLite & pbMsg)>
+            const std::function<void(std::size_t i, const google::protobuf::MessageLite& pbMsg)>
                 doSendMsg) { doSendMsg(i, data[i]); });
   }
 
@@ -148,21 +150,19 @@ class PulsarClient {
       const std::string& topic, const R& data,
       const std::function<void(M*, const T&)> convertObj2PB = nullptr,
       const std::function<M*(BM&)> addBatch = nullptr, const bool waited = false,
-      const std::function<
-          void(std::size_t,
-               const std::function<void(std::size_t i, google::protobuf::MessageLite& pbMsg)>)>
+      const std::function<void(
+          std::size_t,
+          const std::function<void(std::size_t i, const google::protobuf::MessageLite& pbMsg)>)>
           sendMsg = nullptr) {
     try {
       pulsar::Producer producer;
       producer_config.setBatchingEnabled(true);
       producer_config.setChunkingEnabled(false);
-      producer_config.setPartitionsRoutingMode(
-          pulsar::ProducerConfiguration::RoundRobinDistribution);
       client->createProducer(pulsar_topic_prefix + topic, producer_config, producer);
 
       std::atomic<std::uint32_t> msgSize{0};
       auto n = data.size();
-      auto doSendMsg = [&](std::size_t i, google::protobuf::MessageLite& pbMsg) {
+      auto doSendMsg = [&](std::size_t i, const google::protobuf::MessageLite& pbMsg) {
         std::string serializedContent;
         pbMsg.SerializeToString(&serializedContent);
         auto message = pulsar::MessageBuilder()
@@ -176,9 +176,9 @@ class PulsarClient {
           messageId: " << messageId
                          << ", msgSize: " << msgSize << std::endl;
           }*/
-          if (waited && msgSize == data.size()) {
+          /*if (waited && msgSize == data.size()) {
             cv.notify_one();
-          }
+          }*/
         });
       };
       if (addBatch == nullptr) {
@@ -193,10 +193,11 @@ class PulsarClient {
         }
       } else {
         n = n / pulsar_batch_size + (n % pulsar_batch_size == 0 ? 0 : 1);
+        std::cout << "n: " << n << std::endl;
         ParallelFor(n, n_threads, [&](std::size_t i) {
           BM bm;
-          for (int j = i * pulsar_batch_size;
-               j < std::min((i + 1) * pulsar_batch_size, data.size()); ++j) {
+          for (std::size_t j = i * pulsar_batch_size;
+               j < std::min((i + 1) * pulsar_batch_size, (std::size_t)data.size()); ++j) {
             M* pbMsg = addBatch(bm);
             convertObj2PB(pbMsg, data[j]);
           }
@@ -207,14 +208,14 @@ class PulsarClient {
 
       producer.flush();
       if (waited) {
-        std::unique_lock<std::mutex> lk(mtx);
+        // std::unique_lock<std::mutex> lk(mtx);
         while (msgSize < data.size() - 1) {
-          cv.wait(lk);
-          // std::this_thread::sleep_for(std::chrono::milliseconds(10));
+          // cv.wait(lk);
+          std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
       }
       LOG(CONSOLE) << "Sent " << msgSize.load() << " messages." << std::endl;
-      producer.close();
+      // producer.close();
     } catch (const std::exception& ex) {
       throw std::runtime_error(std::string("Failed to send message: ") + ex.what());
     }
@@ -222,7 +223,7 @@ class PulsarClient {
 
   template <typename M, typename BM = xgbcomm::Request>
   void BatchReceive(
-      const std::string& topic, google::protobuf::RepeatedPtrField<M>& data, const size_t n,
+      const std::string& topic, google::protobuf::RepeatedPtrField<M>& data, const int n,
       const std::function<google::protobuf::RepeatedPtrField<M>(const BM&)> getBatch = nullptr,
       const bool waited = true, const bool listened = false,
       const std::string& subscriptionName = "federated_xgb_subscription") {
