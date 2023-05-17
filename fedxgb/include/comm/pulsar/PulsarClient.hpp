@@ -89,15 +89,13 @@ class PulsarClient {
 
   void Send(const std::string& topic, const std::string& content) {
     try {
-      producer_config.setBatchingEnabled(false);
-      producer_config.setChunkingEnabled(true);
       pulsar::Producer producer;
       client->createProducer(pulsar_topic_prefix + topic, producer_config, producer);
 
       auto message = pulsar::MessageBuilder().setContent(std::move(content)).build();
       producer.send(message);
 
-      // producer.close();
+      producer.close();
     } catch (const std::exception& ex) {
       throw std::runtime_error(std::string("Failed to send message: ") + ex.what());
     }
@@ -129,7 +127,7 @@ class PulsarClient {
       content = std::move(message.getDataAsString());
       consumer.acknowledge(message);
 
-      // consumer.close();
+      consumer.close();
     } catch (const std::exception& ex) {
       throw std::runtime_error(std::string("Failed to receive message: ") + ex.what());
     }

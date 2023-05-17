@@ -358,8 +358,8 @@ void XgbPulsarService::SendBlockInfos(
       nids += "_" + std::to_string(b.first);
       bs->Add()->CopyFrom(b.second);
     });
-    client->Send(BlockInfosTopic(nids), bis);
-    /*if (!batched || batched_mode == 2) {
+
+    if (!batched || batched_mode == 2) {
       client->Send(BlockInfosTopic(nids), bis);
     } else {
       client->Send(SizeTopic(nids), std::to_string(bis.block_infos_size()));
@@ -371,7 +371,7 @@ void XgbPulsarService::SendBlockInfos(
       }
       client->BatchSend<xgbcomm::BlockInfo, xgbcomm::BlockInfos>(BlockInfosTopic(nids),
                                                                  bis.block_infos(), addBatch);
-    }*/
+    }
     // DEBUG << "[S]nids: " << nids << ", block_infos size: " << block_infos.size() << std::endl;
   }
 }
@@ -379,8 +379,8 @@ void XgbPulsarService::SendBlockInfos(
 void XgbPulsarService::GetBlockInfos(
     std::string nids, tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos) {
   xgbcomm::BlockInfos bis;
-  client->Receive(BlockInfosTopic(nids), bis);
-  /*if (!batched || batched_mode == 2) {
+
+  if (!batched || batched_mode == 2) {
     client->Receive(BlockInfosTopic(nids), bis);
   } else {
     std::string s;
@@ -394,7 +394,7 @@ void XgbPulsarService::GetBlockInfos(
     }
     client->BatchReceive<xgbcomm::BlockInfo, xgbcomm::BlockInfos>(
         BlockInfosTopic(nids), *(bis.mutable_block_infos()), atoi(s.c_str()), getBatch);
-  }*/
+  }
 
   ParallelFor(bis.block_infos_size(), n_threads, [&](auto& i) {
     auto block_info = bis.block_infos(i);
