@@ -212,7 +212,7 @@ class PulsarClient {
         }
       }
       LOG(CONSOLE) << "Sent " << msgSize.load() << " messages." << std::endl;
-      producer.close();
+      // producer.close();
     } catch (const std::exception& ex) {
       throw std::runtime_error(std::string("Failed to send message: ") + ex.what());
     }
@@ -334,7 +334,7 @@ class PulsarClient {
         messageSize = msgSize.load();
       }
       LOG(CONSOLE) << "Receive " << messageSize << " messages." << std::endl;
-      consumer.close();
+      // consumer.close();
     } catch (const std::exception& ex) {
       throw std::runtime_error(std::string("Failed to receive message: ") + ex.what());
     }
@@ -353,6 +353,6 @@ class PulsarClient {
   std::int32_t pulsar_topic_ttl;
   std::uint32_t pulsar_batch_size;
   std::mutex mtx{};
-  std::condition_variable cv{};
+  // std::condition_variable cv{};
   std::int32_t n_threads;
 };
