@@ -135,7 +135,7 @@ object XGBClassifierRunner extends AbstractSparkApp {
     params += "fl_pulsar_batch_size" -> 1000
     params += "fl_pulsar_batch_max_size" -> 1000000
     params += "fl_pulsar_batched" -> 1
-    params += "fl_pulsar_batched_mode" -> 1
+    params += "fl_pulsar_batched_mode" -> 2
 
     params += "booster" -> "gbtree"
     params += "eta" -> 1.0

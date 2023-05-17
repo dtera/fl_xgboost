@@ -89,6 +89,9 @@ class PulsarClient {
 
   void Send(const std::string& topic, const std::string& content) {
     try {
+      producer_config.setBatchingEnabled(false);
+      producer_config.setChunkingEnabled(true);
+      producer_config.setPartitionsRoutingMode(pulsar::ProducerConfiguration::UseSinglePartition);
       pulsar::Producer producer;
       client->createProducer(pulsar_topic_prefix + topic, producer_config, producer);
 
@@ -156,6 +159,8 @@ class PulsarClient {
       pulsar::Producer producer;
       producer_config.setBatchingEnabled(true);
       producer_config.setChunkingEnabled(false);
+      producer_config.setPartitionsRoutingMode(
+          pulsar::ProducerConfiguration::RoundRobinDistribution);
       client->createProducer(pulsar_topic_prefix + topic, producer_config, producer);
 
       std::atomic<std::uint32_t> msgSize{0};
