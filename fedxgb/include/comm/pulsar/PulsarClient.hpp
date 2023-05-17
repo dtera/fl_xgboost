@@ -139,7 +139,7 @@ class PulsarClient {
   void BatchSend(const std::string& topic, const google::protobuf::RepeatedPtrField<M>& data,
                  const std::function<M*(BM&)> addBatch = nullptr, const bool waited = false) {
     BatchSend<M, M, BM, google::protobuf::RepeatedPtrField<M>>(
-        topic, data, [&](M* m, const M& t) { *m = std::move(t); }, addBatch, waited,
+        topic, data, [&](M* m, const M& t) { *m = t; }, addBatch, waited,
         [&](std::size_t i,
             const std::function<void(std::size_t i, const google::protobuf::MessageLite& pbMsg)>
                 doSendMsg) { doSendMsg(i, data[i]); });
@@ -193,7 +193,6 @@ class PulsarClient {
         }
       } else {
         n = n / pulsar_batch_size + (n % pulsar_batch_size == 0 ? 0 : 1);
-        std::cout << "n: " << n << std::endl;
         ParallelFor(n, n_threads, [&](std::size_t i) {
           BM bm;
           for (std::size_t j = i * pulsar_batch_size;
@@ -215,7 +214,7 @@ class PulsarClient {
         }
       }
       LOG(CONSOLE) << "Sent " << msgSize.load() << " messages." << std::endl;
-      // producer.close();
+      producer.close();
     } catch (const std::exception& ex) {
       throw std::runtime_error(std::string("Failed to send message: ") + ex.what());
     }
@@ -226,7 +225,7 @@ class PulsarClient {
       const std::string& topic, google::protobuf::RepeatedPtrField<M>& data, const int n,
       const std::function<google::protobuf::RepeatedPtrField<M>(const BM&)> getBatch = nullptr,
       const bool waited = true, const bool listened = false,
-      const std::string& subscriptionName = "federated_xgb_subscription") {
+      const std::string& subscriptionName = "federated_xgb_batch_subscription") {
     for (int i = 0; i < n; ++i) {
       data.Add();
     }
@@ -240,7 +239,7 @@ class PulsarClient {
       const std::string& topic, R& data, const std::function<void(T&, const M&)> convertPB2Obj,
       const std::function<google::protobuf::RepeatedPtrField<M>(const BM&)> getBatch = nullptr,
       const bool waited = true, const bool listened = false,
-      const std::string& subscriptionName = "federated_xgb_subscription",
+      const std::string& subscriptionName = "federated_xgb_batch_subscription",
       const std::function<void((const M& pbMsg, std::uint32_t i))> receiveMsg = nullptr) {
     try {
       std::atomic<std::uint32_t> msgSize;

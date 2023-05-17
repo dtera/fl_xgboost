@@ -158,7 +158,7 @@ void XgbPulsarService::SendEncryptedSplitsByLayer(std::uint32_t nids,
 
     std::function<xgbcomm::SplitsRequest*(xgbcomm::SplitsRequests&)> addBatch =
         [&](xgbcomm::SplitsRequests& r) { return r.mutable_splits_requests()->Add(); };
-    if (batched_mode == 0) {
+    if (batched_mode == 0 || batched_mode == 3) {
       addBatch = nullptr;
     }
     client->BatchSend<xgbcomm::SplitsRequest, xgbcomm::SplitsRequests>(
@@ -182,7 +182,7 @@ void XgbPulsarService::GetEncryptedSplitsByLayer(std::uint32_t nids, xgbcomm::Sp
     std::function<google::protobuf::RepeatedPtrField<xgbcomm::SplitsRequest>(
         const xgbcomm::SplitsRequests&)>
         getBatch = [&](const xgbcomm::SplitsRequests& r) { return r.splits_requests(); };
-    if (batched_mode == 0) {
+    if (batched_mode == 0 || batched_mode == 3) {
       getBatch = nullptr;
     }
     client->BatchReceive<xgbcomm::SplitsRequest, xgbcomm::SplitsRequests>(
@@ -359,7 +359,20 @@ void XgbPulsarService::SendBlockInfos(
       bs->Add()->CopyFrom(b.second);
     });
     client->Send(BlockInfosTopic(nids), bis);
-    DEBUG << "[S]nids: " << nids << ", block_infos size: " << block_infos.size() << std::endl;
+    /*if (!batched || batched_mode == 2) {
+      client->Send(BlockInfosTopic(nids), bis);
+    } else {
+      client->Send(SizeTopic(nids), std::to_string(bis.block_infos_size()));
+
+      std::function<xgbcomm::BlockInfo*(xgbcomm::BlockInfos&)> addBatch =
+          [&](xgbcomm::BlockInfos& r) { return r.mutable_block_infos()->Add(); };
+      if (batched_mode == 0 || batched_mode == 3) {
+        addBatch = nullptr;
+      }
+      client->BatchSend<xgbcomm::BlockInfo, xgbcomm::BlockInfos>(BlockInfosTopic(nids),
+                                                                 bis.block_infos(), addBatch);
+    }*/
+    // DEBUG << "[S]nids: " << nids << ", block_infos size: " << block_infos.size() << std::endl;
   }
 }
 
@@ -367,16 +380,32 @@ void XgbPulsarService::GetBlockInfos(
     std::string nids, tbb::concurrent_unordered_map<std::size_t, xgbcomm::BlockInfo>& block_infos) {
   xgbcomm::BlockInfos bis;
   client->Receive(BlockInfosTopic(nids), bis);
+  /*if (!batched || batched_mode == 2) {
+    client->Receive(BlockInfosTopic(nids), bis);
+  } else {
+    std::string s;
+    client->Receive(SizeTopic(nids), s);
+
+    std::function<google::protobuf::RepeatedPtrField<xgbcomm::BlockInfo>(
+        const xgbcomm::BlockInfos&)>
+        getBatch = [&](const xgbcomm::BlockInfos& r) { return r.block_infos(); };
+    if (batched_mode == 0 || batched_mode == 3) {
+      getBatch = nullptr;
+    }
+    client->BatchReceive<xgbcomm::BlockInfo, xgbcomm::BlockInfos>(
+        BlockInfosTopic(nids), *(bis.mutable_block_infos()), atoi(s.c_str()), getBatch);
+  }*/
+
   ParallelFor(bis.block_infos_size(), n_threads, [&](auto& i) {
     auto block_info = bis.block_infos(i);
     block_infos.insert({block_info.idx(), block_info});
   });
-  DEBUG << "[R]nids: " << nids << ", block_infos size: " << block_infos.size() << std::endl;
+  // DEBUG << "[R]nids: " << nids << ", block_infos size: " << block_infos.size() << std::endl;
 }
 
 void XgbPulsarService::SendNextNodes(int idx, const xgbcomm::NextNodesV2& next_nids) {
   client->Send(NextNodesTopic(idx), next_nids);
-  DEBUG << "[S]idx:" << idx << ", next_nids size:" << next_nids.next_ids_size() << std::endl;
+  // DEBUG << "[S]idx:" << idx << ", next_nids size:" << next_nids.next_ids_size() << std::endl;
 }
 
 void XgbPulsarService::GetNextNodes(
@@ -385,7 +414,7 @@ void XgbPulsarService::GetNextNodes(
   xgbcomm::NextNodesV2 next_nids;
   client->Receive(NextNodesTopic(idx), next_nids);
   process_part_idxs(next_nids.next_ids());
-  DEBUG << "[R]idx:" << idx << ", next_nids size:" << next_nids.next_ids_size() << std::endl;
+  // DEBUG << "[R]idx:" << idx << ", next_nids size:" << next_nids.next_ids_size() << std::endl;
 }
 
 void XgbPulsarService::SendMetrics(int iter, const std::vector<double>& metrics) {
@@ -395,8 +424,9 @@ void XgbPulsarService::SendMetrics(int iter, const std::vector<double>& metrics)
                   [&](auto t) { content += "_" + std::to_string(t); });
 
     client->Send(MetricsTopic(iter), content);
-    DEBUG << "[S]iter: " << iter << ", metrics size: " << metrics.size() << ", content: " << content
-          << std::endl;
+    /*DEBUG << "[S]iter: " << iter << ", metrics size: " << metrics.size() << ", content: " <<
+       content
+          << std::endl;*/
   }
 }
 
@@ -406,8 +436,8 @@ void XgbPulsarService::GetMetrics(int iter, std::vector<std::string>& metrics) {
   std::vector<std::string> ms;
   boost::split(ms, content, boost::is_any_of("_"));
   std::for_each(ms.begin(), ms.end(), [&](auto& t) { metrics.emplace_back(std::move(t)); });
-  DEBUG << "[R]iter: " << iter << ", metrics size: " << metrics.size() << ", content: " << content
-        << std::endl;
+  /*DEBUG << "[R]iter: " << iter << ", metrics size: " << metrics.size() << ", content: " << content
+        << std::endl;*/
 }
 
 template void XgbPulsarService::SendBestSplit(int bestIdx, xgboost::tree::CPUExpandEntry& entry,

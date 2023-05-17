@@ -34,6 +34,10 @@ class XgbPulsarService {
     return "size_iter-" + std::to_string(cur_version) + "_nid-" + std::to_string(nids);
   }
 
+  inline std::string SizeTopic(std::string nids) {
+    return "size_iter-" + std::to_string(cur_version) + "_nids-" + nids;
+  }
+
   inline std::string SplitsByLayerTopic(std::uint32_t nids) {
     return "splits_by_layer_iter-" + std::to_string(cur_version) + "_nid-" + std::to_string(nids);
   }
