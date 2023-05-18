@@ -26,6 +26,10 @@ class XgbPulsarService {
 
   inline std::string GradPairTopic() { return "grad_pairs_iter-" + std::to_string(cur_version); }
 
+  inline std::string GradPairPreciseTopic() {
+    return "grad_pair_precise_iter-" + std::to_string(cur_version);
+  }
+
   inline std::string SplitsTopic(const std::uint32_t nid) {
     return "splits_iter-" + std::to_string(cur_version) + "_nid-" + std::to_string(nid);
   }
@@ -105,6 +109,10 @@ class XgbPulsarService {
   void SendPubKey(opt_public_key_t* pub_);
 
   void GetPubKey(opt_public_key_t** pub_);
+
+  void SendEncryptedGradPair(const xgboost::EncryptedGradientPairPrecise& grad_pairs);
+
+  void GetEncryptedGradPair(xgboost::EncryptedGradientPairPrecise& grad_pairs);
 
   void SendEncryptedGradPairs(const std::vector<xgboost::EncryptedGradientPair>& grad_pairs);
 

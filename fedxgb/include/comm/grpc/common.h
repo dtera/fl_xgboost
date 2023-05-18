@@ -58,6 +58,8 @@ void mpz_t2_mpz_type(xgbcomm::GradPair *gp, const struct GradPair &g_p);
 
 void mpz_t2_mpz_type(xgbcomm::GradPair *gp, const xgboost::EncryptedGradientPair &g_p);
 
+void mpz_t2_mpz_type(xgbcomm::GradPair *gp, const xgboost::EncryptedGradientPairPrecise &g_p);
+
 void mpz_t2_mpz_type(xgbcomm::GradPair *gp,
                      const xgboost::tree::GradStats<EncryptedType<double>> &g_p);
 
@@ -66,6 +68,8 @@ void mpz_type2_mpz_t(mpz_t &m_t, const xgbcomm::MpzType &mt);
 void mpz_type2_mpz_t(struct GradPair &g_p, const xgbcomm::GradPair &gp);
 
 void mpz_type2_mpz_t(xgboost::EncryptedGradientPair &g_p, const xgbcomm::GradPair &gp);
+
+void mpz_type2_mpz_t(xgboost::EncryptedGradientPairPrecise &g_p, const xgbcomm::GradPair &gp);
 
 void mpz_type2_mpz_t(xgboost::tree::GradStats<EncryptedType<double>> &g_p,
                      const xgbcomm::GradPair &gp);

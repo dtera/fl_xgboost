@@ -23,6 +23,11 @@ void mpz_t2_mpz_type(xgbcomm::GradPair *gp, const xgboost::EncryptedGradientPair
   mpz_t2_mpz_type(gp->mutable_hess(), g_p.hess_);
 }
 
+void mpz_t2_mpz_type(xgbcomm::GradPair *gp, const xgboost::EncryptedGradientPairPrecise &g_p) {
+  mpz_t2_mpz_type(gp->mutable_grad(), g_p.grad_);
+  mpz_t2_mpz_type(gp->mutable_hess(), g_p.hess_);
+}
+
 void mpz_t2_mpz_type(xgbcomm::GradPair *gp,
                      const xgboost::tree::GradStats<EncryptedType<double>> &g_p) {
   mpz_t2_mpz_type(gp->mutable_grad(), g_p.sum_grad);
@@ -44,6 +49,11 @@ void mpz_type2_mpz_t(GradPair &g_p, const xgbcomm::GradPair &gp) {
 }
 
 void mpz_type2_mpz_t(xgboost::EncryptedGradientPair &g_p, const xgbcomm::GradPair &gp) {
+  mpz_type2_mpz_t(g_p.grad_, gp.grad());
+  mpz_type2_mpz_t(g_p.hess_, gp.hess());
+}
+
+void mpz_type2_mpz_t(xgboost::EncryptedGradientPairPrecise &g_p, const xgbcomm::GradPair &gp) {
   mpz_type2_mpz_t(g_p.grad_, gp.grad());
   mpz_type2_mpz_t(g_p.hess_, gp.hess());
 }

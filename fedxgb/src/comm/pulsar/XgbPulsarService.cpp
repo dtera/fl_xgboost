@@ -57,6 +57,23 @@ void XgbPulsarService::GetPubKey(opt_public_key_t** pub_) {
   pub = *pub_;
 }
 
+void XgbPulsarService::SendEncryptedGradPair(
+    const xgboost::EncryptedGradientPairPrecise& grad_pairs) {
+  client->Send<xgboost::EncryptedGradientPairPrecise, xgbcomm::GradPair>(
+      GradPairPreciseTopic(), grad_pairs,
+      [&](xgbcomm::GradPair* m, const xgboost::EncryptedGradientPairPrecise& data) {
+        mpz_t2_mpz_type(m, data);
+      });
+}
+
+void XgbPulsarService::GetEncryptedGradPair(xgboost::EncryptedGradientPairPrecise& grad_pairs) {
+  client->Receive<xgboost::EncryptedGradientPairPrecise, xgbcomm::GradPair>(
+      GradPairPreciseTopic(), grad_pairs,
+      [&](xgboost::EncryptedGradientPairPrecise& data, const xgbcomm::GradPair& m) {
+        mpz_type2_mpz_t(data, m);
+      });
+}
+
 void XgbPulsarService::SendEncryptedGradPairs(
     const std::vector<xgboost::EncryptedGradientPair>& grad_pairs) {
   if (batched) {

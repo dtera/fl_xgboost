@@ -121,7 +121,17 @@ CPUExpandEntry QuantileHistMaker::Builder::InitRoot(DMatrix *p_fmat, RegTree *p_
       for (auto const &grad : gpair_h) {
         AddGradPair(grad);
       }
-      collective::Allreduce<collective::Operation::kSum>(reinterpret_cast<double *>(&grad_stat), 2);
+      if (collective::IsDistributed()) {
+        if (is_same<float, T>()) {
+          collective::Allreduce<collective::Operation::kSum>(reinterpret_cast<double *>(&grad_stat),
+                                                             2);
+          opt_paillier_encrypt(encrypted_grad_stat, grad_stat, learner_->pub_);
+          learner_->xgb_pulsar_->SendEncryptedGradPair(encrypted_grad_stat);
+
+        } else {
+          learner_->xgb_pulsar_->GetEncryptedGradPair(encrypted_grad_stat);
+        }
+      }
     }
 
     if (is_same<float, T>()) {

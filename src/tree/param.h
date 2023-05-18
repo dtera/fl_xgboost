@@ -334,7 +334,7 @@ struct XGBOOST_ALIGNAS(16) GradStats {
   /*! \return whether the statistics is not used yet */
   inline bool Empty() const { return sum_hess == 0.0; }
   /*! \brief add statistics to the data */
-  inline void Add(GradType grad, GradType hess) {
+  inline void Add(const GradType &grad, const GradType &hess) {
     sum_grad += grad;
     sum_hess += hess;
   }

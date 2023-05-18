@@ -301,8 +301,11 @@ class HistEvaluator {
     for (bst_bin_t i = ibegin; i != iend; i += d_step) {
       // start working
       // try to find a split
+      // INFO << "Add Begin i: " << i << ", nidx: " << nidx << endl;
       left_sum.Add(hist[i].GetGrad(), hist[i].GetHess());
+      // INFO << "Add End i: " << i << ", nidx: " << nidx << endl;
       right_sum.SetSubstract(parent.stats, left_sum);
+      // INFO << "SetSubstract End i: " << i << ", nidx: " << nidx << endl;
       // update best split
       bst_float split_pt;
       if (d_step > 0) {

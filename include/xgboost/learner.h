@@ -296,18 +296,18 @@ class Learner : public Model, public Configurable, public dmlc::Serializable {
   std::unique_ptr<ObjFunction> obj_;
   /*! \brief The gradient booster used by the model*/
   std::unique_ptr<GradientBooster> gbm_;
-  /*! \brief public key*/
-  opt_public_key_t* pub_;
-  /*! \brief private key*/
-  opt_private_key_t* pri_;
-  /*! \brief federated params*/
-  FederatedParam fparam_;
   /*! \brief The evaluation metrics used to evaluate the model. */
   std::vector<std::unique_ptr<Metric>> metrics_;
   /*! \brief Training parameter. */
   Context ctx_;
 
  public:
+  /*! \brief public key*/
+  opt_public_key_t* pub_;
+  /*! \brief private key*/
+  opt_private_key_t* pri_;
+  /*! \brief federated params*/
+  FederatedParam fparam_;
   /*! \brief pulsar service*/
   std::unique_ptr<XgbPulsarService> xgb_pulsar_;
   /*! \brief grpc server*/
