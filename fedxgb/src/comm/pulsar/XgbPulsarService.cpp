@@ -171,7 +171,7 @@ void XgbPulsarService::SendEncryptedSplitsByLayer(std::uint32_t nids,
   if (!batched || batched_mode == 2) {
     client->Send(SplitsByLayerTopic(nids), srs);
   } else {
-    client->Send(SizeTopic(nids), std::to_string(srs.splits_requests_size()));
+    // client->Send(SizeTopic(nids), std::to_string(srs.splits_requests_size()));
 
     std::function<xgbcomm::SplitsRequest*(xgbcomm::SplitsRequests&)> addBatch =
         [&](xgbcomm::SplitsRequests& r) { return r.mutable_splits_requests()->Add(); };
@@ -193,8 +193,8 @@ void XgbPulsarService::GetEncryptedSplitsByLayer(std::uint32_t nids, xgbcomm::Sp
   if (!batched || batched_mode == 2) {
     client->Receive(SplitsByLayerTopic(nids), srs);
   } else {
-    std::string s;
-    client->Receive(SizeTopic(nids), s);
+    // std::string s;
+    // client->Receive(SizeTopic(nids), s);
 
     std::function<google::protobuf::RepeatedPtrField<xgbcomm::SplitsRequest>(
         const xgbcomm::SplitsRequests&)>
@@ -203,7 +203,7 @@ void XgbPulsarService::GetEncryptedSplitsByLayer(std::uint32_t nids, xgbcomm::Sp
       getBatch = nullptr;
     }
     client->BatchReceive<xgbcomm::SplitsRequest, xgbcomm::SplitsRequests>(
-        SplitsByLayerTopic(nids), *(srs.mutable_splits_requests()), atoi(s.c_str()), getBatch);
+        SplitsByLayerTopic(nids), srs.mutable_splits_requests(), getBatch);
   }
 
   /*std::size_t size = 0;
@@ -379,7 +379,7 @@ void XgbPulsarService::SendBlockInfos(
     if (!batched || batched_mode == 2) {
       client->Send(BlockInfosTopic(nids), bis);
     } else {
-      client->Send(SizeTopic(nids), std::to_string(bis.block_infos_size()));
+      // client->Send(SizeTopic(nids), std::to_string(bis.block_infos_size()));
 
       std::function<xgbcomm::BlockInfo*(xgbcomm::BlockInfos&)> addBatch =
           [&](xgbcomm::BlockInfos& r) { return r.mutable_block_infos()->Add(); };
@@ -400,8 +400,8 @@ void XgbPulsarService::GetBlockInfos(
   if (!batched || batched_mode == 2) {
     client->Receive(BlockInfosTopic(nids), bis);
   } else {
-    std::string s;
-    client->Receive(SizeTopic(nids), s);
+    // std::string s;
+    // client->Receive(SizeTopic(nids), s);
 
     std::function<google::protobuf::RepeatedPtrField<xgbcomm::BlockInfo>(
         const xgbcomm::BlockInfos&)>
@@ -410,7 +410,7 @@ void XgbPulsarService::GetBlockInfos(
       getBatch = nullptr;
     }
     client->BatchReceive<xgbcomm::BlockInfo, xgbcomm::BlockInfos>(
-        BlockInfosTopic(nids), *(bis.mutable_block_infos()), atoi(s.c_str()), getBatch);
+        BlockInfosTopic(nids), bis.mutable_block_infos(), getBatch);
   }
 
   ParallelFor(bis.block_infos_size(), n_threads, [&](auto& i) {
