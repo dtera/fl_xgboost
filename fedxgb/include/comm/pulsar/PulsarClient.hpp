@@ -170,7 +170,7 @@ class PulsarClient {
         // ParallelFor(n, n_threads, [&](std::size_t i) {
         for (int i = 0; i < n; ++i) {
           BM bm;
-          for (std::size_t j = i * pulsar_batch_size;
+          for (int j = i * pulsar_batch_size;
                j < std::min((i + 1) * pulsar_batch_size, data.size()); ++j) {
             M* pbMsg = addBatch(bm);
             *pbMsg = data[j];
@@ -451,7 +451,7 @@ class PulsarClient {
   std::string pulsar_tenant;
   std::string pulsar_namespace;
   std::int32_t pulsar_topic_ttl;
-  std::uint32_t pulsar_batch_size;
+  int pulsar_batch_size;
   std::mutex mtx{};
   // std::condition_variable cv{};
   std::int32_t n_threads;
