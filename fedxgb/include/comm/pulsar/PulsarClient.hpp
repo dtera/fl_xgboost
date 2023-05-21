@@ -140,7 +140,7 @@ class PulsarClient {
   void BatchSend(const std::string& topic, const google::protobuf::RepeatedPtrField<M>& data,
                  const std::function<M*(BM&)> addBatch = nullptr, const bool waited = false) {
     BatchSend<M, M, BM, google::protobuf::RepeatedPtrField<M>>(
-        topic, data, [&](M* m, const M& t) { *m = t; }, addBatch, waited,
+        topic, data, [&](M* m, const M& t) { m->CopyFrom(t); }, addBatch, waited,
         [&](std::size_t i,
             const std::function<void(std::size_t i, const google::protobuf::MessageLite& pbMsg)>
                 doSendMsg) { doSendMsg(i, data[i]); });
@@ -272,12 +272,9 @@ class PulsarClient {
           bm.ParseFromString(msg.getDataAsString());
           auto batch = getBatch(bm);
           for (int i = 0; i < batch.size(); ++i) {
-            // data[i] = batch[i];
+            data->Add()->CopyFrom(batch[i]);
           }
           consumer.acknowledge(msg);
-          ParallelFor(batch.size(), n_threads, [&](const size_t i) {
-
-          });
           messageSize++;
         }
       }
