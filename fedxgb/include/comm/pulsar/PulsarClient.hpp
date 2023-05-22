@@ -171,7 +171,6 @@ class PulsarClient {
       std::atomic<std::uint32_t> msgSize{0};
       auto n = data.size();
       producer.send(pulsar::MessageBuilder().setContent(std::to_string(n)).build());
-      LOG(CONSOLE) << "n: " << n << std::endl;
       if (addBatch == nullptr) {
         // ParallelFor(n, n_threads, [&](std::size_t i) { doSendMsg(producer, msgSize, i, data[i]);
         // });
@@ -266,7 +265,6 @@ class PulsarClient {
       pulsar::Message msg;
       consumer.receive(msg);
       auto n = std::stoul(msg.getDataAsString());
-      LOG(CONSOLE) << "n: " << n << std::endl;
       consumer.acknowledge(msg);
 
       if (getBatch == nullptr) {
