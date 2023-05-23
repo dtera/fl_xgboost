@@ -141,6 +141,7 @@ class PulsarClient {
     std::string serializedContent;
     pbMsg.SerializeToString(&serializedContent);
     auto message = pulsar::MessageBuilder()
+                       .setSequenceId(i)
                        .setOrderingKey(std::to_string(i))
                        .setContent(std::move(serializedContent))
                        .build();
@@ -185,7 +186,8 @@ class PulsarClient {
           for (int j = i * pulsar_batch_size;
                j < std::min((i + 1) * pulsar_batch_size, data.size()); ++j) {
             M* pbMsg = addBatch(bm);
-            *pbMsg = data[j];
+            // *pbMsg = std::move(data[j]);
+            pbMsg->CopyFrom(data[j]);
           }
 
           doSendMsg(producer, msgSize, i, bm);
@@ -282,12 +284,12 @@ class PulsarClient {
           bm.ParseFromString(msg.getDataAsString());
           auto batch = getBatch(bm);
           for (int i = 0; i < batch.size(); ++i) {
-            // data[i] = batch[i];
+            data->Add()->CopyFrom(batch[i]);
           }
           consumer.acknowledge(msg);
-          ParallelFor(batch.size(), n_threads, [&](const size_t i) {
-
-          });
+          /*ParallelFor(batch.size(), n_threads, [&](const size_t i) {
+            data->Add()->CopyFrom(batch[i]);
+          });*/
           messageSize++;
         }
       }
