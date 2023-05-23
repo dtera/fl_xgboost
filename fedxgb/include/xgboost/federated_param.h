@@ -96,7 +96,7 @@ struct FederatedParam : public XGBoostParameter<FederatedParam> {
     DMLC_DECLARE_FIELD(fl_pulsar_topic_ttl).set_default(60).describe("Pulsar topic ttl(minutes).");
     DMLC_DECLARE_FIELD(fl_pulsar_batch_size).set_default(100).describe("Pulsar batch size.");
     DMLC_DECLARE_FIELD(fl_pulsar_batch_max_size)
-        .set_default(1000000)
+        .set_default(1000)
         .describe("Pulsar batch max size.");
     DMLC_DECLARE_FIELD(fl_pulsar_batched).set_default(1).describe("Whether pulsar is batched.");
     DMLC_DECLARE_FIELD(fl_pulsar_batched_mode).set_default(0).describe("Pulsar batch mode.");
