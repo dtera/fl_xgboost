@@ -32,14 +32,14 @@ void XgbPulsarService::Start(const std::string& pulsar_url, const std::string& t
   this->pulsar_topic_ttl = pulsar_topic_ttl_;
   this->batched = batched;
   this->batched_mode = batched_mode;
-  char yyyymmddhhMM[13];
-  time_t now = time(NULL);
-  strftime(yyyymmddhhMM, 13, "%Y%m%d%H%M", localtime(&now));
-  auto prefix =
-      topic_prefix +
-      (pulsar_topic_ttl_ > 0 ? std::to_string(std::atoll(yyyymmddhhMM) / pulsar_topic_ttl) : "") +
-      "_";
-  client = std::make_unique<PulsarClient>(pulsar_url, prefix, pulsar_token, pulsar_tenant,
+  auto prefix = topic_prefix;
+  if (pulsar_topic_ttl_ > 0) {
+    char yyyymmddhhMM[13];
+    time_t now = time(NULL);
+    strftime(yyyymmddhhMM, 13, "%Y%m%d%H%M", localtime(&now));
+    prefix += std::to_string(std::atoll(yyyymmddhhMM) / pulsar_topic_ttl);
+  }
+  client = std::make_unique<PulsarClient>(pulsar_url, prefix + "_", pulsar_token, pulsar_tenant,
                                           pulsar_namespace, pulsar_topic_ttl, pulsar_batch_size,
                                           pulsar_batch_max_size, n_threads);
 }
