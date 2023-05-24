@@ -35,10 +35,13 @@ void XgbPulsarService::Start(const std::string& pulsar_url, const std::string& t
   char yyyymmddhhMM[13];
   time_t now = time(NULL);
   strftime(yyyymmddhhMM, 13, "%Y%m%d%H%M", localtime(&now));
-  client = std::make_unique<PulsarClient>(
-      pulsar_url, topic_prefix + std::to_string(std::atoll(yyyymmddhhMM) / pulsar_topic_ttl) + "_",
-      pulsar_token, pulsar_tenant, pulsar_namespace, pulsar_topic_ttl, pulsar_batch_size,
-      pulsar_batch_max_size, n_threads);
+  auto prefix =
+      topic_prefix +
+      (pulsar_topic_ttl_ > 0 ? std::to_string(std::atoll(yyyymmddhhMM) / pulsar_topic_ttl) : "") +
+      "_";
+  client = std::make_unique<PulsarClient>(pulsar_url, prefix, pulsar_token, pulsar_tenant,
+                                          pulsar_namespace, pulsar_topic_ttl, pulsar_batch_size,
+                                          pulsar_batch_max_size, n_threads);
 }
 
 void XgbPulsarService::SetPriKey(opt_private_key_t* pri_) { pri = pri_; }
