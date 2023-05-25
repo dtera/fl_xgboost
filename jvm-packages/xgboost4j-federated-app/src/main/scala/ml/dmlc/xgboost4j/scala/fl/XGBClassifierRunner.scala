@@ -62,7 +62,9 @@ object XGBClassifierRunner extends AbstractSparkApp {
 
     if (isSpark) {
       local = params.getOrElse("local", false).toString.toBoolean
-      val inputDF = spark.read.format(FED_LIBSVM).option("numFeatures", numFeatures).load(inputPath)
+      val limit = params.getOrElse("limit", 0).toString.toInt
+      var inputDF = spark.read.format(FED_LIBSVM).option("numFeatures", numFeatures).load(inputPath)
+      inputDF = if (limit == 0) inputDF else inputDF.limit(limit)
       /*
       import spark.implicits._
       val inputDF = FedMLUtils.loadLibSVMFile(sc, inputPath, numFeatures).map(lp => (lp.label, lp.features))
