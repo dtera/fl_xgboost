@@ -94,7 +94,7 @@ class RegLossObj : public ObjFunction {
     CheckRegInputs(info, preds);
     size_t const ndata = preds.Size();
     out_gpair->Resize(ndata);
-    encrypted_gpair->Resize(ndata);
+    // encrypted_gpair->Resize(ndata);
 
     auto device = ctx_->gpu_id;
     additional_input_.HostVector().begin()[0] = 1;  // Fill the label_correct flag

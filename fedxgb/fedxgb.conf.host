@@ -1,5 +1,6 @@
 # Originally an example in demo/regression/
 booster = gbtree
+# reg:squarederror, binary:logistic
 objective = reg:squarederror
 eta = 1.0
 gamma = 1.0
@@ -25,6 +26,7 @@ fl_address = 0.0.0.0:50002
 fl_role = host
 fl_part_id = 1
 fl_on = 1
+# communication type: socket, pulsar
 fl_comm_type = pulsar
 fl_pulsar_url = pulsar://localhost:6650
 fl_pulsar_batched = 1
