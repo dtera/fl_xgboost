@@ -287,11 +287,11 @@ void XgbServiceServer::UpdateExpandEntry(
 
 void XgbServiceServer::UpdateBestEncryptedSplit(uint32_t nidx, const EncryptedSplit& best_split) {
   // lock_guard lk(m);
-  best_splits_.insert({nidx, best_split});
+  best_splits_.insert_or_assign(nidx, best_split);
 }
 
 void XgbServiceServer::UpdateFinishSplits(uint32_t nidx, bool finish_split) {
-  finish_splits_.insert({nidx, finish_split});
+  finish_splits_.insert_or_assign(nidx, finish_split);
 }
 
 void XgbServiceServer::GetLeftRightNodeSize(size_t node_in_set, size_t* n_left, size_t* n_right) {
