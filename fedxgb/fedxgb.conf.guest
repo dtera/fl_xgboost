@@ -1,12 +1,12 @@
 # Originally an example in demo/regression/
 booster = gbtree
 # reg:squarederror, binary:logistic
-objective = reg:squarederror
+objective = binary:logistic
 eta = 1.0
 gamma = 1.0
 seed = 0
 min_child_weight = 0
-max_depth = 8
+max_depth = 5
 verbosity = 1  # 0 (silent), 1 (warning), 2 (info), 3 (debug)
 tree_method = hist
 eval_metric = auc
@@ -28,7 +28,7 @@ fl_bit_len = 1024
 fl_part_id = 0
 fl_on = 1
 # communication type: socket, pulsar
-fl_comm_type = pulsar
+fl_comm_type = socket
 fl_pulsar_url = pulsar://localhost:6650
 fl_pulsar_batched = 1
 fl_pulsar_batched_mode = 3
