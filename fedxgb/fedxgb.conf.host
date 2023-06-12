@@ -12,7 +12,7 @@ tree_method = hist
 eval_metric = auc
 dsplit = col
 
-num_round = 3
+num_round = 10
 save_period = 0
 data = "../../data/a9a.host.train?format=libsvm"
 eval[train] = "../../data/a9a.host.train?format=libsvm"
@@ -27,7 +27,7 @@ fl_role = host
 fl_part_id = 1
 fl_on = 1
 # communication type: socket, pulsar
-fl_comm_type = socket
+fl_comm_type = pulsar
 fl_pulsar_url = pulsar://localhost:6650
 fl_pulsar_batched = 1
 fl_pulsar_batched_mode = 3
