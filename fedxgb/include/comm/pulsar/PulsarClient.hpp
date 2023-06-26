@@ -42,10 +42,12 @@ class PulsarClient {
         pulsar_tenant(pulsar_tenant),
         pulsar_namespace(pulsar_namespace),
         pulsar_topic_ttl(pulsar_topic_ttl),
+        pulsar_eof("__FED_XGB_PULSAR_EOF__"),
         n_threads(n_threads),
         pulsar_batch_size(pulsar_batch_size) {
     client_config.setAuth(pulsar::AuthToken::createWithToken(pulsar_token));
     client_config.setMemoryLimit(0);
+    client_config.setIOThreads(n_threads);
     client = std::make_unique<pulsar::Client>(pulsar_url, client_config);
 
     producer_config.setBatchingEnabled(false);
@@ -66,7 +68,7 @@ class PulsarClient {
     // producer_config.setBatchingMaxPublishDelayMs(10);
 
     consumer_config.setSubscriptionInitialPosition(pulsar::InitialPositionEarliest);
-    consumer_config.setConsumerType(pulsar::ConsumerType::ConsumerExclusive);
+    consumer_config.setConsumerType(pulsar::ConsumerType::ConsumerKeyShared);
     consumer_config.setAutoAckOldestChunkedMessageOnQueueFull(true);
     consumer_config.setMaxPendingChunkedMessage(100);
   }
@@ -136,10 +138,8 @@ class PulsarClient {
     }
   }
 
-  void doSendMsg(pulsar::Producer& producer, std::atomic<std::uint32_t>& msgSize, std::size_t i,
-                 const google::protobuf::MessageLite& pbMsg) {
-    std::string serializedContent;
-    pbMsg.SerializeToString(&serializedContent);
+  inline void doSendMsg(pulsar::Producer& producer, std::atomic<std::uint32_t>& msgSize,
+                        std::size_t i, const std::string& serializedContent) {
     auto message = pulsar::MessageBuilder()
                        .setOrderingKey(std::to_string(i))
                        .setContent(std::move(serializedContent))
@@ -157,6 +157,13 @@ class PulsarClient {
     });
   };
 
+  void doSendMsg(pulsar::Producer& producer, std::atomic<std::uint32_t>& msgSize, std::size_t i,
+                 const google::protobuf::MessageLite& pbMsg) {
+    std::string serializedContent;
+    pbMsg.SerializeToString(&serializedContent);
+    doSendMsg(producer, msgSize, i, serializedContent);
+  };
+
   template <typename M, typename BM = xgbcomm::Request>
   void BatchSend(const std::string& topic, const google::protobuf::RepeatedPtrField<M>& data,
                  const std::function<M*(BM&)> addBatch = nullptr, const bool waited = false) {
@@ -170,12 +177,16 @@ class PulsarClient {
 
       std::atomic<std::uint32_t> msgSize{0};
       auto n = data.size();
-      producer.send(pulsar::MessageBuilder().setContent(std::to_string(n)).build());
+      /*producer.send(pulsar::MessageBuilder().setContent(std::to_string(n)).build());
+      producer.flush();*/
       if (addBatch == nullptr) {
         // ParallelFor(n, n_threads, [&](std::size_t i) { doSendMsg(producer, msgSize, i, data[i]);
         // });
         for (int i = 0; i < n; ++i) {
           doSendMsg(producer, msgSize, i, data[i]);
+          if (i != 0 && i % pulsar_batch_size == 0) {
+            producer.flushAsync([](pulsar::Result r) {});
+          }
         }
       } else {
         n = n / pulsar_batch_size + (n % pulsar_batch_size == 0 ? 0 : 1);
@@ -190,10 +201,14 @@ class PulsarClient {
           }
 
           doSendMsg(producer, msgSize, i, bm);
+          if (i != 0 && i % pulsar_batch_size == 0) {
+            producer.flushAsync([](pulsar::Result r) {});
+          }
         }  //);
       }
+      doSendMsg(producer, msgSize, n, pulsar_eof);
 
-      producer.flush();
+      producer.flushAsync([](pulsar::Result r) {});
       if (waited) {
         while (msgSize < data.size() - 1) {
           std::this_thread::sleep_for(std::chrono::milliseconds(10));
@@ -220,14 +235,20 @@ class PulsarClient {
       auto n = data.size();
 
       if (addBatch == nullptr) {
-        ParallelFor(n, n_threads, [&](std::size_t i) {
+        // ParallelFor(n, n_threads, [&](std::size_t i) {
+        for (int i = 0; i < n; ++i) {
           M pbMsg;
           convertObj2PB(&pbMsg, data[i]);
           doSendMsg(producer, msgSize, i, pbMsg);
-        });
+          if (i != 0 && i % pulsar_batch_size == 0) {
+            producer.flushAsync([](pulsar::Result r) {});
+          }
+        }
+        //});
       } else {
         n = n / pulsar_batch_size + (n % pulsar_batch_size == 0 ? 0 : 1);
-        ParallelFor(n, n_threads, [&](std::size_t i) {
+        // ParallelFor(n, n_threads, [&](std::size_t i) {
+        for (std::size_t i = 0; i < n; ++i) {
           BM bm;
           for (std::size_t j = i * pulsar_batch_size;
                j < std::min((i + 1) * pulsar_batch_size, (std::size_t)data.size()); ++j) {
@@ -236,10 +257,14 @@ class PulsarClient {
           }
 
           doSendMsg(producer, msgSize, i, bm);
-        });
+          if (i != 0 && i % pulsar_batch_size == 0) {
+            producer.flushAsync([](pulsar::Result r) {});
+          }
+        }
+        //});
       }
 
-      producer.flush();
+      producer.flushAsync([](pulsar::Result r) {});
       if (waited) {
         // std::unique_lock<std::mutex> lk(mtx);
         while (msgSize < data.size() - 1) {
@@ -264,23 +289,30 @@ class PulsarClient {
       pulsar::Consumer consumer;
       client->subscribe(pulsar_topic_prefix + topic, subscriptionName, consumer_config, consumer);
       pulsar::Message msg;
-      consumer.receive(msg);
+      /*consumer.receive(msg);
       auto n = std::stoul(msg.getDataAsString());
-      consumer.acknowledge(msg);
-
+      consumer.acknowledge(msg);*/
+      bool flag = true;
       if (getBatch == nullptr) {
-        while (messageSize < n) {
+        // while (messageSize < n) {
+        while (flag) {
           consumer.receive(msg);
-          data->Add()->ParseFromString(msg.getDataAsString());
+          auto content = msg.getDataAsString();
+          data->Add()->ParseFromString(content);
           consumer.acknowledge(msg);
           messageSize++;
+          if (content == pulsar_eof) {
+            flag = false;
+          }
         }
       } else {
-        n = n / pulsar_batch_size + (n % pulsar_batch_size == 0 ? 0 : 1);
-        while (messageSize < n) {
+        // n = n / pulsar_batch_size + (n % pulsar_batch_size == 0 ? 0 : 1);
+        // while (messageSize < n) {
+        while (flag) {
           BM bm;
           consumer.receive(msg);
-          bm.ParseFromString(msg.getDataAsString());
+          auto content = msg.getDataAsString();
+          bm.ParseFromString(content);
           auto batch = getBatch(bm);
           for (int i = 0; i < batch.size(); ++i) {
             data->Add()->CopyFrom(batch[i]);
@@ -290,6 +322,9 @@ class PulsarClient {
             data->Add()->CopyFrom(batch[i]);
           });*/
           messageSize++;
+          if (content == pulsar_eof) {
+            flag = false;
+          }
         }
       }
       LOG(CONSOLE) << "Receive " << messageSize << " messages." << std::endl;
@@ -367,7 +402,8 @@ class PulsarClient {
             consumer.receive(msg);
             M pbMsg;
             pbMsg.ParseFromString(msg.getDataAsString());
-            doReceiveMsg(pbMsg, std::stoul(msg.getOrderingKey()));
+            // doReceiveMsg(pbMsg, std::stoul(msg.getOrderingKey()));
+            doReceiveMsg(pbMsg, messageSize);
             consumer.acknowledge(msg);
             messageSize++;
           }
@@ -378,7 +414,8 @@ class PulsarClient {
             consumer.receive(msg);
             bm.ParseFromString(msg.getDataAsString());
             auto batch = getBatch(bm);
-            auto offset = std::stoul(msg.getOrderingKey()) * pulsar_batch_size;
+            // auto offset = std::stoul(msg.getOrderingKey()) * pulsar_batch_size;
+            auto offset = messageSize * pulsar_batch_size;
             ParallelFor(batch.size(), n_threads, [&](const size_t i) {
               M pbMsg = batch[i];
               doReceiveMsg(pbMsg, offset + i);
@@ -415,6 +452,7 @@ class PulsarClient {
   std::string pulsar_tenant;
   std::string pulsar_namespace;
   std::int32_t pulsar_topic_ttl;
+  std::string pulsar_eof;
   int pulsar_batch_size;
   std::mutex mtx{};
   // std::condition_variable cv{};

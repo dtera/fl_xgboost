@@ -61,7 +61,7 @@ else ()
 endif (LINK_STATIC)
 
 foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest Opt@helib OpenMP OpenSSL
-        Protobuf Pulsar Opt@TBB Threads)
+        Protobuf Pulsar Opt@TBB Threads absl)
     string(REGEX REPLACE "(:(.*)?)|(Opt@)" "" pkg_name ${pkg})
     string(REGEX MATCH ":(.*)?$" f1 ${pkg})
     string(FIND ${pkg} "Opt@" f2)
@@ -129,10 +129,47 @@ include_directories(./include ./src ../src ${PROTO_GENERATED_DIR}  # ${TBB_PREFI
 #link_directories(${TBB_PREFIX_DIR}/lib)
 link_libraries(${GMP_LIB_DIR}/libgmp.${LIB_SUFFIX}) # libtbb.${LIB_SUFFIX}
 
+set(protobuf_ABSL_USED_TARGETS
+        absl::absl_check
+        absl::absl_log
+        absl::algorithm
+        absl::base
+        absl::bind_front
+        absl::bits
+        absl::btree
+        absl::cleanup
+        absl::cord
+        absl::core_headers
+        absl::debugging
+        absl::die_if_null
+        absl::dynamic_annotations
+        absl::flags
+        absl::flat_hash_map
+        absl::flat_hash_set
+        absl::function_ref
+        absl::hash
+        absl::layout
+        absl::log_initialize
+        absl::log_severity
+        absl::memory
+        absl::node_hash_map
+        absl::node_hash_set
+        absl::optional
+        absl::span
+        absl::status
+        absl::statusor
+        absl::strings
+        absl::synchronization
+        absl::time
+        absl::type_traits
+        absl::utility
+        absl::variant
+        )
 # link libraries for the target
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
-target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES} protobuf::libprotobuf protobuf::libprotobuf-lite
+target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES}
+        protobuf::libprotobuf protobuf::libprotobuf-lite ${protobuf_ABSL_USED_TARGETS}
         OpenMP::OpenMP_CXX gRPC::gpr gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection TBB::tbb ${PULSAR_LIBRARIES})
 #add_dependencies(${PROJECT_NAME}_lib tbb)
 

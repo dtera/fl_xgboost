@@ -270,10 +270,16 @@ set_target_properties(runxgboost PROPERTIES OUTPUT_NAME xgboost)
 #-- End CLI for xgboost
 
 # Common setup for all targets
+set(CMAKE_CXX_STANDARD 17)
 foreach (target xgboost objxgboost dmlc runxgboost)
     xgboost_target_properties(${target})
     xgboost_target_link_libraries(${target})
     xgboost_target_defs(${target})
+    set_target_properties(${target} PROPERTIES
+            CXX_STANDARD ${CMAKE_CXX_STANDARD}
+            CXX_EXTENSIONS OFF
+            CXX_STANDARD_REQUIRED ON
+            )
 endforeach ()
 
 if (JVM_BINDINGS)
