@@ -132,8 +132,8 @@ grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 # include directories and link libraries
 include_directories(./include ./src ../src ${PROTO_GENERATED_DIR}  # ${TBB_PREFIX_DIR}/include
         ${xgboost_SOURCE_DIR}/include ${xgboost_SOURCE_DIR}/dmlc-core/include ${xgboost_SOURCE_DIR}/rabit/include)
-#link_directories(${TBB_PREFIX_DIR}/lib)
-link_libraries(${GMP_LIB_DIR}/libgmp.${LIB_SUFFIX}) # libtbb.${LIB_SUFFIX}
+link_directories(${GMP_LIB_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/libs) # ${TBB_PREFIX_DIR}/lib
+link_libraries(gmp heu) # libtbb.${LIB_SUFFIX}
 
 set(protobuf_ABSL_USED_TARGETS
         absl::absl_check
@@ -174,7 +174,7 @@ set(protobuf_ABSL_USED_TARGETS
 # link libraries for the target
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
-target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES} ${CMAKE_CURRENT_SOURCE_DIR}/libs/libheu.a
+target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES}
         protobuf::libprotobuf protobuf::libprotobuf-lite ${protobuf_ABSL_USED_TARGETS} benchmark::benchmark gflags
         OpenMP::OpenMP_CXX gRPC::gpr gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection TBB::tbb ${PULSAR_LIBRARIES})
 #add_dependencies(${PROJECT_NAME}_lib tbb)
