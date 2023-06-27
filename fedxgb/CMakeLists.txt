@@ -67,7 +67,7 @@ else ()
 endif (LINK_STATIC)
 
 foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest Opt@helib OpenMP OpenSSL
-        Protobuf Pulsar Opt@TBB Threads absl)
+        Protobuf Pulsar Opt@TBB Threads absl gflags benchmark)
     string(REGEX REPLACE "(:(.*)?)|(Opt@)" "" pkg_name ${pkg})
     string(REGEX MATCH ":(.*)?$" f1 ${pkg})
     string(FIND ${pkg} "Opt@" f2)
@@ -174,8 +174,8 @@ set(protobuf_ABSL_USED_TARGETS
 # link libraries for the target
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
-target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES}
-        protobuf::libprotobuf protobuf::libprotobuf-lite ${protobuf_ABSL_USED_TARGETS}
+target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES} ${CMAKE_CURRENT_SOURCE_DIR}/libs/libheu.a
+        protobuf::libprotobuf protobuf::libprotobuf-lite ${protobuf_ABSL_USED_TARGETS} benchmark::benchmark gflags
         OpenMP::OpenMP_CXX gRPC::gpr gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection TBB::tbb ${PULSAR_LIBRARIES})
 #add_dependencies(${PROJECT_NAME}_lib tbb)
 
