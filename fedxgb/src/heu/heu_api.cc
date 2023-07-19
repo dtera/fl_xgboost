@@ -1,4 +1,4 @@
-// Copyright 2023 Tencent Inc.
+// Copyright 2023 @dterazhao.
 
 #include "heu/heu_api.h"
 
@@ -15,13 +15,9 @@ void CheckCall(int ret, const std::string &desc) {
  * \param out the result handle of HeKit
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int HeKitCreate(const int schema, const int key_size,
-                        HeKitHandle *out) {
-  API({
-    *out = new heu::lib::phe::HeKit(
-        static_cast<heu::lib::phe::SchemaType>(schema), key_size);
-  });
-}
+HEU_DLL int HeKitCreate(const int schema, const int key_size, HeKitHandle *out){API({
+  *out = new heu::lib::phe::HeKit(static_cast<heu::lib::phe::SchemaType>(schema), key_size);
+})}
 
 /*!
  * \brief create HeKit from serialized PublicKey and SecretKey
@@ -32,26 +28,21 @@ HEU_DLL int HeKitCreate(const int schema, const int key_size,
  * \param out the result handle of HeKit
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int HeKitCreateFromKeys(const PubKeyHandle pub_key_handle,
-                                const std::size_t pub_key_size,
-                                const PubKeyHandle sec_key_handle,
-                                const std::size_t sec_key_size,
-                                HeKitHandle *out) {
-  CHECK_NULL(pub_key_handle)
-  CHECK_NULL(sec_key_handle)
-  API({
-    yacl::Buffer pk_buffer(pub_key_handle, pub_key_size);
-    yacl::Buffer sk_buffer(sec_key_handle, sec_key_size);
-    *out = new heu::lib::phe::HeKit(pk_buffer, sk_buffer);
-  });
-}
+HEU_DLL int HeKitCreateFromKeys(const PubKeyHandle pub_key_handle, const std::size_t pub_key_size,
+                                const PubKeyHandle sec_key_handle, const std::size_t sec_key_size,
+                                HeKitHandle *out){
+    CHECK_NULL(pub_key_handle) CHECK_NULL(sec_key_handle) API({
+      yacl::Buffer pk_buffer(pub_key_handle, pub_key_size);
+      yacl::Buffer sk_buffer(sec_key_handle, sec_key_size);
+      *out = new heu::lib::phe::HeKit(pk_buffer, sk_buffer);
+    })}
 
 /*!
  * \brief free obj in handle
  * \param handle handle to be freed
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int HeKitFree(HeKitHandle handle) { API_HEKIT_HANDLE(delete hekit); }
+HEU_DLL int HeKitFree(HeKitHandle handle){API_HEKIT_HANDLE(delete hekit)}
 
 /*!
  * \brief create DestinationHeKit
@@ -60,23 +51,18 @@ HEU_DLL int HeKitFree(HeKitHandle handle) { API_HEKIT_HANDLE(delete hekit); }
  * \param out the result handle of DestinationHeKit
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int DestinationHeKitCreate(const PubKeyHandle handle,
-                                   const std::size_t size,
-                                   DestinationHeKitHandle *out) {
-  API_HANDLE({
-    yacl::Buffer pk_buffer(handle, size);
-    *out = new heu::lib::phe::DestinationHeKit(pk_buffer);
-  });
-}
+HEU_DLL int DestinationHeKitCreate(const PubKeyHandle handle, const std::size_t size,
+                                   DestinationHeKitHandle *out){API_HANDLE({
+  yacl::Buffer pk_buffer(handle, size);
+  *out = new heu::lib::phe::DestinationHeKit(pk_buffer);
+})}
 
 /*!
  * \brief free obj in handle
  * \param handle handle to be freed
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int DestinationHeKitFree(DestinationHeKitHandle handle) {
-  API_DHEKIT_HANDLE(delete dhekit);
-}
+HEU_DLL int DestinationHeKitFree(DestinationHeKitHandle handle){API_DHEKIT_HANDLE(delete dhekit)}
 
 /*!
  * \brief get serialized buffer using hekit
@@ -86,22 +72,19 @@ HEU_DLL int DestinationHeKitFree(DestinationHeKitHandle handle) {
  * \param process_buf the function to process the serialized buffer
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int
-GetBuffer(HeKitHandle handle, void **out,
-          std::function<yacl::Buffer(heu::lib::phe::HeKit *)> get_buf,
-          std::function<void(yacl::Buffer &buf)> process_buf) {
-  API_HEKIT_HANDLE({
-    auto buf = get_buf(hekit);
-    if (buf.size() > 0) {
-      if (process_buf == nullptr) {
-        *out = malloc(buf.size());
-        std::memcpy(*out, buf.data(), buf.size());
-      } else {
-        process_buf(buf);
-      }
+HEU_DLL int GetBuffer(HeKitHandle handle, void **out,
+                      std::function<yacl::Buffer(heu::lib::phe::HeKit *)> get_buf,
+                      std::function<void(yacl::Buffer &buf)> process_buf){API_HEKIT_HANDLE({
+  auto buf = get_buf(hekit);
+  if (buf.size() > 0) {
+    if (process_buf == nullptr) {
+      *out = malloc(buf.size());
+      std::memcpy(*out, buf.data(), buf.size());
+    } else {
+      process_buf(buf);
     }
-  });
-}
+  }
+})}
 
 /*!
  * \brief get public key using hekit
@@ -113,8 +96,7 @@ GetBuffer(HeKitHandle handle, void **out,
 HEU_DLL int GetPubKey(HeKitHandle handle, PubKeyHandle *out,
                       std::function<void(yacl::Buffer &buf)> process_buf) {
   return GetBuffer(
-      handle, out,
-      [&](auto hekit) { return std::move(hekit->GetPublicKey()->Serialize()); },
+      handle, out, [&](auto hekit) { return std::move(hekit->GetPublicKey()->Serialize()); },
       process_buf);
 }
 
@@ -128,8 +110,7 @@ HEU_DLL int GetPubKey(HeKitHandle handle, PubKeyHandle *out,
 HEU_DLL int GetSecKey(HeKitHandle handle, SecKeyHandle *out,
                       std::function<void(yacl::Buffer &buf)> process_buf) {
   return GetBuffer(
-      handle, out,
-      [&](auto hekit) { return std::move(hekit->GetSecretKey()->Serialize()); },
+      handle, out, [&](auto hekit) { return std::move(hekit->GetSecretKey()->Serialize()); },
       process_buf);
 }
 
@@ -140,11 +121,9 @@ HEU_DLL int GetSecKey(HeKitHandle handle, SecKeyHandle *out,
  * \param c2 second cipher to be added
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int AddCipherInplace(DestinationHeKitHandle handle,
-                             heu::lib::phe::Ciphertext &c1,
-                             const heu::lib::phe::Ciphertext &c2) {
-  API_DHEKIT_HANDLE({ dhekit->GetEvaluator()->AddInplace(&c1, c2); });
-}
+HEU_DLL int AddCipherInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext &c1,
+                             const heu::lib::phe::Ciphertext &c2){
+    API_DHEKIT_HANDLE({ dhekit->GetEvaluator()->AddInplace(&c1, c2); })}
 
 /*!
  * \brief substract the cipher inplace using DestinationHeKit
@@ -153,11 +132,9 @@ HEU_DLL int AddCipherInplace(DestinationHeKitHandle handle,
  * \param c2 second cipher to be substracted
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int SubCipherInplace(DestinationHeKitHandle handle,
-                             heu::lib::phe::Ciphertext &c1,
-                             const heu::lib::phe::Ciphertext &c2) {
-  API_DHEKIT_HANDLE({ dhekit->GetEvaluator()->SubInplace(&c1, c2); });
-}
+HEU_DLL int SubCipherInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext &c1,
+                             const heu::lib::phe::Ciphertext &c2){
+    API_DHEKIT_HANDLE({ dhekit->GetEvaluator()->SubInplace(&c1, c2); })}
 
 /*!
  * \brief add the ciphers inplace using DestinationHeKit
@@ -168,16 +145,11 @@ HEU_DLL int SubCipherInplace(DestinationHeKitHandle handle,
  * \param n_threads the number of thread
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int AddCiphersInplace(DestinationHeKitHandle handle,
-                              heu::lib::phe::Ciphertext *cs1,
-                              const heu::lib::phe::Ciphertext *cs2,
-                              const int len, int32_t n_threads) {
-  API_DHEKIT_HANDLE({
-    ParallelFor(len, n_threads, [&](int i) {
-      dhekit->GetEvaluator()->AddInplace(&cs1[i], cs2[i]);
-    });
-  });
-}
+HEU_DLL int AddCiphersInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
+                              const heu::lib::phe::Ciphertext *cs2, const int len,
+                              int32_t n_threads){API_DHEKIT_HANDLE({
+  ParallelFor(len, n_threads, [&](int i) { dhekit->GetEvaluator()->AddInplace(&cs1[i], cs2[i]); });
+})}
 
 /*!
  * \brief subtract the ciphers inplace using DestinationHeKit
@@ -188,16 +160,11 @@ HEU_DLL int AddCiphersInplace(DestinationHeKitHandle handle,
  * \param n_threads the number of thread
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int SubCiphersInplace(DestinationHeKitHandle handle,
-                              heu::lib::phe::Ciphertext *cs1,
-                              const heu::lib::phe::Ciphertext *cs2,
-                              const int len, int32_t n_threads) {
-  API_DHEKIT_HANDLE({
-    ParallelFor(len, n_threads, [&](int i) {
-      dhekit->GetEvaluator()->SubInplace(&cs1[i], cs2[i]);
-    });
-  });
-}
+HEU_DLL int SubCiphersInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
+                              const heu::lib::phe::Ciphertext *cs2, const int len,
+                              int32_t n_threads){API_DHEKIT_HANDLE({
+  ParallelFor(len, n_threads, [&](int i) { dhekit->GetEvaluator()->SubInplace(&cs1[i], cs2[i]); });
+})}
 
 /*!
  * \brief scatter add the ciphers inplace using DestinationHeKit
@@ -209,23 +176,19 @@ HEU_DLL int SubCiphersInplace(DestinationHeKitHandle handle,
  * \param n_threads the number of thread
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int ScatterAddCiphersInplace(DestinationHeKitHandle handle,
-                                     heu::lib::phe::Ciphertext *cs1,
-                                     const heu::lib::phe::Ciphertext *cs2,
-                                     const long *indexes, const int len,
-                                     bool parallel, int32_t n_threads) {
-  API_DHEKIT_HANDLE({
-    if (parallel) {
-      ParallelFor(len, n_threads, [&](int i) {
-        dhekit->GetEvaluator()->AddInplace(&cs1[indexes[i]], cs2[i]);
-      });
-    } else {
-      for (int i = 0; i < len; ++i) {
-        dhekit->GetEvaluator()->AddInplace(&cs1[indexes[i]], cs2[i]);
-      }
+HEU_DLL int ScatterAddCiphersInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
+                                     const heu::lib::phe::Ciphertext *cs2, const long *indexes,
+                                     const int len, bool parallel,
+                                     int32_t n_threads){API_DHEKIT_HANDLE({
+  if (parallel) {
+    ParallelFor(len, n_threads,
+                [&](int i) { dhekit->GetEvaluator()->AddInplace(&cs1[indexes[i]], cs2[i]); });
+  } else {
+    for (int i = 0; i < len; ++i) {
+      dhekit->GetEvaluator()->AddInplace(&cs1[indexes[i]], cs2[i]);
     }
-  });
-}
+  }
+})}
 
 /*!
  * \brief scatter subtract the ciphers inplace using DestinationHeKit
@@ -237,47 +200,39 @@ HEU_DLL int ScatterAddCiphersInplace(DestinationHeKitHandle handle,
  * \param n_threads the number of thread
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int ScatterSubCiphersInplace(DestinationHeKitHandle handle,
-                                     heu::lib::phe::Ciphertext *cs1,
-                                     const heu::lib::phe::Ciphertext *cs2,
-                                     const long *indexes, const int len,
-                                     bool parallel, int32_t n_threads) {
-  API_DHEKIT_HANDLE({
-    if (parallel) {
-      ParallelFor(len, n_threads, [&](int i) {
-        dhekit->GetEvaluator()->SubInplace(&cs1[indexes[i]], cs2[i]);
-      });
-    } else {
-      for (int i = 0; i < len; ++i) {
-        dhekit->GetEvaluator()->SubInplace(&cs1[indexes[i]], cs2[i]);
-      }
+HEU_DLL int ScatterSubCiphersInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
+                                     const heu::lib::phe::Ciphertext *cs2, const long *indexes,
+                                     const int len, bool parallel,
+                                     int32_t n_threads){API_DHEKIT_HANDLE({
+  if (parallel) {
+    ParallelFor(len, n_threads,
+                [&](int i) { dhekit->GetEvaluator()->SubInplace(&cs1[indexes[i]], cs2[i]); });
+  } else {
+    for (int i = 0; i < len; ++i) {
+      dhekit->GetEvaluator()->SubInplace(&cs1[indexes[i]], cs2[i]);
+    }
+  }
+})}
+
+/*!
+ * \brief add the ciphers inplace at 1st dimension using DestinationHeKit
+ * \param handle DestinationHeKitHandle
+ * \param cs1 the ciphers to be added, also as a result
+ * \param cs2 the ciphers to be added
+ * \param len1 the length of the ciphers at 1st dimension
+ * \param len2 the length of the ciphers at 2st dimension
+ * \param n_threads the number of thread
+ * \return 0 when success, -1 when failure happens
+ */
+HEU_DLL int AddCiphersInplaceAxis0(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
+                                   heu::lib::phe::Ciphertext **cs2, const int len1, const int len2,
+                                   int32_t n_threads){API_DHEKIT_HANDLE({
+  ParallelFor(len1, n_threads, [&](int i) {
+    for (int j = 0; j < len2; ++j) {
+      dhekit->GetEvaluator()->AddInplace(&cs1[i], cs2[i][j]);
     }
   });
-}
-
-/*!
- * \brief add the ciphers inplace at 1st dimension using DestinationHeKit
- * \param handle DestinationHeKitHandle
- * \param cs1 the ciphers to be added, also as a result
- * \param cs2 the ciphers to be added
- * \param len1 the length of the ciphers at 1st dimension
- * \param len2 the length of the ciphers at 2st dimension
- * \param n_threads the number of thread
- * \return 0 when success, -1 when failure happens
- */
-HEU_DLL int AddCiphersInplaceAxis0(DestinationHeKitHandle handle,
-                                   heu::lib::phe::Ciphertext *cs1,
-                                   heu::lib::phe::Ciphertext **cs2,
-                                   const int len1, const int len2,
-                                   int32_t n_threads) {
-  API_DHEKIT_HANDLE({
-    ParallelFor(len1, n_threads, [&](int i) {
-      for (int j = 0; j < len2; ++j) {
-        dhekit->GetEvaluator()->AddInplace(&cs1[i], cs2[i][j]);
-      }
-    });
-  });
-}
+})}
 
 /*!
  * \brief add the ciphers inplace at 1st dimension using DestinationHeKit
@@ -289,19 +244,15 @@ HEU_DLL int AddCiphersInplaceAxis0(DestinationHeKitHandle handle,
  * \param n_threads the number of thread
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int AddCiphersInplaceAxis0_(DestinationHeKitHandle handle,
-                                    heu::lib::phe::Ciphertext *cs1,
-                                    heu::lib::phe::Ciphertext **cs2,
-                                    int *row_size, const int len,
-                                    int32_t n_threads) {
-  API_DHEKIT_HANDLE({
-    ParallelFor(len, n_threads, [&](int i) {
-      for (int j = 0; j < row_size[i]; ++j) {
-        dhekit->GetEvaluator()->AddInplace(&cs1[i], cs2[i][j]);
-      }
-    });
+HEU_DLL int AddCiphersInplaceAxis0_(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
+                                    heu::lib::phe::Ciphertext **cs2, int *row_size, const int len,
+                                    int32_t n_threads){API_DHEKIT_HANDLE({
+  ParallelFor(len, n_threads, [&](int i) {
+    for (int j = 0; j < row_size[i]; ++j) {
+      dhekit->GetEvaluator()->AddInplace(&cs1[i], cs2[i][j]);
+    }
   });
-}
+})}
 
 /*!
  * \brief subtract the ciphers inplace at 1st dimension using DestinationHeKit
@@ -313,19 +264,15 @@ HEU_DLL int AddCiphersInplaceAxis0_(DestinationHeKitHandle handle,
  * \param n_threads the number of thread
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int SubCiphersInplaceAxis0(DestinationHeKitHandle handle,
-                                   heu::lib::phe::Ciphertext *cs1,
-                                   heu::lib::phe::Ciphertext **cs2,
-                                   const int len1, const int len2,
-                                   int32_t n_threads) {
-  API_DHEKIT_HANDLE({
-    ParallelFor(len1, n_threads, [&](int i) {
-      for (int j = 0; j < len2; ++j) {
-        dhekit->GetEvaluator()->SubInplace(&cs1[i], cs2[i][j]);
-      }
-    });
+HEU_DLL int SubCiphersInplaceAxis0(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
+                                   heu::lib::phe::Ciphertext **cs2, const int len1, const int len2,
+                                   int32_t n_threads){API_DHEKIT_HANDLE({
+  ParallelFor(len1, n_threads, [&](int i) {
+    for (int j = 0; j < len2; ++j) {
+      dhekit->GetEvaluator()->SubInplace(&cs1[i], cs2[i][j]);
+    }
   });
-}
+})}
 
 /*!
  * \brief subtract the ciphers inplace at 1st dimension using DestinationHeKit
@@ -337,19 +284,15 @@ HEU_DLL int SubCiphersInplaceAxis0(DestinationHeKitHandle handle,
  * \param n_threads the number of thread
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int SubCiphersInplaceAxis0_(DestinationHeKitHandle handle,
-                                    heu::lib::phe::Ciphertext *cs1,
-                                    heu::lib::phe::Ciphertext **cs2,
-                                    int *row_size, const int len,
-                                    int32_t n_threads) {
-  API_DHEKIT_HANDLE({
-    ParallelFor(len, n_threads, [&](int i) {
-      for (int j = 0; j < row_size[i]; ++j) {
-        dhekit->GetEvaluator()->SubInplace(&cs1[i], cs2[i][j]);
-      }
-    });
+HEU_DLL int SubCiphersInplaceAxis0_(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
+                                    heu::lib::phe::Ciphertext **cs2, int *row_size, const int len,
+                                    int32_t n_threads){API_DHEKIT_HANDLE({
+  ParallelFor(len, n_threads, [&](int i) {
+    for (int j = 0; j < row_size[i]; ++j) {
+      dhekit->GetEvaluator()->SubInplace(&cs1[i], cs2[i][j]);
+    }
   });
-}
+})}
 
 /*!
  * \brief add the cipher and the pliantext inplace using DestinationHeKit
@@ -358,11 +301,9 @@ HEU_DLL int SubCiphersInplaceAxis0_(DestinationHeKitHandle handle,
  * \param p the plaintext to be added
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int AddPlainInplace(DestinationHeKitHandle handle,
-                            heu::lib::phe::Ciphertext &c,
-                            const heu::lib::phe::Plaintext &p) {
-  API_DHEKIT_HANDLE({ dhekit->GetEvaluator()->AddInplace(&c, p); });
-}
+HEU_DLL int AddPlainInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext &c,
+                            const heu::lib::phe::Plaintext &p){
+    API_DHEKIT_HANDLE({ dhekit->GetEvaluator()->AddInplace(&c, p); })}
 
 /*!
  * \brief substract the cipher and the pliantext inplace using DestinationHeKit
@@ -371,11 +312,9 @@ HEU_DLL int AddPlainInplace(DestinationHeKitHandle handle,
  * \param p the plaintext to be substracted
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int SubPlainInplace(DestinationHeKitHandle handle,
-                            heu::lib::phe::Ciphertext &c,
-                            const heu::lib::phe::Plaintext &p) {
-  API_DHEKIT_HANDLE({ dhekit->GetEvaluator()->SubInplace(&c, p); });
-}
+HEU_DLL int SubPlainInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext &c,
+                            const heu::lib::phe::Plaintext &p){
+    API_DHEKIT_HANDLE({ dhekit->GetEvaluator()->SubInplace(&c, p); })}
 
 /*!
  * \brief multiply the cipher and the pliantext inplace using DestinationHeKit
@@ -384,11 +323,9 @@ HEU_DLL int SubPlainInplace(DestinationHeKitHandle handle,
  * \param p the plaintext to be multiplied
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int MultiPlainInplace(DestinationHeKitHandle handle,
-                              heu::lib::phe::Ciphertext &c,
-                              const heu::lib::phe::Plaintext &p) {
-  API_DHEKIT_HANDLE({ dhekit->GetEvaluator()->MulInplace(&c, p); });
-}
+HEU_DLL int MultiPlainInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext &c,
+                              const heu::lib::phe::Plaintext &p){
+    API_DHEKIT_HANDLE({ dhekit->GetEvaluator()->MulInplace(&c, p); })}
 
 /*!
  * \brief sum the ciphers using DestinationHeKit
@@ -400,10 +337,9 @@ HEU_DLL int MultiPlainInplace(DestinationHeKitHandle handle,
  * \param n_threads the number of thread
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int SumCiphers(DestinationHeKitHandle handle,
-                       heu::lib::phe::Ciphertext *ciphers, const int len,
-                       heu::lib::phe::Ciphertext *out, int32_t min_work_size,
-                       int32_t n_threads) {
+HEU_DLL
+    int SumCiphers(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *ciphers, const int len,
+                   heu::lib::phe::Ciphertext *out, int32_t min_work_size, int32_t n_threads) {
   CheckCall(DestinationHeKitEncrypt(handle, 0, out, 1), "DHeKitEncrypt");
   API_DHEKIT_HANDLE({
     auto evaluator = dhekit->GetEvaluator();
@@ -423,5 +359,5 @@ HEU_DLL int SumCiphers(DestinationHeKitHandle handle,
       });
       add_op(n_threads, cs);
     };
-  });
+  })
 }
