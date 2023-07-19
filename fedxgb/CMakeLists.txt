@@ -15,10 +15,14 @@ option(LINK_STATIC "CMAKE LINK STATIC LIBRARY" OFF)
 option(GE_M1_CHIP "WHETHER M1 CHIP" ON)
 
 file(GLOB_RECURSE SOURCES *.cpp *.cc *.h *.hpp)
+file(GLOB HEU_SRCS src/heu/*.cc)
 file(GLOB RM_SRCS src/comm/grpc/demo/*.cc ${CMAKE_CURRENT_SOURCE_DIR}/src/fed_cli_main.cc
         ${CMAKE_CURRENT_SOURCE_DIR}/tests/*.cc
-        ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc)
+        ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc ${HEU_SRCS})
 list(REMOVE_ITEM SOURCES ${RM_SRCS})
+
+file(GLOB HEU_EXE_SRCS src/heu/*_main.cc)
+list(REMOVE_ITEM HEU_SRCS ${HEU_EXE_SRCS})
 
 # external project
 #include(ExternalProject)
@@ -47,13 +51,18 @@ if (APPLE)
     set(OPENSSL_LIBRARIES ${OPT_PATH}/openssl/lib)
     set(PULSAR_ROOT_DIR ${OPT_PATH}/libpulsar)
     set(GRPC_ROOT_DIR ${OPT_PATH}/grpc)
+    set(GMP_INCLUDE_DIR ${OPT_PATH}/gmp/include)
     set(GMP_LIB_DIR ${OPT_PATH}/gmp/lib)
     set(LIB_SUFFIX dylib)
+    execute_process(COMMAND brew --prefix libomp OUTPUT_VARIABLE BREW_libomp_PREFIX OUTPUT_STRIP_TRAILING_WHITESPACE)
+    include_directories(${BREW_libomp_PREFIX}/include)
+    link_libraries(${BREW_libomp_PREFIX}/lib/libomp.dylib)
 else ()
     set(PULSAR_ROOT_DIR /usr/local)
     set(GRPC_ROOT_DIR /usr/local/grpc)
     # set(CMAKE_EXE_LINKER_FLAGS -Wl,--copy-dt-needed-entries -Wl,-rpath -Wl,/usr/local/grpc/lib)
     set(CMAKE_INSTALL_RPATH "${GRPC_ROOT_DIR}/lib")
+    set(GMP_INCLUDE_DIR /usr/include)
     set(GMP_LIB_DIR /usr/lib64)
     set(LIB_SUFFIX so)
 endif ()
@@ -67,7 +76,7 @@ else ()
 endif (LINK_STATIC)
 
 foreach (pkg Boost:COMPONENTS,system,filesystem,thread GRPC GTest Opt@helib OpenMP OpenSSL
-        Protobuf Pulsar Opt@TBB Threads absl gflags benchmark)
+        Protobuf Pulsar Opt@TBB Threads absl gflags benchmark JNI)
     string(REGEX REPLACE "(:(.*)?)|(Opt@)" "" pkg_name ${pkg})
     string(REGEX MATCH ":(.*)?$" f1 ${pkg})
     string(FIND ${pkg} "Opt@" f2)
@@ -130,52 +139,20 @@ protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 
 # include directories and link libraries
-include_directories(./include ./src ../src ${PROTO_GENERATED_DIR}  # ${TBB_PREFIX_DIR}/include
-        ${xgboost_SOURCE_DIR}/include ${xgboost_SOURCE_DIR}/dmlc-core/include ${xgboost_SOURCE_DIR}/rabit/include)
-link_directories(${GMP_LIB_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/libs) # ${TBB_PREFIX_DIR}/lib
-link_libraries(gmp heu) # libtbb.${LIB_SUFFIX}
-
-set(protobuf_ABSL_USED_TARGETS
-        absl::absl_check
-        absl::absl_log
-        absl::algorithm
-        absl::base
-        absl::bind_front
-        absl::bits
-        absl::btree
-        absl::cleanup
-        absl::cord
-        absl::core_headers
-        absl::debugging
-        absl::die_if_null
-        absl::dynamic_annotations
-        absl::flags
-        absl::flat_hash_map
-        absl::flat_hash_set
-        absl::function_ref
-        absl::hash
-        absl::layout
-        absl::log_initialize
-        absl::log_severity
-        absl::memory
-        absl::node_hash_map
-        absl::node_hash_set
-        absl::optional
-        absl::span
-        absl::status
-        absl::statusor
-        absl::strings
-        absl::synchronization
-        absl::time
-        absl::type_traits
-        absl::utility
-        absl::variant
+include_directories(./include ./third_party/build/include ./src ../src ${PROTO_GENERATED_DIR} ${GMP_INCLUDE_DIR}
+        ${xgboost_SOURCE_DIR}/include ${xgboost_SOURCE_DIR}/dmlc-core/include ${xgboost_SOURCE_DIR}/rabit/include
+        ${JAVA_INCLUDE_PATH} ${JAVA_INCLUDE_PATH}/linux ${JAVA_INCLUDE_PATH}/darwin  # ${TBB_PREFIX_DIR}/include
         )
+link_directories(${GMP_LIB_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party/build/lib) # ${TBB_PREFIX_DIR}/lib
+link_libraries(gmp) # libtbb.${LIB_SUFFIX}
+
+add_library(fl_heu SHARED ${HEU_SRCS})
+target_link_libraries(fl_heu heu yacl absl_strings absl_symbolize absl_stacktrace fmt)
 # link libraries for the target
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
 target_link_libraries(${PROJECT_NAME}_lib ${Boost_LIBRARIES}
-        protobuf::libprotobuf protobuf::libprotobuf-lite ${protobuf_ABSL_USED_TARGETS} benchmark::benchmark gflags
+        protobuf::libprotobuf protobuf::libprotobuf-lite absl::absl_check absl::cord benchmark::benchmark gflags
         OpenMP::OpenMP_CXX gRPC::gpr gRPC::grpc gRPC::grpc++ gRPC::grpc++_reflection TBB::tbb ${PULSAR_LIBRARIES})
 #add_dependencies(${PROJECT_NAME}_lib tbb)
 
@@ -207,7 +184,7 @@ foreach (xgb_client_file ${XGB_CLIENT_FILES})
     string(REPLACE ".cc" "" client_name ${xgb_client_file})
     string(REGEX REPLACE "(.*)?/" "" client_name ${xgb_client_file})
     add_executable(${PROJECT_NAME}_${client_name} ${xgb_client_file})
-    target_link_libraries(${PROJECT_NAME}_${client_name} ${PROJECT_NAME}_lib objxgboost)
+    target_link_libraries(${PROJECT_NAME}_${client_name} ${PROJECT_NAME}_lib objxgboost fl_heu)
     list(APPEND EXE_TARGETS ${PROJECT_NAME}_${client_name})
 endforeach ()
 
@@ -215,7 +192,7 @@ endforeach ()
 enable_testing()
 add_executable(${PROJECT_NAME}_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc)
 target_link_libraries(${PROJECT_NAME}_tests ${PROJECT_NAME}_lib
-        objxgboost
+        objxgboost fl_heu
         GTest::gtest GTest::gtest_main # GTest::gmock GTest::gmock_main
         )
 file(GLOB TEST_SOURCES "tests/test_*.cc")

@@ -3,7 +3,7 @@
 //
 #include <common/timer.h>
 #include <gtest/gtest.h>
-//#include <helib/helib.h>
+// #include <helib/helib.h>
 
 #include <algorithm>
 #include <iostream>
@@ -126,8 +126,8 @@ TEST(homomorphic, paillier) {
   for (int i = 0; i < 1; ++i) {
     PublicKey pk;
     PrivateKey sk;
-    TIME_STAT(generatePaillierKeys1(&pk, &sk, bitLength); BatchPaillierPublicKey bpk(pk, 1, 1);
-              , KeyGen)
+    generatePaillierKeys1(&pk, &sk, bitLength);
+    BatchPaillierPublicKey bpk(pk, 1, 1);
 
     for_out([&](int i) {
       mpz_set_ui(mpz_plains[i], u(e));

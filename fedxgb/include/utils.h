@@ -68,12 +68,15 @@ uint32_t aby_rand();
  */
 void aby_prng(mpz_t rnd, mp_bitcnt_t len);
 
-#define TIME_STAT(statments, name)                                                                \
-  auto start = std::chrono::high_resolution_clock::now();                                         \
-  statments;                                                                                      \
-  auto end = std::chrono::high_resolution_clock::now();                                           \
-  double cost = 1.0 * std::chrono::duration_cast<std::chrono::microseconds>(end - start).count(); \
-  std::cout << #name << " costs: " << cost / 1000.0 << " ms." << std::endl;
+#define TIME_STAT(statments, name)                                                        \
+  {                                                                                       \
+    auto start = std::chrono::high_resolution_clock::now();                               \
+    statments;                                                                            \
+    auto end = std::chrono::high_resolution_clock::now();                                 \
+    double cost =                                                                         \
+        1.0 * std::chrono::duration_cast<std::chrono::microseconds>(end - start).count(); \
+    std::cout << #name << " costs: " << cost / 1000.0 << " ms." << std::endl;             \
+  }
 
 void repeat(
     std::function<void(int)> fn, std::size_t n, std::function<void()> before = []() {},
@@ -112,18 +115,18 @@ class OMPException {
 
  public:
   /*!
-     * \brief Parallel OMP blocks should be placed within Run to save exception
+   * \brief Parallel OMP blocks should be placed within Run to save exception
    */
-  template<typename Function, typename... Parameters>
+  template <typename Function, typename... Parameters>
   void Run(Function f, Parameters... params) {
     try {
       f(params...);
-    } catch (std::runtime_error &ex) {
+    } catch (std::runtime_error& ex) {
       std::lock_guard<std::mutex> lock(mutex_);
       if (!omp_exception_) {
         omp_exception_ = std::current_exception();
       }
-    } catch (std::exception &ex) {
+    } catch (std::exception& ex) {
       std::lock_guard<std::mutex> lock(mutex_);
       if (!omp_exception_) {
         omp_exception_ = std::current_exception();
@@ -132,14 +135,14 @@ class OMPException {
   }
 
   /*!
-     * \brief should be called from the main thread to rethrow the exception
+   * \brief should be called from the main thread to rethrow the exception
    */
   void Rethrow() {
     if (this->omp_exception_) std::rethrow_exception(this->omp_exception_);
   }
 };
 
-template<typename Index, typename Func>
+template <typename Index, typename Func>
 void ParallelFor(Index size, int32_t n_threads, Sched sched, Func fn) {
 #if defined(_MSC_VER)
   // msvc doesn't support unsigned integer as openmp index.
@@ -198,7 +201,7 @@ void ParallelFor(Index size, int32_t n_threads, Sched sched, Func fn) {
   exc.Rethrow();
 }
 
-template<typename Index, typename Func>
+template <typename Index, typename Func>
 void ParallelFor(Index size, int32_t n_threads, Func fn) {
   ParallelFor(size, n_threads, Sched::Static(), fn);
 }
