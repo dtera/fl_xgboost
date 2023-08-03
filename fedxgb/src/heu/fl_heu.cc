@@ -1,4 +1,4 @@
-// Copyright 2023 @dterazhao.
+// Copyright 2023 @dterazhao..
 
 #include "heu/fl_heu.h"
 
@@ -175,10 +175,13 @@ JNIEXPORT jint JNICALL Java_org_dtera_cnt_fl_crypto_heu_HeuJNI_decryptPair(
   auto len = jenv->GetArrayLength(jbas);
   heu::lib::phe::Ciphertext ciphers[len];
   jobjectarray_to_ciphers(jenv, jbas, ciphers);
-  double plaintexts1[len], plaintexts2[len];
+  double *plaintexts1 = new double[len];
+  double *plaintexts2 = new double[len];
   auto ret = Decrypt((HeKitHandle)jhandle, ciphers, len, plaintexts1, plaintexts2);
   jenv->SetDoubleArrayRegion(jplaintexts1, 0, len, plaintexts1);
   jenv->SetDoubleArrayRegion(jplaintexts2, 0, len, plaintexts2);
+  delete[] plaintexts1;
+  delete[] plaintexts2;
   return ret;
 }
 
@@ -364,8 +367,8 @@ JNIEXPORT jint JNICALL Java_org_dtera_cnt_fl_crypto_heu_HeuJNI_scatterAddCiphers
   heu::lib::phe::Ciphertext cs1[len1], cs2[len2];
   jobjectarray_to_ciphers(jenv, jciphers1, cs1);
   jobjectarray_to_ciphers(jenv, jciphers2, cs2);
-  auto ret =
-      ScatterAddCiphersInplace((DestinationHeKitHandle)jdhandle, cs1, cs2, indexes, len2, parallel);
+  auto ret = ScatterAddCiphersInplace((DestinationHeKitHandle)jdhandle, cs1, cs2, indexes, len1,
+                                      len2, parallel);
   jenv->ReleaseLongArrayElements(jindexes, indexes, 0);
   ciphers_to_jobjectarray(jenv, cs1, jciphers1);
   return ret;
@@ -458,8 +461,8 @@ JNIEXPORT jint JNICALL Java_org_dtera_cnt_fl_crypto_heu_HeuJNI_scatterSubCiphers
   heu::lib::phe::Ciphertext cs1[len1], cs2[len2];
   jobjectarray_to_ciphers(jenv, jciphers1, cs1);
   jobjectarray_to_ciphers(jenv, jciphers2, cs2);
-  auto ret =
-      ScatterSubCiphersInplace((DestinationHeKitHandle)jdhandle, cs1, cs2, indexes, len2, parallel);
+  auto ret = ScatterSubCiphersInplace((DestinationHeKitHandle)jdhandle, cs1, cs2, indexes, len1,
+                                      len2, parallel);
   jenv->ReleaseLongArrayElements(jindexes, indexes, 0);
   ciphers_to_jobjectarray(jenv, cs1, jciphers1);
   return ret;

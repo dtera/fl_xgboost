@@ -47,8 +47,7 @@ TEST(HEU, API_DestinationHeKit) {
   DestinationHeKitCreate(pkhandle, size, &dhandle);
   auto dhekit = static_cast<heu::lib::phe::DestinationHeKit *>(dhandle);
   std::cout << "pubkey: " << dhekit->GetPublicKey()->ToString() << std::endl;
-  assert(hekit->GetPublicKey()->ToString() ==
-         dhekit->GetPublicKey()->ToString());
+  assert(hekit->GetPublicKey()->ToString() == dhekit->GetPublicKey()->ToString());
 
   free(pkhandle);
   DestinationHeKitFree(dhandle);
@@ -74,9 +73,8 @@ TEST(HEU, API_Encrypt_Decrypt) {
   CheckCall(Decrypt(handle, ciphers, len, res), "Decrypt");
   for (int i = 0; i < len; ++i) {
     if (data[i] != res[i]) {
-      std::cout << "data[" << i << "]: " << std::to_string(data[i])
-                << " ---- res[" << i << "]: " << std::to_string(res[i])
-                << std::endl;
+      std::cout << "data[" << i << "]: " << std::to_string(data[i]) << " ---- res[" << i
+                << "]: " << std::to_string(res[i]) << std::endl;
     }
   }
   double p = 2.687, q;
@@ -127,29 +125,22 @@ TEST(HEU, API_Encrypt_Decrypt2) {
   auto encoder = hekit->GetEncoder<heu::lib::phe::PlainEncoder>(1);
 
   auto scale = 1e6;
-  int128_t d10 = d1[0] * scale, d11 = d1[1] * scale, d20 = d2[0] * scale,
-           d21 = d2[1] * scale;
+  int128_t d10 = d1[0] * scale, d11 = d1[1] * scale, d20 = d2[0] * scale, d21 = d2[1] * scale;
   int128_t p1 = d10 << 64 | d11, p2 = d20 << 64 | d21;
   std::cout << "d1[0]: " << d1[0] << ", d1[1]: " << d1[1] << std::endl;
   std::cout << "d2[0]: " << d2[0] << ", d2[1]: " << d2[1] << std::endl;
-  std::cout << "d10: " << d10 << ", d11: " << d11 << ", p1: " << p1
-            << std::endl;
-  std::cout << "d20: " << d20 << ", d21: " << d21 << ", p2: " << p2
-            << std::endl;
+  std::cout << "d10: " << d10 << ", d11: " << d11 << ", p1: " << p1 << std::endl;
+  std::cout << "d20: " << d20 << ", d21: " << d21 << ", p2: " << p2 << std::endl;
   auto c1 = encryptor->Encrypt(encoder.Encode(p1));
   auto c2 = encryptor->Encrypt(encoder.Encode(p2));
   auto r1 = encoder.Decode<int128_t>(decryptor->Decrypt(c1));
   auto r2 = encoder.Decode<int128_t>(decryptor->Decrypt(c2));
-  std::cout << "r10: " << (r1 >> 64) << ", r11: " << (int64_t)r1
-            << ", r1: " << r1 << std::endl;
-  std::cout << "r20: " << (r2 >> 64) << ", r21: " << (int64_t)r2
-            << ", r2: " << r2 << std::endl;
+  std::cout << "r10: " << (r1 >> 64) << ", r11: " << (int64_t)r1 << ", r1: " << r1 << std::endl;
+  std::cout << "r20: " << (r2 >> 64) << ", r21: " << (int64_t)r2 << ", r2: " << r2 << std::endl;
   auto c = evaluator->Add(c1, c2);
   auto r = encoder.Decode<int128_t>(decryptor->Decrypt(c));
-  std::cout << "d10 + d20: " << (d1[0] + d2[0])
-            << ", d11 + d21: " << (d1[1] + d2[1]) << std::endl;
-  std::cout << "r0: " << (r >> 64) << ", r1: " << (int64_t)r << ", r: " << r
-            << std::endl;
+  std::cout << "d10 + d20: " << (d1[0] + d2[0]) << ", d11 + d21: " << (d1[1] + d2[1]) << std::endl;
+  std::cout << "r0: " << (r >> 64) << ", r1: " << (int64_t)r << ", r: " << r << std::endl;
 
   std::cout << "==============================================" << std::endl;
   heu::lib::phe::Ciphertext cipher;
@@ -202,11 +193,9 @@ TEST(HEU, API_Evaluate1) {
   auto encoder2 = dhekit->GetEncoder<heu::lib::phe::PlainEncoder>(1);
 
   heu::lib::phe::Ciphertext c1, c2;
-  CheckCall(DestinationHeKitEncrypt(dhandle, 12.3, &c1),
-            "DestinationHeKitEncrypt");
+  CheckCall(DestinationHeKitEncrypt(dhandle, 12.3, &c1), "DestinationHeKitEncrypt");
   auto p = encoder.Encode(5);
-  CheckCall(DestinationHeKitEncrypt(dhandle, 5, &c2),
-            "DestinationHeKitEncrypt");
+  CheckCall(DestinationHeKitEncrypt(dhandle, 5, &c2), "DestinationHeKitEncrypt");
 
   auto c = AddCipher(dhandle, c1, c2);
   auto res = encoder.Decode<double>(decryptor->Decrypt(c));
@@ -259,8 +248,7 @@ TEST(HEU, API_Evaluate1) {
   MultiPlainInplace(dhandle, c1, encoder2.Encode(5));
   res = encoder.Decode<double>(decryptor->Decrypt(c1));
   std::cout << "MultiPlainInplace: " << res << std::endl;
-  CheckCall(DestinationHeKitEncrypt(dhandle, 12.3, &c1),
-            "DestinationHeKitEncrypt");
+  CheckCall(DestinationHeKitEncrypt(dhandle, 12.3, &c1), "DestinationHeKitEncrypt");
 
   CheckCall(AddPlainInplace(dhandle, c1, 5), "AddPlainInplace");
   res = encoder.Decode<double>(decryptor->Decrypt(c1));
@@ -299,20 +287,22 @@ TEST(HEU, API_Evaluate2) {
   double *d4[len];
   heu::lib::phe::Ciphertext cs1[len], cs2[len];
   heu::lib::phe::Ciphertext *cs4[len];
+  auto col_size = 50;
+  auto cs5 = new heu::lib::phe::Ciphertext[len * col_size];
   for (int i = 0; i < len2; ++i) {
     d3[i] = i;
   }
-  long indexes[len / 10];
+  auto indexes = new long[len * col_size];
   for (int i = 0; i < len; ++i) {
     auto r = static_cast<double>(rand() % 10000) / 1000;
     d1[i] = i + r;
     d2[i] = 2 * i + r;
-    if (i % 1000 == 0) {
-      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2["
-                << i << "]: " << std::to_string(d2[i]) << std::endl;
+    if (i % 5000 == 0) {
+      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2[" << i
+                << "]: " << std::to_string(d2[i]) << std::endl;
     }
-    if (i % 10 == 0) {
-      indexes[i / 10] = i;
+    for (int j = 0; j < col_size; ++j) {
+      indexes[col_size * i + j] = i;
     }
     d4[i] = d3;
     cs4[i] = new heu::lib::phe::Ciphertext[len2];
@@ -320,69 +310,72 @@ TEST(HEU, API_Evaluate2) {
 
   CheckCall(Encrypt(handle, d1, len, cs1), "Encrypt1");
   CheckCall(Encrypt(handle, d2, len, cs2), "Encrypt2");
+  for (int i = 0; i < len; ++i) {
+    for (int j = 0; j < col_size; ++j) {
+      cs5[col_size * i + j] = cs2[i];
+    }
+  }
 
   std::cout << "===================Inplace====================" << std::endl;
   CheckCall(AddCiphersInplace(dhandle, cs1, cs2, len), "AddCiphersInplace");
   CheckCall(Decrypt(handle, cs1, len, d1), "Decrypt1");
   CheckCall(Decrypt(handle, cs2, len, d2), "Decrypt2");
   for (int i = 0; i < len; ++i) {
-    if (i % 1000 == 0) {
-      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2["
-                << i << "]: " << std::to_string(d2[i]) << std::endl;
+    if (i % 5000 == 0) {
+      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2[" << i
+                << "]: " << std::to_string(d2[i]) << std::endl;
     }
   }
   CheckCall(SubCiphersInplace(dhandle, cs1, cs2, len), "SubCiphersInplace");
   CheckCall(Decrypt(handle, cs1, len, d1), "Decrypt1");
   CheckCall(Decrypt(handle, cs2, len, d2), "Decrypt2");
   for (int i = 0; i < len; ++i) {
-    if (i % 1000 == 0) {
-      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2["
-                << i << "]: " << std::to_string(d2[i]) << std::endl;
+    if (i % 5000 == 0) {
+      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2[" << i
+                << "]: " << std::to_string(d2[i]) << std::endl;
     }
   }
 
   std::cout << "===================Scatter====================" << std::endl;
-  CheckCall(ScatterAddCiphersInplace(dhandle, cs1, cs2, indexes, len / 10),
-            "ScatterAddCiphersInplace");
+  TIME_STAT(ScatterAddCiphersInplace(dhandle, cs1, cs5, indexes, len, len * col_size),
+            ScatterAddCiphersInplace)
   CheckCall(Decrypt(handle, cs1, len, d1), "Decrypt1");
   CheckCall(Decrypt(handle, cs2, len, d2), "Decrypt2");
   for (int i = 0; i < len; ++i) {
-    if (i % 1005 == 0) {
-      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2["
-                << i << "]: " << std::to_string(d2[i]) << std::endl;
+    if (i % 5005 == 0) {
+      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2[" << i
+                << "]: " << std::to_string(d2[i]) << std::endl;
     }
   }
-  CheckCall(ScatterSubCiphersInplace(dhandle, cs1, cs2, indexes, len / 10),
-            "ScatterSubCiphersInplace");
+  TIME_STAT(ScatterSubCiphersInplace(dhandle, cs1, cs5, indexes, len, len * col_size),
+            ScatterSubCiphersInplace)
   CheckCall(Decrypt(handle, cs1, len, d1), "Decrypt1");
   CheckCall(Decrypt(handle, cs2, len, d2), "Decrypt2");
   for (int i = 0; i < len; ++i) {
-    if (i % 1005 == 0) {
-      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2["
-                << i << "]: " << std::to_string(d2[i]) << std::endl;
+    if (i % 5005 == 0) {
+      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2[" << i
+                << "]: " << std::to_string(d2[i]) << std::endl;
     }
   }
 
   std::cout << "===================Axis0====================" << std::endl;
   CheckCall(Encrypt(handle, d4, len, len2, cs4), "Encrypts");
-  CheckCall(AddCiphersInplaceAxis0(dhandle, cs1, cs4, len, len2),
-            "AddCiphersInplaceAxis0");
+  TIME_STAT(AddCiphersInplaceAxis0(dhandle, cs1, cs4, len, len2), AddCiphersInplaceAxis0)
   CheckCall(Decrypt(handle, cs1, len, d1), "Decrypt1");
   CheckCall(Decrypt(handle, cs2, len, d2), "Decrypt2");
   for (int i = 0; i < len; ++i) {
-    if (i % 1000 == 0) {
-      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2["
-                << i << "]: " << std::to_string(d2[i]) << std::endl;
+    if (i % 5000 == 0) {
+      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2[" << i
+                << "]: " << std::to_string(d2[i]) << std::endl;
     }
   }
-  CheckCall(SubCiphersInplaceAxis0(dhandle, cs1, cs4, len, len2),
-            "SubCiphersInplaceAxis0");
+  TIME_STAT(SubCiphersInplaceAxis0(dhandle, cs1, cs4, len, len2), SubCiphersInplaceAxis0)
   CheckCall(Decrypt(handle, cs1, len, d1), "Decrypt1");
   CheckCall(Decrypt(handle, cs2, len, d2), "Decrypt2");
   for (int i = 0; i < len; ++i) {
-    if (i % 1000 == 0) {
-      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2["
-                << i << "]: " << std::to_string(d2[i]) << std::endl;
+    if (i % 5000 == 0) {
+      std::cout << "d1[" << i << "]: " << std::to_string(d1[i]) << " ---- d2[" << i
+                << "]: " << std::to_string(d2[i]) << std::endl;
     }
   }
 
@@ -410,16 +403,13 @@ TEST(HEU, API_Evaluate3) {
     a[i] = i;
     real_res += i;
   }
-  CheckCall(DestinationHeKitEncrypt(dhandle, a, len, ciphers, 1),
-            "DHeKitEncrypt");
+  CheckCall(DestinationHeKitEncrypt(dhandle, a, len, ciphers, 1), "DHeKitEncrypt");
   TIME_STAT(SumCiphers(dhandle, ciphers, len, &out1, len + 1), SumCiphers1)
   CheckCall(Decrypt(handle, out1, &eval_res, 1), "Decrypt");
-  std::cout << "real_res: " << real_res << ", eval_res: " << eval_res
-            << std::endl;
+  std::cout << "real_res: " << real_res << ", eval_res: " << eval_res << std::endl;
   TIME_STAT(SumCiphers(dhandle, ciphers, len, &out2), SumCiphers2)
   CheckCall(Decrypt(handle, out2, &eval_res, 1), "Decrypt");
-  std::cout << "real_res: " << real_res << ", eval_res: " << eval_res
-            << std::endl;
+  std::cout << "real_res: " << real_res << ", eval_res: " << eval_res << std::endl;
 
   free(pkhandle);
   DestinationHeKitFree(dhandle);
@@ -449,30 +439,25 @@ TEST(HEU, BatchEncoding) {
   EXPECT_EQ((batch_encoder.Decode<int64_t, 0>(plain)), -123 - 123);
   EXPECT_EQ((batch_encoder.Decode<int64_t, 1>(plain)), 123 - 456);
 
-  res = evaluator->Add(
-      ct0, batch_encoder.Encode<int64_t>(std::numeric_limits<int64_t>::max(),
-                                         std::numeric_limits<int64_t>::max()));
+  res = evaluator->Add(ct0, batch_encoder.Encode<int64_t>(std::numeric_limits<int64_t>::max(),
+                                                          std::numeric_limits<int64_t>::max()));
   decryptor->Decrypt(res, &plain);
   EXPECT_EQ((batch_encoder.Decode<int64_t, 0>(plain)),
             -123LL + std::numeric_limits<int64_t>::max());
   EXPECT_EQ((batch_encoder.Decode<int64_t, 1>(plain)),
-            std::numeric_limits<int64_t>::lowest() + 122); // overflow
+            std::numeric_limits<int64_t>::lowest() + 122);  // overflow
 
   // test big number
-  ct0 = encryptor->Encrypt(
-      batch_encoder.Encode<int64_t>(std::numeric_limits<int64_t>::lowest(),
-                                    std::numeric_limits<int64_t>::max()));
-  res = evaluator->Add(
-      ct0, batch_encoder.Encode<int64_t>(std::numeric_limits<int64_t>::max(),
-                                         std::numeric_limits<int64_t>::max()));
+  ct0 = encryptor->Encrypt(batch_encoder.Encode<int64_t>(std::numeric_limits<int64_t>::lowest(),
+                                                         std::numeric_limits<int64_t>::max()));
+  res = evaluator->Add(ct0, batch_encoder.Encode<int64_t>(std::numeric_limits<int64_t>::max(),
+                                                          std::numeric_limits<int64_t>::max()));
   decryptor->Decrypt(res, &plain);
   EXPECT_EQ((batch_encoder.Decode<int64_t, 0>(plain)), -1);
   EXPECT_EQ((batch_encoder.Decode<int64_t, 1>(plain)), -2);
 
   res = evaluator->Add(ct0, batch_encoder.Encode<int64_t>(-1, 1));
   decryptor->Decrypt(res, &plain);
-  EXPECT_EQ((batch_encoder.Decode<int64_t, 0>(plain)),
-            std::numeric_limits<int64_t>::max());
-  EXPECT_EQ((batch_encoder.Decode<int64_t, 1>(plain)),
-            std::numeric_limits<int64_t>::lowest());
+  EXPECT_EQ((batch_encoder.Decode<int64_t, 0>(plain)), std::numeric_limits<int64_t>::max());
+  EXPECT_EQ((batch_encoder.Decode<int64_t, 1>(plain)), std::numeric_limits<int64_t>::lowest());
 }

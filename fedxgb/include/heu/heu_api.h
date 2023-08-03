@@ -1,11 +1,11 @@
-// Copyright 2023 @dterazhao.
+// Copyright 2023 @dterazhao..
 
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "OCUnusedMacroInspection"
 #pragma once
 
 /*!
- * Copyright (c) 2023.
+ * Copyright (c) 2023 Tencent Inc.
  * \file heu_api.h
  * \author dterazhao
  * \brief C API of HEU, used for interfacing to other languages.
@@ -565,13 +565,12 @@ template <typename T, typename std::enable_if_t<std::is_arithmetic_v<T>, int> = 
  * \param data the data to init
  * \param ciphers the result of ciphers
  * \param len the length of ciphers
- * \param scale scale of the data
  * \param n_threads the number of thread
  * \return 0 when success, -1 when failure happens
  */
 template <typename T, typename std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
-void DHeKitCiphersInit(DestinationHeKitHandle handle, const T &data,
-                       heu::lib::phe::Ciphertext *ciphers, const int len, int64_t scale = 1e6) {
+void DHeKitCiphersInit(DestinationHeKitHandle handle, [[maybe_unused]] const T &data,
+                       heu::lib::phe::Ciphertext *ciphers, const int len) {
   CheckCall(DestinationHeKitEncrypt(handle, 0, ciphers, 1), "DHeKitEncrypt");
   auto buf = ciphers[0].Serialize();
   for (int i = 0; i < len; ++i) {
@@ -628,17 +627,19 @@ HEU_DLL int SubCiphersInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciph
 /*!
  * \brief scatter add the ciphers inplace using DestinationHeKit
  * \param handle DestinationHeKitHandle
- * \param cs1 the ciphers to be added, also as a result
- * \param cs2 the ciphers to be added
- * \param indexes the indexes of the ciphers to be added
- * \param len the length of the ciphers
+ * \param results the ciphers to be subtracted, also as a result
+ * \param operands the ciphers to be subtracted
+ * \param indexes the indexes of the ciphers to be subtracted
+ * \param len the length of the results
+ * \param len2 the length of the operands
  * \param n_threads the number of thread
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int ScatterAddCiphersInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
-                                     const heu::lib::phe::Ciphertext *cs2, const long *indexes,
-                                     const int len, bool parallel = true,
-                                     int32_t n_threads = omp_get_num_procs());
+HEU_DLL int ScatterAddCiphersInplace(DestinationHeKitHandle handle,
+                                     heu::lib::phe::Ciphertext *results,
+                                     const heu::lib::phe::Ciphertext *operands, const long *indexes,
+                                     [[maybe_unused]] const int len, const int len2,
+                                     bool parallel = true, int32_t n_threads = omp_get_num_procs());
 
 /*!
  * \brief scatter subtract the ciphers inplace using DestinationHeKit
@@ -650,9 +651,11 @@ HEU_DLL int ScatterAddCiphersInplace(DestinationHeKitHandle handle, heu::lib::ph
  * \param n_threads the number of thread
  * \return 0 when success, -1 when failure happens
  */
-HEU_DLL int ScatterSubCiphersInplace(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
-                                     const heu::lib::phe::Ciphertext *cs2, const long *indexes,
-                                     const int len, bool parallel = true,
+HEU_DLL int ScatterSubCiphersInplace(DestinationHeKitHandle handle,
+                                     heu::lib::phe::Ciphertext *results,
+                                     const heu::lib::phe::Ciphertext *operands, const long *indexes,
+                                     [[maybe_unused]] const int len, const int len2,
+                                     bool parallel = false,
                                      int32_t n_threads = omp_get_num_procs());
 
 /*!
@@ -681,7 +684,7 @@ HEU_DLL int AddCiphersInplaceAxis0(DestinationHeKitHandle handle, heu::lib::phe:
  */
 HEU_DLL int AddCiphersInplaceAxis0_(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
                                     heu::lib::phe::Ciphertext **cs2, int *row_size, const int len,
-                                    int32_t n_threads = omp_get_num_procs());
+                                    [[maybe_unused]] int32_t n_threads = omp_get_num_procs());
 
 /*!
  * \brief subtract the ciphers inplace at 1st dimension using DestinationHeKit
@@ -709,7 +712,7 @@ HEU_DLL int SubCiphersInplaceAxis0(DestinationHeKitHandle handle, heu::lib::phe:
  */
 HEU_DLL int SubCiphersInplaceAxis0_(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *cs1,
                                     heu::lib::phe::Ciphertext **cs2, int *row_size, const int len,
-                                    int32_t n_threads = omp_get_num_procs());
+                                    [[maybe_unused]] int32_t n_threads = omp_get_num_procs());
 
 /*!
  * \brief add the cipher and the plaintext inplace using DestinationHeKit
@@ -920,5 +923,5 @@ template <typename T, typename std::enable_if_t<std::is_arithmetic_v<T>, int> = 
  * \return 0 when success, -1 when failure happens
  */
 HEU_DLL int SumCiphers(DestinationHeKitHandle handle, heu::lib::phe::Ciphertext *ciphers,
-                       const int len, heu::lib::phe::Ciphertext *out, int32_t min_work_size = 10240,
+                       const int len, heu::lib::phe::Ciphertext *out, int32_t min_work_size = 2,
                        int32_t n_threads = omp_get_num_procs());

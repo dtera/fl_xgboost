@@ -2,8 +2,7 @@
 // Created by HqZhao on 2022/11/15.
 //
 
-#ifndef DEMO_UTILS_H
-#define DEMO_UTILS_H
+#pragma once
 
 #include <gmp.h>
 
@@ -206,4 +205,11 @@ void ParallelFor(Index size, int32_t n_threads, Func fn) {
   ParallelFor(size, n_threads, Sched::Static(), fn);
 }
 
-#endif  // DEMO_UTILS_H
+template <typename Index, typename Func>
+void ParallelFor(Index size, Func fn) {
+#pragma omp parallel num_threads(1)
+#pragma omp for
+  for (int i = 0; i < size; ++i) {
+    fn(i);
+  }
+}
