@@ -322,7 +322,9 @@ object XGBoost extends Serializable {
         logger.info("Leveraging gpu device " + gpuId + " to train")
         params = params + ("gpu_id" -> gpuId)
       }
-      params += "fl_pulsar_topic_prefix" -> s"${params("fl_pulsar_topic_prefix")}_task_${taskId}_"
+      if (params.contains("fl_pulsar_topic_prefix")) {
+        params += "fl_pulsar_topic_prefix" -> s"${params("fl_pulsar_topic_prefix")}_task_${taskId}_"
+      }
       val booster = if (makeCheckpoint) {
         SXGBoost.trainAndSaveCheckpoint(
           watches.toMap("train"), params, numRounds,

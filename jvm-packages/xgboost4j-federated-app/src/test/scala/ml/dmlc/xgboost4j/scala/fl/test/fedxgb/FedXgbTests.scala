@@ -15,12 +15,17 @@
  */
 package ml.dmlc.xgboost4j.scala.fl.test.fedxgb
 
-import ml.dmlc.xgboost4j.scala.fl.XGBClassifierRunner.{evaluator, defaultXgbParams}
+import ml.dmlc.xgboost4j.scala.fl.XGBClassifierRunner.{defaultXgbParams, evaluator}
 import ml.dmlc.xgboost4j.scala.fl.util.XgbUtils.{checkPredicts, saveDumpModel}
 import ml.dmlc.xgboost4j.scala.fl.test.SparkTest
-import ml.dmlc.xgboost4j.scala.spark.XGBoostClassifier
+import ml.dmlc.xgboost4j.scala.spark.{XGBoostClassificationModel, XGBoostClassifier}
 import ml.dmlc.xgboost4j.scala.{DMatrix, XGBoost}
+import org.apache.spark.ml.{Pipeline, PipelineModel}
+import org.apache.spark.ml.evaluation.MulticlassClassificationEvaluator
+import org.apache.spark.ml.feature.{IndexToString, StringIndexer, VectorAssembler}
+import org.apache.spark.ml.tuning.{CrossValidator, ParamGridBuilder}
 import org.apache.spark.ml.util.FedMLUtils.FED_LIBSVM
+import org.apache.spark.sql.types.{DoubleType, StringType, StructField, StructType}
 
 import java.io.File
 import scala.collection.mutable
@@ -206,6 +211,136 @@ class FedXgbTests extends SparkTest {
 
     // check predicts
     println(checkPredicts(predicts, predicts2))
+  }
+
+  "spark xgb" should "work with iris dataset" in {
+    val inputPath = "../data/iris/iris.data"
+
+    // Load dataset
+    val schema = new StructType(Array(
+      StructField("sepal length", DoubleType, true),
+      StructField("sepal width", DoubleType, true),
+      StructField("petal length", DoubleType, true),
+      StructField("petal width", DoubleType, true),
+      StructField("class", StringType, true)))
+
+    val rawInput = spark.read.schema(schema).csv(inputPath)
+    val labelIndexer = new StringIndexer()
+      .setInputCol("class")
+      .setOutputCol("label")
+      .fit(rawInput)
+    val assembler = new VectorAssembler()
+      .setInputCols(Array("sepal length", "sepal width", "petal length", "petal width"))
+      .setOutputCol("features")
+    var input = labelIndexer.transform(rawInput) // .drop(schema.fieldNames: _*)
+    input = assembler.transform(input)
+    val Array(training, test) = input.randomSplit(Array(0.8, 0.2), 123)
+
+    params += "fl_on" -> 0
+    params += "fl_comm_type" -> "none"
+    params += "num_workers" -> 2
+    params += "timeout_request_workers" -> 60000L
+    params += "eval_sets" -> Map("train" -> training, "test" -> test)
+    params += "objective" -> "multi:softprob"
+    params += "num_class" -> 3
+
+    val xgbClassifier = new XGBoostClassifier(params.toMap).setMissing(0.0f).setNumRound(3)
+    val xgbModel = xgbClassifier.fit(training)
+
+    val testAUC = evaluator.evaluate(xgbModel.transform(test))
+    println(s"Test AUC: $testAUC")
+  }
+
+  "spark xgb ppl" should "work with iris dataset" in {
+    val inputPath = "../data/iris/iris.data"
+    val nativeModelPath = "./model/iris"
+    val pipelineModelPath = "./model/iris.ppl"
+
+    // Load dataset
+    val schema = new StructType(Array(
+      StructField("sepal length", DoubleType, true),
+      StructField("sepal width", DoubleType, true),
+      StructField("petal length", DoubleType, true),
+      StructField("petal width", DoubleType, true),
+      StructField("class", StringType, true)))
+
+    val rawInput = spark.read.schema(schema).csv(inputPath)
+
+    // Split training and test dataset
+    val Array(training, test) = rawInput.randomSplit(Array(0.8, 0.2), 123)
+
+    params += "fl_on" -> 0
+    params += "fl_comm_type" -> "none"
+    params += "num_workers" -> 1
+    params += "timeout_request_workers" -> 60000L
+    params += "objective" -> "multi:softprob"
+    params += "num_class" -> 3
+
+    // Build ML pipeline, it includes 4 stages:
+    // 1, Assemble all features into a single vector column.
+    // 2, From string label to indexed double label.
+    // 3, Use XGBoostClassifier to train classification model.
+    // 4, Convert indexed double label back to original string label.
+    val assembler = new VectorAssembler()
+      .setInputCols(Array("sepal length", "sepal width", "petal length", "petal width"))
+      .setOutputCol("features")
+    val labelIndexer = new StringIndexer()
+      .setInputCol("class")
+      .setOutputCol("classIndex")
+      .fit(training)
+    val booster = new XGBoostClassifier(params.toMap).setMissing(0.0f)
+      .setFeaturesCol("features")
+      .setLabelCol("classIndex")
+    val labelConverter = new IndexToString()
+      .setInputCol("prediction")
+      .setOutputCol("realLabel")
+      .setLabels(labelIndexer.labels)
+
+    val pipeline = new Pipeline()
+      .setStages(Array(assembler, labelIndexer, booster, labelConverter))
+    val model = pipeline.fit(training)
+
+    // Batch prediction
+    val prediction = model.transform(test)
+    prediction.show(false)
+
+    // Model evaluation
+    val evaluator = new MulticlassClassificationEvaluator()
+    evaluator.setLabelCol("classIndex")
+    evaluator.setPredictionCol("prediction")
+    val accuracy = evaluator.evaluate(prediction)
+    println("The model accuracy is : " + accuracy)
+
+    // Tune model using cross validation
+    val paramGrid = new ParamGridBuilder()
+      .addGrid(booster.maxDepth, Array(3, 8))
+      .addGrid(booster.eta, Array(0.2, 0.6))
+      .build()
+    val cv = new CrossValidator()
+      .setEstimator(pipeline)
+      .setEvaluator(evaluator)
+      .setEstimatorParamMaps(paramGrid)
+      .setNumFolds(3)
+
+    val cvModel = cv.fit(training)
+
+    val bestModel = cvModel.bestModel.asInstanceOf[PipelineModel].stages(2)
+      .asInstanceOf[XGBoostClassificationModel]
+    println("The params of best XGBoostClassification model : " +
+      bestModel.extractParamMap())
+    println("The training summary of best XGBoostClassificationModel : " +
+      bestModel.summary)
+
+    // Export the XGBoostClassificationModel as local XGBoost model,
+    // then you can load it back in local Python environment.
+    bestModel.nativeBooster.saveModel(nativeModelPath)
+
+    // ML pipeline persistence
+    model.write.overwrite().save(pipelineModelPath)
+
+    // Load a saved model and serving
+    val model2 = PipelineModel.load(pipelineModelPath)
+    model2.transform(test).show(false)
   }
 
 }
