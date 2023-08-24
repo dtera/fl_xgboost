@@ -142,9 +142,9 @@ grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${PROTO_GENERATED_DIR} ${PROTOS})
 include_directories(./include ./third_party/build/include ./src ../src ${PROTO_GENERATED_DIR} ${GMP_INCLUDE_DIR}
         ${xgboost_SOURCE_DIR}/include ${xgboost_SOURCE_DIR}/dmlc-core/include ${xgboost_SOURCE_DIR}/rabit/include
         ${JAVA_INCLUDE_PATH} ${JAVA_INCLUDE_PATH}/linux ${JAVA_INCLUDE_PATH}/darwin  # ${TBB_PREFIX_DIR}/include
-        )
+)
 link_directories(${GMP_LIB_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party/build/lib) # ${TBB_PREFIX_DIR}/lib
-link_libraries(gmp) # libtbb.${LIB_SUFFIX}
+link_libraries(${GMP_LIB_DIR}/libgmp.${LIB_SUFFIX}) # libtbb.${LIB_SUFFIX}
 
 add_library(fl_heu SHARED ${HEU_SRCS})
 target_link_libraries(fl_heu heu yacl absl_strings absl_symbolize absl_stacktrace fmt)
@@ -194,7 +194,7 @@ add_executable(${PROJECT_NAME}_tests ${CMAKE_CURRENT_SOURCE_DIR}/tests.cc)
 target_link_libraries(${PROJECT_NAME}_tests ${PROJECT_NAME}_lib
         objxgboost fl_heu
         GTest::gtest GTest::gtest_main # GTest::gmock GTest::gmock_main
-        )
+)
 file(GLOB TEST_SOURCES "tests/test_*.cc")
 target_sources(${PROJECT_NAME}_tests PRIVATE ${TEST_SOURCES})
 list(APPEND EXE_TARGETS ${PROJECT_NAME}_tests)
@@ -206,4 +206,4 @@ set_target_properties(${EXE_TARGETS} PROPERTIES
         CXX_STANDARD ${CMAKE_CXX_STANDARD}
         CXX_EXTENSIONS OFF
         CXX_STANDARD_REQUIRED ON
-        )
+)
