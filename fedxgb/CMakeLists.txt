@@ -146,8 +146,6 @@ include_directories(./include ./third_party/build/include ./src ../src ${PROTO_G
 link_directories(${GMP_LIB_DIR} ${CMAKE_CURRENT_SOURCE_DIR}/third_party/build/lib) # ${TBB_PREFIX_DIR}/lib
 link_libraries(${GMP_LIB_DIR}/libgmp.${LIB_SUFFIX}) # libtbb.${LIB_SUFFIX}
 
-add_library(fl_heu SHARED ${HEU_SRCS})
-target_link_libraries(fl_heu heu yacl absl_strings absl_symbolize absl_stacktrace fmt)
 # link libraries for the target
 add_library(${PROJECT_NAME}_lib)
 target_sources(${PROJECT_NAME}_lib PRIVATE ${SOURCES} ${PROTO_SRCS} ${GRPC_SRCS})
@@ -184,7 +182,7 @@ foreach (xgb_client_file ${XGB_CLIENT_FILES})
     string(REPLACE ".cc" "" client_name ${xgb_client_file})
     string(REGEX REPLACE "(.*)?/" "" client_name ${xgb_client_file})
     add_executable(${PROJECT_NAME}_${client_name} ${xgb_client_file})
-    target_link_libraries(${PROJECT_NAME}_${client_name} ${PROJECT_NAME}_lib objxgboost fl_heu)
+    target_link_libraries(${PROJECT_NAME}_${client_name} ${PROJECT_NAME}_lib objxgboost)
     list(APPEND EXE_TARGETS ${PROJECT_NAME}_${client_name})
 endforeach ()
 
